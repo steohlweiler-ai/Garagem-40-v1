@@ -1,8 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Check, Loader2, Plus, Palette } from 'lucide-react';
+import { ChevronDown, Check, Loader2, Plus, Palette, Mic, MicOff } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { VehicleColor } from '../types';
+import { voiceManager, VoiceState } from '../services/voiceManager';
+import { normalizeVoiceText } from '../utils/voiceNormalizer';
+import { postProcessPunctuation } from '../utils/voicePunctuation';
 
 interface ColorSelectorProps {
     value: string;
@@ -22,14 +25,19 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Voice State
+    const [vState, setVState] = useState<VoiceState>(VoiceState.IDLE);
+    const isSupported = voiceManager.isSupported();
+    const isListening = vState === VoiceState.LISTENING || vState === VoiceState.STARTING;
+
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Sync searchTerm with external value on mount or change
     useEffect(() => {
-        if (value && !isOpen) {
+        if (value && !isOpen && !isListening) {
             setSearchTerm(value);
         }
-    }, [value, isOpen]);
+    }, [value, isOpen, isListening]);
 
     const loadColors = async () => {
         try {
@@ -56,6 +64,39 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Voice Handlers
+    const handleStartVoice = (e: React.MouseEvent | React.TouchEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (!isSupported || voiceManager.getState() !== VoiceState.IDLE) return;
+
+        if ('vibrate' in navigator) navigator.vibrate(40);
+
+        voiceManager.start(
+            (spokenRaw) => {
+                // Apply rules
+                const processed = postProcessPunctuation(spokenRaw);
+                const normalized = normalizeVoiceText(processed, 'default');
+
+                // Append or Replace? For autocomplete, Replace usually better if field was pseudo-empty, 
+                // but let's assume dictation adds to it space-separated if existing. 
+                // Actually for "search", usually we want to replace or refine. 
+                // Let's replace for clarity in short command fields like Color.
+                setSearchTerm(normalized);
+                setIsOpen(true);
+            },
+            (err) => console.error(err),
+            (newState) => setVState(newState)
+        );
+    };
+
+    const handleStopVoice = (e: React.MouseEvent | React.TouchEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        voiceManager.stop();
+    };
+
 
     // Filter logic
     const filteredColors = colors.filter(c =>
@@ -97,12 +138,14 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
     return (
         <div className={`relative ${className}`} ref={dropdownRef}>
             <div
-                className="relative group bg-slate-50 border-2 border-transparent focus-within:border-green-500 focus-within:bg-white rounded-[1.5rem] transition-all flex items-center"
+                className={`relative group bg-slate-50 border-2 transition-all flex items-center rounded-[1.5rem] 
+            ${isListening ? 'border-green-300 ring-4 ring-green-50' : 'border-transparent focus-within:border-green-500 focus-within:bg-white'}
+        `}
             >
                 <div className="pl-4 pr-2 shrink-0">
                     {value ? (
                         <div
-                            className="w-6 h-6 rounded-full border border-slate-200 shadow-sm"
+                            className="w-6 h-6 rounded-full border border-slate-200 shadow-sm transition-transform active:scale-95"
                             style={{ backgroundColor: selectedHex }}
                         />
                     ) : (
@@ -113,7 +156,7 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
                 <input
                     type="text"
                     className="w-full py-4 px-2 bg-transparent text-sm font-black uppercase text-slate-800 outline-none placeholder:text-slate-400"
-                    placeholder={placeholder}
+                    placeholder={isListening ? 'Ouvindo...' : placeholder}
                     value={searchTerm}
                     onChange={(e) => {
                         setSearchTerm(e.target.value);
@@ -123,12 +166,29 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
                     onClick={() => setIsOpen(true)}
                 />
 
-                <div className="pr-4 shrink-0 text-slate-400">
-                    {isLoading ? <Loader2 size={18} className="animate-spin" /> : <ChevronDown size={18} />}
+                <div className="pr-2 shrink-0 flex items-center gap-2">
+                    {/* Voice Button */}
+                    <button
+                        type="button"
+                        onMouseDown={handleStartVoice}
+                        onMouseUp={handleStopVoice}
+                        onTouchStart={handleStartVoice}
+                        onTouchEnd={handleStopVoice}
+                        className={`p-2 rounded-xl transition-all active:scale-90 ${isListening ? 'bg-red-500 text-white shadow-lg animate-pulse' : 'text-slate-300 hover:text-green-600 hover:bg-green-50'
+                            }`}
+                        title="Segure para falar a cor"
+                    >
+                        {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+                    </button>
+
+                    {/* Loading / Chevron */}
+                    <div className="pr-2 text-slate-400">
+                        {isLoading ? <Loader2 size={18} className="animate-spin" /> : <ChevronDown size={18} />}
+                    </div>
                 </div>
             </div>
 
-            {isOpen && !isLoading && (
+            {isOpen && !isLoading && !isListening && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-slate-100 rounded-2xl shadow-2xl z-[70] max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
                     <div className="p-2 grid grid-cols-1 gap-1">
                         {filteredColors.map(color => (

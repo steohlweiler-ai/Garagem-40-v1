@@ -383,7 +383,7 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
                   <VoiceInput multiline={false} value={brand} onTranscript={setBrand} placeholder="Ex: Toyota" className="!py-4 !bg-slate-50 !border-transparent" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Cor do Veículo</label>
                   <ColorSelector value={color} onChange={setColor} />

@@ -145,6 +145,23 @@ function parseComplexNumber(text: string, units: Record<string, number>, tens: R
   return total + current;
 }
 
+/**
+ * Converte palavras numéricas em dígitos na string inteira.
+ * Útil para campos estritos como CPF, onde "um dois três" deve virar "123".
+ */
+function convertWordsToDigits(text: string): string {
+  const map: Record<string, string> = {
+    'zero': '0', 'um': '1', 'uma': '1', 'dois': '2', 'duas': '2', 'três': '3', 'tres': '3',
+    'quatro': '4', 'cinco': '5', 'seis': '6', 'sete': '7', 'oito': '8', 'nove': '9'
+  };
+
+  // Substitui palavras isoladas
+  return text.split(/(\s+)/).map(part => {
+    const lower = part.toLowerCase();
+    return map[lower] ? map[lower] : part;
+  }).join('');
+}
+
 export function normalizeVoiceText(text: string, type: NormalizationType = 'default'): string {
   const clean = text.trim();
   if (!clean) return '';
@@ -158,24 +175,27 @@ export function normalizeVoiceText(text: string, type: NormalizationType = 'defa
         .substring(0, 7);
 
     case 'phone':
-      // Garante apenas dígitos e formata se possível
-      const digits = clean.replace(/\D/g, '');
-      if (digits.length >= 10) {
-        return digits.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
+      // Converte palavras "nove", "um" antes de limpar
+      const phoneDigits = convertWordsToDigits(clean).replace(/\D/g, '');
+      if (phoneDigits.length >= 10) {
+        return phoneDigits.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
       }
-      return digits;
+      return phoneDigits;
 
     case 'cpf':
-      // Formata CPF: XXX.XXX.XXX-XX
-      const cpfDigits = clean.replace(/\D/g, '').substring(0, 11);
+      // FIX CRITICAL: Converte "um dois três" para "123" ANTES de limpar não-dígitos
+      const cpfRaw = convertWordsToDigits(clean);
+      const cpfDigits = cpfRaw.replace(/\D/g, '').substring(0, 11);
+
       if (cpfDigits.length === 11) {
         return cpfDigits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
       }
       return cpfDigits;
 
     case 'cnpj':
-      // Formata CNPJ: XX.XXX.XXX/XXXX-XX
-      const cnpjDigits = clean.replace(/\D/g, '').substring(0, 14);
+      const cnpjRaw = convertWordsToDigits(clean);
+      const cnpjDigits = cnpjRaw.replace(/\D/g, '').substring(0, 14);
+
       if (cnpjDigits.length === 14) {
         return cnpjDigits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
       }
@@ -196,7 +216,7 @@ export function normalizeVoiceText(text: string, type: NormalizationType = 'defa
       return numValue.toFixed(2); // Retorna com ponto, sem formatação
 
     default:
-      // Apenas capitaliza a primeira letra da frase
+      // Apenas capitaliza a primeira letra da frase e trim
       return clean.charAt(0).toUpperCase() + clean.slice(1);
   }
 }
