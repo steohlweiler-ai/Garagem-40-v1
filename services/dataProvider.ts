@@ -446,6 +446,15 @@ class DataProvider {
         if (this.useSupabase) return await supabaseDB.getServicesByVehicle(vehicleId);
         return mockDB.getServicesByVehicle(vehicleId);
     }
+
+    getDebugInfo() {
+        return {
+            source: DATA_SOURCE,
+            usingSupabase: this.useSupabase,
+            supabaseUrl: import.meta.env.VITE_SUPABASE_URL ? 'Defined' : 'Missing',
+            supabaseKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? 'Defined' : 'Missing',
+        };
+    }
 }
 
 export const dataProvider = new DataProvider();

@@ -310,7 +310,8 @@ const App: React.FC = () => {
       { id: 'integrations', label: 'Conexões', desc: 'Google e n8n', icon: <Share2 size={20} />, adminOnly: true },
       { id: 'users', label: 'Equipe', desc: 'Colaboradores', icon: <Users size={20} />, adminOnly: true },
       { id: 'workshop', label: 'Oficina', desc: 'Dados da OS', icon: <Store size={20} />, adminOnly: true },
-      { id: 'delay', label: 'Atrasos', desc: 'Regras de tempo', icon: <Clock size={20} />, adminOnly: true }
+      { id: 'delay', label: 'Atrasos', desc: 'Regras de tempo', icon: <Clock size={20} />, adminOnly: true },
+      { id: 'status', label: 'Diagnóstico', desc: 'Verificar conexão', icon: <ShieldAlert size={20} />, adminOnly: true }
     ].filter(t => !t.adminOnly || user.role === 'admin');
   }, [user]);
 
@@ -543,7 +544,41 @@ const App: React.FC = () => {
                   {settingsTab === 'integrations' && user.role === 'admin' && <IntegrationsSettings />}
                   {settingsTab === 'users' && user.role === 'admin' && <UserManagement />}
                   {settingsTab === 'delay' && user.role === 'admin' && <DelaySettings user={user} />}
+                  {settingsTab === 'delay' && user.role === 'admin' && <DelaySettings user={user} />}
                   {settingsTab === 'workshop' && user.role === 'admin' && <WorkshopSettingsComp />}
+                  {settingsTab === 'status' && user.role === 'admin' && (
+                    <div className="bg-white p-6 rounded-[2rem] border-2 border-slate-100 space-y-4">
+                      <h2 className="text-xl font-bold uppercase">Diagnóstico de Conexão</h2>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-slate-50 rounded-xl">
+                          <p className="text-xs font-bold text-slate-500 uppercase">Data Source Configurado</p>
+                          <p className="text-lg font-mono font-bold text-slate-800">{dataProvider.getDebugInfo().source}</p>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-xl">
+                          <p className="text-xs font-bold text-slate-500 uppercase">Modo Ativo</p>
+                          <p className={`text-lg font-mono font-bold ${dataProvider.getDebugInfo().usingSupabase ? 'text-green-600' : 'text-amber-600'}`}>
+                            {dataProvider.getDebugInfo().usingSupabase ? 'Supabase' : 'Mock (Local)'}
+                          </p>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-xl">
+                          <p className="text-xs font-bold text-slate-500 uppercase">URL do Supabase</p>
+                          <p className={`text-lg font-mono font-bold ${dataProvider.getDebugInfo().supabaseUrl === 'Defined' ? 'text-green-600' : 'text-red-500'}`}>
+                            {dataProvider.getDebugInfo().supabaseUrl}
+                          </p>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-xl">
+                          <p className="text-xs font-bold text-slate-500 uppercase">Chave Anon</p>
+                          <p className={`text-lg font-mono font-bold ${dataProvider.getDebugInfo().supabaseKey === 'Defined' ? 'text-green-600' : 'text-red-500'}`}>
+                            {dataProvider.getDebugInfo().supabaseKey}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-4 bg-blue-50 text-blue-800 rounded-xl text-xs">
+                        <p className="font-bold mb-1">Nota:</p>
+                        <p>Se "Modo Ativo" for <strong>Mock</strong> mesmo com "Source Configurado" como <strong>supabase</strong>, significa que a conexão falhou ou as credenciais são inválidas.</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
