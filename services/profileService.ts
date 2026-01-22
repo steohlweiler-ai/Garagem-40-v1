@@ -22,7 +22,9 @@ export const profileService = {
             .single();
 
         if (error) {
-            // If not found or error, return null
+            console.error('Error fetching profile:', error);
+            // If the error is 406 or similar, we might want to return null to force creation or handle it upstream.
+            // But we must NOT throw or return undefined if expected to be null.
             return null;
         }
 

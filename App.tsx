@@ -403,7 +403,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <p className="text-[9px] font-black uppercase text-slate-600">{user.name}</p>
                   <div className="w-7 h-7 bg-slate-900 text-green-500 rounded-full flex items-center justify-center text-[10px] font-black">
-                    {user.name.charAt(0)}
+                    {user?.name?.charAt(0) || 'U'}
                   </div>
                 </div>
               </div>
