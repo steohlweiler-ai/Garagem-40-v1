@@ -169,7 +169,8 @@ export function normalizeVoiceText(text: string, type: NormalizationType = 'defa
   switch (type) {
     case 'plate':
       // Converte "A B C 1 2 3 4" ou "ABC 1D 23" para "ABC1D23"
-      return clean
+      const plateRaw = convertWordsToDigits(clean);
+      return plateRaw
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, '')
         .substring(0, 7);

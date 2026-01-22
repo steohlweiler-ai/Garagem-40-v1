@@ -416,7 +416,7 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{clientType === 'PF' ? 'CPF' : 'CNPJ'} *</label>
-                    <VoiceInput multiline={false} value={cpfCnpj} onTranscript={setCpfCnpj} placeholder={clientType === 'PF' ? '000.000.000-00' : '00.000.000/0001-00'} className="!bg-slate-50 !border-transparent" />
+                    <VoiceInput multiline={false} value={cpfCnpj} onTranscript={setCpfCnpj} placeholder={clientType === 'PF' ? '000.000.000-00' : '00.000.000/0001-00'} normalizeAs={clientType === 'PF' ? 'cpf' : 'cnpj'} className="!bg-slate-50 !border-transparent" />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">WhatsApp *</label>
