@@ -137,55 +137,60 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
 
     return (
         <div className={`relative ${className}`} ref={dropdownRef}>
-            <div
-                className={`relative group bg-slate-50 border-2 transition-all flex items-center rounded-[1.5rem] 
+            <div className="flex gap-2">
+                <div
+                    className={`relative group bg-slate-50 border-2 transition-all flex items-center rounded-[1.5rem] flex-1
             ${isListening ? 'border-green-300 ring-4 ring-green-50' : 'border-transparent focus-within:border-green-500 focus-within:bg-white'}
         `}
-            >
-                <div className="pl-4 pr-2 shrink-0">
-                    {value ? (
-                        <div
-                            className="w-6 h-6 rounded-full border border-slate-200 shadow-sm transition-transform active:scale-95"
-                            style={{ backgroundColor: selectedHex }}
-                        />
-                    ) : (
-                        <Palette className="text-slate-300" size={20} />
-                    )}
-                </div>
+                >
+                    <div className="pl-4 pr-2 shrink-0">
+                        {value ? (
+                            <div
+                                className="w-6 h-6 rounded-full border border-slate-200 shadow-sm transition-transform active:scale-95"
+                                style={{ backgroundColor: selectedHex }}
+                            />
+                        ) : (
+                            <Palette className="text-slate-300" size={20} />
+                        )}
+                    </div>
 
-                <input
-                    type="text"
-                    className="w-full py-4 px-2 bg-transparent text-sm font-black uppercase text-slate-800 outline-none placeholder:text-slate-400"
-                    placeholder={isListening ? 'Ouvindo...' : placeholder}
-                    value={searchTerm}
-                    onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        setIsOpen(true);
-                    }}
-                    onFocus={() => setIsOpen(true)}
-                    onClick={() => setIsOpen(true)}
-                />
+                    <input
+                        type="text"
+                        className="w-full py-4 px-2 bg-transparent text-sm font-black uppercase text-slate-800 outline-none placeholder:text-slate-400"
+                        placeholder={isListening ? 'Ouvindo...' : placeholder}
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setIsOpen(true);
+                        }}
+                        onFocus={() => setIsOpen(true)}
+                        onClick={() => setIsOpen(true)}
+                    />
 
-                <div className="pr-2 shrink-0 flex items-center gap-2">
-                    {/* Voice Button */}
-                    <button
-                        type="button"
-                        onMouseDown={handleStartVoice}
-                        onMouseUp={handleStopVoice}
-                        onTouchStart={handleStartVoice}
-                        onTouchEnd={handleStopVoice}
-                        className={`p-2 rounded-xl transition-all active:scale-90 ${isListening ? 'bg-red-500 text-white shadow-lg animate-pulse' : 'text-slate-300 hover:text-green-600 hover:bg-green-50'
-                            }`}
-                        title="Segure para falar a cor"
-                    >
-                        {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-                    </button>
-
-                    {/* Loading / Chevron */}
-                    <div className="pr-2 text-slate-400">
+                    <div className="pr-4 shrink-0 text-slate-400">
                         {isLoading ? <Loader2 size={18} className="animate-spin" /> : <ChevronDown size={18} />}
                     </div>
                 </div>
+
+                {/* Voice Button Outside */}
+                <button
+                    type="button"
+                    onMouseDown={handleStartVoice}
+                    onMouseUp={handleStopVoice}
+                    onTouchStart={handleStartVoice}
+                    onTouchEnd={handleStopVoice}
+                    className={`w-[60px] h-[60px] rounded-[1.5rem] flex items-center justify-center shadow-xl transition-all active:scale-90 shrink-0 ${isListening
+                        ? 'bg-red-500 text-white ring-4 ring-red-100'
+                        : 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'
+                        }`}
+                    title="Segure para falar a cor"
+                >
+                    {isListening ? (
+                        vState === VoiceState.STARTING ? <Loader2 size={24} className="animate-spin" /> : <MicOff size={24} />
+                    ) : (
+                        <Mic size={24} />
+                    )}
+                </button>
             </div>
 
             {isOpen && !isLoading && !isListening && (
@@ -201,8 +206,8 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
                                     setIsOpen(false);
                                 }}
                                 className={`flex items-center gap-3 p-3 rounded-xl transition-all ${value === color.name
-                                        ? 'bg-green-50 text-green-900 shadow-sm'
-                                        : 'hover:bg-slate-50 text-slate-700'
+                                    ? 'bg-green-50 text-green-900 shadow-sm'
+                                    : 'hover:bg-slate-50 text-slate-700'
                                     }`}
                             >
                                 <div
