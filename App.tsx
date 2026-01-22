@@ -123,6 +123,15 @@ const App: React.FC = () => {
 
   const handleLogin = async (userData: any) => {
     try {
+      // Se já vier com ID e Role (do Supabase/AuthService), usamos direto
+      if (userData.id && userData.role) {
+        setUser(userData);
+        setIsAuthenticated(true);
+        localStorage.setItem('g40_user_session', JSON.stringify(userData));
+        return;
+      }
+
+      // Lógica legada para Mock / Fallback
       const users = await dataProvider.getUsers();
       let matchedUser = users.find(u => u.email === userData.email);
 

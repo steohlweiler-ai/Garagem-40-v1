@@ -5,14 +5,17 @@ import { ServiceJob, Client, Vehicle, ServiceTask, Reminder, Appointment, Integr
 
 type DataSource = 'mock' | 'supabase';
 
+// Check for VITE_USE_MOCK explicit flag first, otherwise fallback to VITE_DATA_SOURCE or default to 'mock'
 // @ts-ignore
-const DATA_SOURCE: DataSource = (import.meta.env.VITE_DATA_SOURCE as DataSource) || 'mock';
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+// @ts-ignore
+const DATA_SOURCE: DataSource = USE_MOCK ? 'mock' : ((import.meta.env.VITE_DATA_SOURCE as DataSource) || 'mock');
 
 class DataProvider {
     private useSupabase = DATA_SOURCE === 'supabase';
 
     constructor() {
-        console.log(`[DataProvider] Initialized with source: ${DATA_SOURCE}`);
+        console.log(`[DataProvider] Initialized with source: ${DATA_SOURCE} (useSupabase: ${this.useSupabase})`);
     }
 
     // ===================== LEITURA =====================

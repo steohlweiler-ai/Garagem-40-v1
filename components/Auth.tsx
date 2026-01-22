@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Car as CarIcon, Mail, Lock, User, Briefcase, ChevronRight, LogIn } from 'lucide-react';
+import { authService } from '../services/authService';
+import { profileService } from '../services/profileService';
 
 interface AuthProps {
   onLogin: (userData: any) => void;
@@ -11,17 +13,77 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [workshopName, setWorkshopName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulação de autenticação
-    onLogin({ email, name: mode === 'register' ? workshopName : 'Usuário' });
+    setLoading(true);
+    setError(null);
+
+    // @ts-ignore
+    const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+    if (USE_MOCK) {
+      // Mock Behavior
+      setTimeout(() => {
+        onLogin({ email, name: mode === 'register' ? workshopName : 'Usuário Mock', role: 'admin' }); // Mock admin
+        setLoading(false);
+      }, 500);
+      return;
+    }
+
+    try {
+      if (mode === 'login') {
+        // LOGIN FLOW
+        const { user, error: authError } = await authService.signInWithPassword(email, password);
+
+        if (authError) throw authError;
+        if (!user) throw new Error('Erro ao autenticar');
+
+        // Fetch Profile
+        const profile = await profileService.getProfileByUserId(user.id);
+
+        if (profile) {
+          onLogin(profile);
+        } else {
+          // If no profile exists (edge case), try to create one or error out
+          const newProfile = await profileService.ensureUserProfile(user);
+          if (newProfile) onLogin(newProfile);
+          else throw new Error('Perfil de usuário não encontrado.');
+        }
+
+      } else {
+        // REGISTER FLOW
+        if (password !== confirmPassword) {
+          throw new Error('As senhas não conferem.');
+        }
+
+        const { user, error: signUpError } = await authService.signUp(email, password, { name: workshopName });
+
+        if (signUpError) throw signUpError;
+        if (!user) throw new Error('Erro ao criar conta');
+
+        // Create Profile immediately
+        const profile = await profileService.ensureUserProfile(user, { name: workshopName });
+        if (profile) {
+          onLogin(profile);
+        } else {
+          throw new Error('Conta criada, mas erro ao gerar perfil.');
+        }
+      }
+    } catch (err: any) {
+      console.error("Auth Error:", err);
+      setError(err.message || 'Erro desconhecido ao processar solicitação');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleLogin = () => {
     // Placeholder para futura integração OAuth
     console.log("Iniciando login com Google...");
-    onLogin({ email: 'google-user@gmail.com', name: 'Google User' });
+    // onLogin({ email: 'google-user@gmail.com', name: 'Google User' });
+    alert("Login com Google requer configuração OAuth no Supabase. Use Email/Senha por enquanto.");
   };
 
   return (
@@ -43,34 +105,38 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
       {/* Card de Autenticação */}
       <div className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100">
-        
+
         {/* Abas */}
         <div className="flex p-1 bg-slate-100 rounded-2xl mb-8">
-          <button 
+          <button
             onClick={() => setMode('login')}
-            className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${
-              mode === 'login' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'
-            }`}
+            className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${mode === 'login' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'
+              }`}
           >
             <LogIn size={14} /> Entrar
           </button>
-          <button 
+          <button
             onClick={() => setMode('register')}
-            className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${
-              mode === 'register' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'
-            }`}
+            className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${mode === 'register' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'
+              }`}
           >
             <User size={14} /> Criar Conta
           </button>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wide rounded-xl border border-red-100 flex items-center justify-center text-center">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {mode === 'register' && (
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nome da Oficina</label>
               <div className="relative">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   value={workshopName}
                   onChange={(e) => setWorkshopName(e.target.value)}
@@ -85,8 +151,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">E-mail</label>
             <div className="relative">
-              <input 
-                type="email" 
+              <input
+                type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -100,8 +166,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Senha</label>
             <div className="relative">
-              <input 
-                type="password" 
+              <input
+                type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -116,8 +182,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Confirmar Senha</label>
               <div className="relative">
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -129,12 +195,13 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             </div>
           )}
 
-          <button 
+          <button
             type="submit"
-            className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-green-100 active:scale-95 transition-all mt-4 flex items-center justify-center gap-2"
+            disabled={loading}
+            className={`w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl shadow-green-100 active:scale-95 transition-all mt-4 flex items-center justify-center gap-2 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
           >
-            {mode === 'login' ? 'Entrar no Sistema' : 'Criar minha Conta'}
-            <ChevronRight size={18} />
+            {loading ? 'Processando...' : (mode === 'login' ? 'Entrar no Sistema' : 'Criar minha Conta')}
+            {!loading && <ChevronRight size={18} />}
           </button>
         </form>
 
@@ -143,7 +210,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           <span className="relative bg-white px-4 text-[9px] font-black text-slate-300 uppercase tracking-widest">Ou</span>
         </div>
 
-        <button 
+        <button
           onClick={handleGoogleLogin}
           className="w-full py-4 bg-white border-2 border-slate-100 rounded-2xl text-[10px] font-black uppercase text-slate-600 flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-slate-50"
         >

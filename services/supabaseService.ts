@@ -17,7 +17,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 export { SUPABASE_URL, SUPABASE_KEY };
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 class SupabaseService {
     // ===================== READ OPERATIONS =====================
