@@ -43,7 +43,7 @@ const ValidateInvoiceItems: React.FC<ValidateInvoiceItemsProps> = ({ onClose, on
     load();
   }, []);
 
-  const canFinalizeStock = user?.role === 'admin' || user?.role === 'stock_manager';
+  const canFinalizeStock = user?.role?.toLowerCase() === 'admin' || user?.role === 'stock_manager';
 
   const filteredCatalog = useMemo(() => {
     const q = productSearch.toLowerCase();

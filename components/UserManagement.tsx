@@ -143,8 +143,8 @@ const UserManagement: React.FC = () => {
         {filteredUsers.map(user => (
           <div key={user.id} className={`bg-white p-5 rounded-[2.25rem] border-2 border-slate-50 shadow-sm flex items-center justify-between transition-all ${!user.active ? 'opacity-50' : ''}`}>
             <div className="flex gap-4 items-center">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-inner ${user.role === 'admin' ? 'bg-slate-900' : 'bg-slate-200'}`}>
-                {user.role === 'admin' ? <Shield size={22} /> : <Users size={22} />}
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-inner ${user.role?.toLowerCase() === 'admin' ? 'bg-slate-900' : 'bg-slate-200'}`}>
+                {user.role?.toLowerCase() === 'admin' ? <Shield size={22} /> : <Users size={22} />}
               </div>
               <div className="text-left">
                 <p className="text-sm font-black uppercase text-slate-800 tracking-tight leading-none">{user.name}</p>
@@ -259,8 +259,8 @@ const UserManagement: React.FC = () => {
                         }
                       })}
                       className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${formData.permissions[perm.key as keyof UserPermissions]
-                          ? 'bg-blue-50 border-blue-200 text-blue-800 shadow-sm'
-                          : 'bg-slate-50 border-transparent text-slate-400'
+                        ? 'bg-blue-50 border-blue-200 text-blue-800 shadow-sm'
+                        : 'bg-slate-50 border-transparent text-slate-400'
                         }`}
                     >
                       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center ${formData.permissions[perm.key as keyof UserPermissions] ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-200'

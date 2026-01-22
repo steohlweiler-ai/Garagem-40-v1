@@ -35,7 +35,7 @@ const VehicleStockPanel: React.FC<VehicleStockPanelProps> = ({ vehicle, onClose,
     loadData();
   }, [vehicle]);
 
-  const canAction = user?.role === 'admin' || user?.role === 'stock_manager';
+  const canAction = user?.role?.toLowerCase() === 'admin' || user?.role === 'stock_manager';
 
   const stats = useMemo(() => {
     const totalValue = allocations.reduce((acc, a) => {

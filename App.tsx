@@ -28,6 +28,7 @@ import IntegrationsSettings from './components/IntegrationsSettings';
 import ReceiveInvoice from './components/ReceiveInvoice';
 import InvoiceHistory from './components/InvoiceHistory';
 import StockByVehicle from './components/StockByVehicle';
+import StockDashboardMini from './components/StockDashboardMini';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -304,6 +305,7 @@ const App: React.FC = () => {
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: <LayoutGrid size={24} /> },
     { id: 'clients', label: 'Clientes', icon: <Users size={24} /> },
+    { id: 'stock', label: 'Estoque', icon: <Package size={24} /> },
     { id: 'agendamentos', label: 'Agenda', icon: <CalendarDays size={24} /> },
   ];
 
@@ -509,6 +511,34 @@ const App: React.FC = () => {
 
 
           {activeTab === 'clients' && canAccessClients && <ClientsTab onSelectService={id => { setSelectedServiceId(id); setTab('dashboard'); }} />}
+
+          {activeTab === 'stock' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <StockDashboardMini />
+
+              <h3 className="text-xl font-black uppercase text-slate-800 tracking-tight pl-2">Ações Rápidas</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+                <button onClick={() => setIsStockByVehicleOpen(true)} className="p-6 sm:p-8 bg-slate-900 text-white rounded-[2rem] sm:rounded-[2.5rem] flex items-center gap-5 sm:gap-6 group transition-all shadow-2xl hover:scale-[1.02]">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/10 rounded-2xl flex items-center justify-center text-green-400"><Boxes size={28} /></div>
+                  <div className="flex-1 text-left"><h3 className="text-xs sm:text-sm font-bold uppercase">Estoque por Veículo</h3><p className="text-[10px] font-medium text-slate-400 mt-1 uppercase">Reservas e Consumo</p></div>
+                  <Plus size={20} className="text-green-500" />
+                </button>
+
+                <button onClick={() => setIsReceiveInvoiceOpen(true)} className="p-6 sm:p-8 bg-white border-2 border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] flex items-center gap-5 sm:gap-6 group transition-all shadow-sm hover:border-green-400">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><FileText size={28} /></div>
+                  <div className="flex-1 text-left"><h3 className="text-xs sm:text-sm font-bold uppercase text-slate-800">Receber Nota Fiscal</h3><p className="text-[10px] font-medium text-slate-400 mt-1 uppercase">Entrada de Peças</p></div>
+                  <ChevronRight size={20} className="text-slate-200" />
+                </button>
+
+                <button onClick={() => setIsInvoiceHistoryOpen(true)} className="p-6 sm:p-8 bg-white border-2 border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] flex items-center gap-5 sm:gap-6 group transition-all shadow-sm hover:border-green-400">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><RotateCcw size={28} /></div>
+                  <div className="flex-1 text-left"><h3 className="text-xs sm:text-sm font-bold uppercase text-slate-800">Histórico de Notas</h3><p className="text-[10px] font-medium text-slate-400 mt-1 uppercase">Consultar Recebimentos</p></div>
+                  <ChevronRight size={20} className="text-slate-200" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'agendamentos' && <Agendamentos />}
 
           {activeTab === 'settings' && (
@@ -547,15 +577,14 @@ const App: React.FC = () => {
                       {allTemplates.map(t => (<div key={t.id} onClick={() => setEditingTemplate(t)} className="p-5 sm:p-6 bg-white border-2 border-slate-100 rounded-[2rem] flex items-center justify-between group hover:border-green-500 transition-all shadow-sm cursor-pointer"><div><h3 className="text-sm sm:text-base font-bold uppercase text-slate-800 tracking-tight">{t.name}</h3></div><ChevronRight size={18} className="text-slate-300 group-hover:text-green-500" /></div>))}
                     </div>
                   )}
-                  {settingsTab === 'statuses' && user.role === 'admin' && <StatusManagement />}
-                  {settingsTab === 'catalog' && user.role === 'admin' && <CatalogManagement />}
-                  {settingsTab === 'colors' && user.role === 'admin' && <ColorManagement />}
-                  {settingsTab === 'integrations' && user.role === 'admin' && <IntegrationsSettings />}
-                  {settingsTab === 'users' && user.role === 'admin' && <UserManagement />}
-                  {settingsTab === 'delay' && user.role === 'admin' && <DelaySettings user={user} />}
-                  {settingsTab === 'delay' && user.role === 'admin' && <DelaySettings user={user} />}
-                  {settingsTab === 'workshop' && user.role === 'admin' && <WorkshopSettingsComp />}
-                  {settingsTab === 'status' && user.role === 'admin' && (
+                  {settingsTab === 'statuses' && user.role?.toLowerCase() === 'admin' && <StatusManagement />}
+                  {settingsTab === 'catalog' && user.role?.toLowerCase() === 'admin' && <CatalogManagement />}
+                  {settingsTab === 'colors' && user.role?.toLowerCase() === 'admin' && <ColorManagement />}
+                  {settingsTab === 'integrations' && user.role?.toLowerCase() === 'admin' && <IntegrationsSettings />}
+                  {settingsTab === 'users' && user.role?.toLowerCase() === 'admin' && <UserManagement />}
+                  {settingsTab === 'delay' && user.role?.toLowerCase() === 'admin' && <DelaySettings user={user} />}
+                  {settingsTab === 'workshop' && user.role?.toLowerCase() === 'admin' && <WorkshopSettingsComp />}
+                  {settingsTab === 'status' && user.role?.toLowerCase() === 'admin' && (
                     <div className="bg-white p-6 rounded-[2rem] border-2 border-slate-100 space-y-4">
                       <h2 className="text-xl font-bold uppercase">Diagnóstico de Conexão</h2>
                       <div className="grid grid-cols-2 gap-4">
