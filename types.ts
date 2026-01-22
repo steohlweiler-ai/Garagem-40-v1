@@ -75,9 +75,11 @@ export interface Appointment {
 
 export interface VehicleColor {
   id: string;
+  organization_id?: string;
   name: string;
   hex: string;
   finish?: string;
+  active?: boolean;
 }
 
 export interface ServiceCost {

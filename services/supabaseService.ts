@@ -218,8 +218,12 @@ class SupabaseService {
         return !error;
     }
 
-    async getColors(): Promise<VehicleColor[]> {
-        const { data, error } = await supabase.from('cores_do_veículo').select('*').eq('active', true);
+    async getColors(includeInactive: boolean = false): Promise<VehicleColor[]> {
+        let query = supabase.from('cores_do_veículo').select('*');
+        if (!includeInactive) {
+            query = query.eq('active', true);
+        }
+        const { data, error } = await query;
         if (error) return [];
         return data;
     }

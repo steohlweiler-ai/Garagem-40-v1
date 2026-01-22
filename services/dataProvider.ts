@@ -261,9 +261,9 @@ class DataProvider {
         return true;
     }
 
-    async getColors() {
+    async getColors(includeInactive: boolean = false) {
         if (this.useSupabase) {
-            const data = await supabaseDB.getColors();
+            const data = await supabaseDB.getColors(includeInactive);
             if (data && data.length > 0) return data;
         }
         return mockDB.getColors();

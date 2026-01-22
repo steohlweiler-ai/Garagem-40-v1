@@ -14,11 +14,13 @@ const ColorManagement: React.FC = () => {
 
   const [formData, setFormData] = useState({
     name: '',
-    hex: '#000000'
+    hex: '#000000',
+    active: true
   });
 
   const loadColors = async () => {
-    const data = await dataProvider.getColors();
+    // Fetch ALL colors (active and inactive) for management
+    const data = await dataProvider.getColors(true);
     setColors(data);
   };
   useEffect(() => { loadColors(); }, []);
@@ -31,10 +33,10 @@ const ColorManagement: React.FC = () => {
   const handleOpenModal = (color?: VehicleColor) => {
     if (color) {
       setEditingColor(color);
-      setFormData({ name: color.name, hex: color.hex });
+      setFormData({ name: color.name, hex: color.hex, active: color.active !== false });
     } else {
       setEditingColor(null);
-      setFormData({ name: '', hex: '#000000' });
+      setFormData({ name: '', hex: '#000000', active: true });
     }
     setIsModalOpen(true);
   };
@@ -103,7 +105,7 @@ const ColorManagement: React.FC = () => {
 
       <div className="grid grid-cols-2 gap-4">
         {filteredColors.map(color => (
-          <div key={color.id} className="bg-white p-4 rounded-[2.25rem] border-2 border-slate-50 shadow-sm flex flex-col items-center gap-3 group relative overflow-hidden transition-all hover:border-green-200">
+          <div key={color.id} className={`bg-white p-4 rounded-[2.25rem] border-2 shadow-sm flex flex-col items-center gap-3 group relative overflow-hidden transition-all hover:border-green-200 ${color.active === false ? 'opacity-60 border-slate-100 grayscale' : 'border-slate-50'}`}>
             <div
               className="w-16 h-16 rounded-2xl shadow-inner border border-slate-100"
               style={{ backgroundColor: color.hex }}
@@ -111,6 +113,7 @@ const ColorManagement: React.FC = () => {
             <div className="text-center w-full px-2">
               <p className="text-[10px] font-black uppercase text-slate-800 truncate">{color.name}</p>
               <p className="text-[8px] font-mono text-slate-400 mt-1 uppercase tracking-tighter">{color.hex}</p>
+              {color.active === false && <span className="inline-block mt-1 px-2 py-0.5 bg-slate-100 text-slate-400 text-[8px] font-black uppercase rounded-lg">Inativo</span>}
             </div>
             <div className="flex gap-1">
               <button onClick={() => handleOpenModal(color)} className="p-3 touch-target text-slate-300 hover:text-green-600 active:scale-110 transition-all"><Edit2 size={16} /></button>
@@ -156,6 +159,16 @@ const ColorManagement: React.FC = () => {
                     placeholder="#FFFFFF"
                   />
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl">
+                <label className="text-[10px] font-black uppercase text-slate-500">Status Ativo</label>
+                <button
+                  onClick={() => setFormData({ ...formData, active: !formData.active })}
+                  className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${formData.active ? 'bg-green-500' : 'bg-slate-300'}`}
+                >
+                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${formData.active ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
               </div>
 
               <div className="flex gap-4 pt-4">
