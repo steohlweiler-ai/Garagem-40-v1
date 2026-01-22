@@ -1,0 +1,11 @@
+{
+    "buildCommand": "npm run build",
+    "outputDirectory": "dist",
+    "devCommand": "npm run dev",
+    "installCommand": "npm install",
+    "framework": "vite",
+    "env": {
+        "VITE_DATA_SOURCE": "supabase",
+        "VITE_APP_TITLE": "Garagem40"
+    }
+}
