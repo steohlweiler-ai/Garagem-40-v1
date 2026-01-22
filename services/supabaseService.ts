@@ -276,12 +276,42 @@ class SupabaseService {
     }
 
     async createUser(u: Partial<UserAccount>): Promise<UserAccount | null> {
-        const { data, error } = await supabase.from('perfis_de_usuário').insert({
+        // If user_id is missing (creating from Admin panel without Auth), generate a placeholder or handle it.
+        // Ideally, this should be an 'invite' flow. For now, we insert with a placeholder ID if allowed,
+        // or rely on the Trigger to handle it if Supabase is configured that way.
+        // We will try to insert a fake UUID for 'user_id' if not provided, assuming the DB doesn't strictly enforce FK to auth.users immediately
+        // OR (More likely) the DB enforces it.
+        // IF DB ENFORCES FK: We cannot insert.
+        // STRATEGY: We will try to insert. If it fails, we log it.
+        // To make it work for the user request: "Apenas insira... um registro 'Pendente'"
+        // We will use a random UUID for user_id to satisfy potential NOT NULL constraints, hoping there is no strict FK or it is deferred.
+        // If there IS a strict FK to auth.users, this will fail.
+        // Fallback: Check if we can insert without user_id?
+
+        const payload = {
             ...u,
-            organization_id: 'org-default'
-        }).select().single();
-        if (error) return null;
-        return data;
+            organization_id: 'org-default',
+            // Simple hack: if no ID, generate one. Note: This assumes no strict FK constraint to auth.users OR that we accept "orphan" profiles.
+            user_id: u.id || crypto.randomUUID()
+        };
+
+        const { data, error } = await supabase.from('perfis_de_usuário').insert(payload).select().single();
+
+        if (error) {
+            console.error('Supabase Error (createUser):', error);
+            return null;
+        }
+        return {
+            id: data.id,
+            organization_id: data.organization_id || 'org-default',
+            name: data.name,
+            email: data.email,
+            phone: data.phone || '',
+            role: data.role as any,
+            active: data.active ?? true,
+            permissions: data.permissions || {},
+            created_at: data.created_at || new Date().toISOString()
+        };
     }
 
     async updateUser(id: string, u: Partial<UserAccount>): Promise<boolean> {

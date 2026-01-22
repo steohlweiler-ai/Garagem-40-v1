@@ -321,12 +321,12 @@ const App: React.FC = () => {
       { id: 'workshop', label: 'Oficina', desc: 'Dados da OS', icon: <Store size={20} />, adminOnly: true },
       { id: 'delay', label: 'Atrasos', desc: 'Regras de tempo', icon: <Clock size={20} />, adminOnly: true },
       { id: 'status', label: 'Diagnóstico', desc: 'Verificar conexão', icon: <ShieldAlert size={20} />, adminOnly: true }
-    ].filter(t => !t.adminOnly || user.role === 'admin');
+    ].filter(t => !t.adminOnly || user.role?.toLowerCase() === 'admin');
   }, [user]);
 
   if (!isAuthenticated || !user) return <Auth onLogin={handleLogin} />;
 
-  const canAccessClients = user.role === 'admin' || user.permissions?.access_clients;
+  const canAccessClients = user.role?.toLowerCase() === 'admin' || user.permissions?.access_clients;
 
   const isAdvancedFilterActive = dashboardAdvancedFilters.statuses.length > 0 || !!dashboardAdvancedFilters.startDate || !!dashboardAdvancedFilters.endDate || dashboardAdvancedFilters.sortBy !== 'entrada_recente';
 
