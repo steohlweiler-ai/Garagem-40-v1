@@ -326,7 +326,7 @@ const App: React.FC = () => {
 
   if (!isAuthenticated || !user) return <Auth onLogin={handleLogin} />;
 
-  const canAccessClients = user.role === 'admin' || user.permissions.access_clients;
+  const canAccessClients = user.role === 'admin' || user.permissions?.access_clients;
 
   const isAdvancedFilterActive = dashboardAdvancedFilters.statuses.length > 0 || !!dashboardAdvancedFilters.startDate || !!dashboardAdvancedFilters.endDate || dashboardAdvancedFilters.sortBy !== 'entrada_recente';
 
@@ -364,7 +364,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-bold uppercase truncate leading-none">{user.name}</p>
-              <p className="text-[8px] font-medium text-slate-500 uppercase tracking-widest truncate mt-1">{user.role}</p>
+              <p className="text-[8px] font-medium text-slate-500 uppercase tracking-widest truncate mt-1">{user.role || 'Sem cargo'}</p>
             </div>
           </div>
           <button
