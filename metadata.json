@@ -1,0 +1,9 @@
+{
+  "name": "Garagem40",
+  "description": "Professional workshop management with Gemini-powered OCR and smart diagnostics.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

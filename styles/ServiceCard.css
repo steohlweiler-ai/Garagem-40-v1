@@ -1,0 +1,182 @@
+/* ServiceCard Styles - Visual Hierarchy Update */
+
+.svc-card {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 2.5rem;
+    border-width: 2px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    /* Box shadow suave base */
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.03), 0 4px 6px -2px rgba(0, 0, 0, 0.01);
+}
+
+.svc-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.01);
+}
+
+.svc-card:active {
+    transform: scale(0.98);
+}
+
+/* Variantes de Borda (mantendo lógica de status/delay) */
+.svc-border-normal {
+    border-color: #f1f5f9;
+    /* slate-100 */
+}
+
+.svc-border-normal:hover {
+    border-color: #bbf7d0;
+    /* green-200 */
+}
+
+.svc-border-delayed {
+    border-color: #fecdd3;
+    /* rose-200 */
+    box-shadow: 0 4px 6px -1px rgba(244, 63, 94, 0.1);
+}
+
+.svc-border-delayed:hover {
+    border-color: #fda4af;
+    /* rose-300 */
+}
+
+/* Header Section */
+.svc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 24px;
+    /* Aumento de respiro solicitado */
+}
+
+.svc-plate {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-weight: 900;
+    font-size: 1.5rem;
+    /* 24px */
+    letter-spacing: -0.05em;
+    line-height: 1;
+    color: #0f172a;
+    /* slate-900 */
+    transition: color 0.2s;
+}
+
+.svc-card:hover .svc-plate {
+    color: #16a34a;
+    /* green-600 */
+}
+
+/* Metadados (Marca, Modelo, Cliente) */
+.svc-meta-text {
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #94a3b8;
+    /* slate-400 base */
+}
+
+.svc-client-text {
+    font-size: 0.75rem;
+    /* 12px */
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #64748b;
+    /* slate-500 mais legível */
+    text-transform: uppercase;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.svc-info-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #64748b;
+    /* slate-500 */
+}
+
+/* Ícones Secundários */
+.svc-meta-icon {
+    width: 16px;
+    height: 16px;
+    opacity: 0.6;
+    /* Redução visual solicitada */
+    stroke-width: 1.5px;
+}
+
+.svc-icon-box {
+    width: 2.25rem;
+    /* 36px */
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    background-color: #f8fafc;
+    /* slate-50 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #f1f5f9;
+    /* slate-100 */
+    color: #94a3b8;
+    /* slate-400 */
+}
+
+/* Badges de Contagem (Footer) */
+.svc-badge-group {
+    display: flex;
+    gap: 0.625rem;
+}
+
+.svc-badge-count {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+    /* border: none; REMOVIDO conforme solicitado */
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.svc-badge-gray {
+    background-color: #f8fafc;
+    /* slate-50 */
+    color: #64748b;
+    /* slate-500 */
+}
+
+.svc-badge-green {
+    background-color: #f0fdf4;
+    /* green-50 */
+    color: #16a34a;
+    /* green-600 */
+}
+
+.svc-action-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    background-color: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #cbd5e1;
+    transition: all 0.2s;
+    border: 1px solid #f1f5f9;
+}
+
+.svc-card:hover .svc-action-btn {
+    background-color: #22c55e;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.3);
+    border-color: #22c55e;
+}

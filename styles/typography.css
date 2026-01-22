@@ -1,0 +1,245 @@
+/* ================================
+   GARAGEM40 / OficinaPro
+   Tipografia Mobile-First v2.0
+   ================================ */
+
+/* ================================
+   FONTE BASE
+   ================================ */
+:root {
+  --ui-font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  /* Escala Tipográfica (px)
+     IMPORTANTE: Valores base definidos em px para garantir legibilidade mínima.
+     A raiz HTML usa clamp() para escala fluida entre devices sem breakpoints.
+     Mobile: ~14px | Tablet: ~14.5px | Desktop: ~15px (crescimento automático) */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+
+  /* Line Heights */
+  --lh-xs: 1.4;
+  --lh-sm: 1.45;
+  --lh-base: 1.5;
+  --lh-md: 1.5;
+  --lh-lg: 1.4;
+  --lh-xl: 1.35;
+
+  /* Pesos */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+}
+
+/* ================================
+   HTML/BODY BASE
+   ================================ */
+html {
+  font-family: var(--ui-font);
+  /* Escala fluida: 14px (mobile) → 15px (desktop wide) */
+  /* Ganho sutil de ~7% para melhor leitura em telas maiores */
+  font-size: clamp(14px, 0.875rem + 0.1vw, 15px);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-size: 1rem;
+  /* Herda escala fluida do html */
+  line-height: var(--lh-base);
+  /* 1.5 */
+  font-weight: var(--fw-regular);
+  /* 400 */
+  color: #1e293b;
+}
+
+/* ================================
+   HEADINGS
+   ================================ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: var(--fw-semibold);
+}
+
+h1 {
+  font-size: var(--text-xl);
+  line-height: var(--lh-xl);
+}
+
+h2 {
+  font-size: var(--text-lg);
+  line-height: var(--lh-lg);
+}
+
+h3 {
+  font-size: var(--text-md);
+  line-height: var(--lh-md);
+}
+
+h4,
+h5,
+h6 {
+  font-size: var(--text-base);
+  line-height: var(--lh-base);
+}
+
+/* ================================
+   ESCALA TIPOGRÁFICA UTILITÁRIA
+   ================================ */
+
+/* Extra Small - 12px - labels secundários, metadados */
+.text-xs {
+  font-size: var(--text-xs) !important;
+  line-height: var(--lh-xs) !important;
+}
+
+/* Small - 13px - labels primários, datas, status */
+.text-sm {
+  font-size: var(--text-sm) !important;
+  line-height: var(--lh-sm) !important;
+}
+
+/* Base - 14px - textos padrão, valores monetários, campos */
+.text-base {
+  font-size: var(--text-base) !important;
+  line-height: var(--lh-base) !important;
+}
+
+/* Medium - 16px - subtítulos, seções internas */
+.text-md {
+  font-size: var(--text-md) !important;
+  line-height: var(--lh-md) !important;
+}
+
+/* Large - 18px - títulos de cards, nomes principais */
+.text-lg {
+  font-size: var(--text-lg) !important;
+  line-height: var(--lh-lg) !important;
+}
+
+/* Extra Large - 20px - título principal da OS (ex: RTC1D23) */
+.text-xl {
+  font-size: var(--text-xl) !important;
+  line-height: var(--lh-xl) !important;
+}
+
+/* ================================
+   PESOS DE FONTE
+   ================================ */
+.font-regular {
+  font-weight: var(--fw-regular) !important;
+  /* 400 */
+}
+
+.font-medium {
+  font-weight: var(--fw-medium) !important;
+  /* 500 */
+}
+
+.font-semibold {
+  font-weight: var(--fw-semibold) !important;
+  /* 600 */
+}
+
+.font-bold {
+  font-weight: var(--fw-semibold) !important;
+  /* 600 - evitando bold demais */
+}
+
+.font-black {
+  font-weight: var(--fw-semibold) !important;
+  /* 600 - consistência */
+}
+
+/* ================================
+   TAMANHOS ESPECÍFICOS LEGADOS
+   Mapeando tamanhos antigos para a nova escala
+   ================================ */
+
+/* Textos muito pequenos (7-11px) → 12px mínimo */
+.text-\[7px\],
+.text-\[8px\],
+.text-\[9px\],
+.text-\[10px\],
+.text-\[11px\] {
+  font-size: var(--text-xs) !important;
+  /* 12px */
+  line-height: var(--lh-xs) !important;
+  font-weight: var(--fw-medium) !important;
+}
+
+/* Calendário - ajuste para legibilidade */
+.calendar-day {
+  font-size: var(--text-sm) !important;
+  /* 13px */
+  line-height: var(--lh-sm) !important;
+  font-weight: var(--fw-semibold) !important;
+}
+
+/* ================================
+   INPUTS, TEXTAREAS, SELECTS
+   ================================ */
+input,
+textarea,
+select {
+  font-size: var(--text-base);
+  /* 14px */
+  line-height: 1.4;
+  font-weight: var(--fw-regular);
+}
+
+input::placeholder,
+textarea::placeholder {
+  font-size: var(--text-base);
+  font-weight: var(--fw-regular);
+}
+
+/* ================================
+   UTILITÁRIOS
+   ================================ */
+
+/* Prevenção de overflow em textos longos */
+.truncate-multiline {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Uppercase com melhor espaçamento */
+.uppercase {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Tracking ajustado para labels */
+.tracking-tight {
+  letter-spacing: -0.01em;
+}
+
+.tracking-normal {
+  letter-spacing: 0;
+}
+
+.tracking-wide {
+  letter-spacing: 0.025em;
+}
+
+.tracking-wider {
+  letter-spacing: 0.05em;
+}
+
+.tracking-widest {
+  letter-spacing: 0.1em;
+}
