@@ -137,19 +137,14 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   const hasActiveReminders = service.reminders?.some(r => r.status === 'active');
 
   const handleToggleReminder = async (reminder: Reminder) => {
-    const updated = service.reminders.map(r =>
-      r.id === reminder.id
-        ? { ...r, status: r.status === 'active' ? 'done' : 'active' }
-        : r
-    );
-    await dataProvider.updateService(serviceId, { reminders: updated } as any);
+    const nextStatus = reminder.status === 'active' ? 'done' : 'active';
+    await dataProvider.updateReminder(reminder.id, { status: nextStatus });
     loadData();
     onUpdate();
   };
 
   const handleDeleteReminder = async (id: string) => {
-    const updated = service.reminders.filter(r => r.id !== id);
-    await dataProvider.updateService(serviceId, { reminders: updated } as any);
+    await dataProvider.deleteReminder(id);
     loadData();
     onUpdate();
   };
@@ -157,17 +152,13 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   const handleAddReminder = async () => {
     if (!newReminderTitle) return;
 
-    const newR: Reminder = {
-      id: generateUUID(),
+    const newR: Partial<Reminder> = {
       title: newReminderTitle,
-      status: 'active',
       date: newReminderDate,
       time: newReminderTime
     };
 
-    await dataProvider.updateService(serviceId, {
-      reminders: [...(service.reminders || []), newR]
-    } as any);
+    await dataProvider.addReminder(serviceId, newR);
 
     setNewReminderTitle('');
     setIsAddingReminder(false);

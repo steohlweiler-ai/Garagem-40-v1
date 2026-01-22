@@ -754,6 +754,15 @@ class SupabaseService {
         return true;
     }
 
+    async deleteReminder(reminderId: string): Promise<boolean> {
+        const { error } = await supabase.from('lembretes').delete().eq('id', reminderId);
+        if (error) {
+            console.error('Supabase Error (deleteReminder):', error);
+            return false;
+        }
+        return true;
+    }
+
     // ===================== SETTINGS & TEMPLATES = : =====================
 
     async updateWorkshopSettings(settings: Partial<WorkshopSettings>): Promise<boolean> {

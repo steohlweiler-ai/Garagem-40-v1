@@ -12,6 +12,7 @@ import { blobToBase64, formatCurrency, generateUUID } from './utils/helpers';
 import VoiceInput from './components/VoiceInput';
 import Stepper from './components/Stepper';
 import CameraCapture from './components/CameraCapture';
+import ColorSelector from './components/ColorSelector';
 
 interface NewServiceWizardProps {
   onClose: () => void;
@@ -382,7 +383,16 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
                   <VoiceInput multiline={false} value={brand} onTranscript={setBrand} placeholder="Ex: Toyota" className="!py-4 !bg-slate-50 !border-transparent" />
                 </div>
               </div>
-              <div className="space-y-2"><label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Entrega Prevista</label><input type="datetime-local" value={estimatedDelivery} onClick={handleEstimatedDeliveryClick} onChange={(e) => setEstimatedDelivery(e.target.value)} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-green-500 rounded-[1.5rem] text-sm font-black h-[64px]" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Cor do Veículo</label>
+                  <ColorSelector value={color} onChange={setColor} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Entrega Prevista</label>
+                  <input type="datetime-local" value={estimatedDelivery} onClick={handleEstimatedDeliveryClick} onChange={(e) => setEstimatedDelivery(e.target.value)} className="w-full p-5 bg-slate-50 border-2 border-transparent focus:border-green-500 rounded-[1.5rem] text-sm font-black h-[76px]" />
+                </div>
+              </div>
             </div>
           )}
 
@@ -512,7 +522,7 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
           </button>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

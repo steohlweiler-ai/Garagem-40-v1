@@ -20,6 +20,7 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Estados para o formulário
   const [formData, setFormData] = useState({ name: '', phone: '', cpfCnpj: '', address: '', notes: '' });
@@ -35,22 +36,35 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
 
   useEffect(() => {
     const load = async () => {
-      const [cData, vData] = await Promise.all([
-        dataProvider.getClients(),
-        dataProvider.getVehicles()
-      ]);
-      setClients(cData);
-      setVehicles(vData);
+      setIsLoading(true);
+      try {
+        const [cData, vData] = await Promise.all([
+          dataProvider.getClients(),
+          dataProvider.getVehicles()
+        ]);
+        // Defensive: Ensure we always set an array, even if provider returns null/undefined
+        setClients(Array.isArray(cData) ? cData : []);
+        setVehicles(Array.isArray(vData) ? vData : []);
+      } catch (err) {
+        console.error('Error loading clients:', err);
+        setClients([]);
+        setVehicles([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
     load();
   }, []);
 
   const filteredClients = useMemo(() => {
+    // Definitive Defensive Check
+    if (!clients || !Array.isArray(clients)) return [];
+
     const q = debouncedSearch.toLowerCase();
     return clients.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      c.phone.includes(q) ||
-      c.cpfCnpj?.includes(q)
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.phone || '').includes(q) ||
+      (c.cpfCnpj || '').includes(q)
     );
   }, [debouncedSearch, clients]);
 
@@ -129,37 +143,46 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
       {/* Lista de Clientes com Feedback de Scroll */}
       <div className="relative group">
         <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1 pb-12">
-          {filteredClients.length > 0 ? filteredClients.map(client => {
-            const clientVehicles = vehicles.filter(v => v.client_id === client.id);
-            const vehiclesCount = clientVehicles.length;
-            return (
-              <button
-                key={client.id}
-                onClick={() => handleOpenClient(client)}
-                className="w-full bg-white p-5 rounded-[2rem] border-2 border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all group"
-              >
-                <div className="flex gap-4 items-center">
-                  <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-green-600 group-hover:text-white transition-all shadow-inner">
-                    <User size={22} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-black uppercase text-slate-800 tracking-tight">{client.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">{client.phone}</p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <Tag size={10} className="text-slate-300" />
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{vehiclesCount} {vehiclesCount === 1 ? 'Veículo' : 'Veículos'}</span>
+          {isLoading ? (
+            <div className="py-20 text-center space-y-4">
+              <div className="w-12 h-12 border-4 border-slate-100 border-t-green-500 rounded-full animate-spin mx-auto" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Carregando clientes...</p>
+            </div>
+          ) : filteredClients.length > 0 ? (
+            filteredClients.map(client => {
+              const clientVehicles = vehicles.filter(v => v.client_id === client.id);
+              const vehiclesCount = clientVehicles.length;
+              return (
+                <button
+                  key={client.id}
+                  onClick={() => handleOpenClient(client)}
+                  className="w-full bg-white p-5 rounded-[2rem] border-2 border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-all group"
+                >
+                  <div className="flex gap-4 items-center">
+                    <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-green-600 group-hover:text-white transition-all shadow-inner">
+                      <User size={22} />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-black uppercase text-slate-800 tracking-tight">{client.name}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">{client.phone || 'Sem telefone'}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Tag size={10} className="text-slate-300" />
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{vehiclesCount} {vehiclesCount === 1 ? 'Veículo' : 'Veículos'}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <ChevronRight size={18} className="text-slate-200 group-hover:text-green-600 transition-colors" />
-              </button>
-            );
-          }) : (
+                  <ChevronRight size={18} className="text-slate-200 group-hover:text-green-600 transition-colors" />
+                </button>
+              );
+            })) : (
             <div className="py-20 text-center space-y-4">
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-300">
                 <Users size={32} />
               </div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nenhum cliente encontrado</p>
+              <button onClick={() => { setIsAdding(true); setFormData({ name: '', phone: '', cpfCnpj: '', address: '', notes: '' }); }} className="text-[9px] font-black uppercase tracking-widest text-green-600 hover:underline">
+                Adicionar o primeiro cliente
+              </button>
             </div>
           )}
         </div>

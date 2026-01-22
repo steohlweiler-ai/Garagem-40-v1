@@ -424,8 +424,40 @@ class DataProvider {
                 console.warn('Supabase addReminder failed, falling back to mock.', e);
             }
         }
-        // Mock doesn't have addReminder, so we handle it differently
-        return null;
+        // Mock fallback (simulate persistence by returning object with ID)
+        return {
+            id: reminder.id || crypto.randomUUID(),
+            title: reminder.title || 'Novo Lembrete',
+            date: reminder.date || new Date().toISOString(),
+            time: reminder.time || '12:00',
+            status: 'active',
+            ...reminder
+        } as Reminder;
+    }
+
+    async updateReminder(id: string, updates: Partial<Reminder>): Promise<boolean> {
+        if (this.useSupabase) {
+            try {
+                return await supabaseDB.updateReminder(id, updates);
+            } catch (e) {
+                console.warn('Supabase updateReminder failed.', e);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    async deleteReminder(id: string): Promise<boolean> {
+        if (this.useSupabase) {
+            try {
+                // @ts-ignore
+                return await supabaseDB.deleteReminder(id);
+            } catch (e) {
+                console.warn('Supabase deleteReminder failed.', e);
+                return false;
+            }
+        }
+        return true;
     }
 
     // ===================== HELPERS (Relacionais) =====================
