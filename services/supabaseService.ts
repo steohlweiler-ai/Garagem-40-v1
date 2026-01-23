@@ -201,12 +201,18 @@ class SupabaseService {
         };
     }
 
-    async getTemplates(): Promise<EvaluationTemplate[]> {
+    async getTemplates(activeOnly: boolean = true): Promise<EvaluationTemplate[]> {
         // 1. Fetch Templates
-        const { data: templates, error: tmplError } = await supabase
+        let query = supabase
             .from('service_templates')
             .select('*')
-            .eq('active', true);
+            .order('name');
+
+        if (activeOnly) {
+            query = query.eq('active', true);
+        }
+
+        const { data: templates, error: tmplError } = await query;
 
         if (tmplError || !templates) {
             console.error('Error fetching service_templates:', tmplError);
@@ -264,6 +270,61 @@ class SupabaseService {
         });
 
         return result;
+    }
+
+    async addTemplate(name: string, active: boolean): Promise<EvaluationTemplate | null> {
+        const { data, error } = await supabase.from('service_templates').insert({
+            name,
+            active,
+            organization_id: 'org-default'
+        }).select().single();
+
+        if (error) {
+            console.error('Error creating template:', error);
+            return null;
+        }
+
+        return {
+            id: data.id,
+            organization_id: data.organization_id,
+            name: data.name,
+            active: data.active,
+            sections: [],
+            is_default: data.active,
+            created_at: data.created_at
+        };
+    }
+
+    async updateTemplate(id: string, updates: { name?: string, active?: boolean }): Promise<boolean> {
+        const { error } = await supabase.from('service_templates').update(updates).eq('id', id);
+        return !error;
+    }
+
+    async deleteTemplate(id: string): Promise<boolean> {
+        const { error } = await supabase.from('service_templates').delete().eq('id', id);
+        return !error;
+    }
+
+    async addTemplateItem(templateId: string, item: { name: string, category: string, price: number, type: 'fixed' | 'hour' }): Promise<boolean> {
+        const { error } = await supabase.from('template_items').insert({
+            template_id: templateId,
+            name: item.name,
+            category: item.category,
+            default_price: item.price,
+            billing_type: item.type,
+            organization_id: 'org-default'
+        });
+        return !error;
+    }
+
+    async updateTemplateItem(id: string, updates: { name?: string, category?: string, default_price?: number, billing_type?: 'fixed' | 'hour' }): Promise<boolean> {
+        const { error } = await supabase.from('template_items').update(updates).eq('id', id);
+        return !error;
+    }
+
+    async deleteTemplateItem(id: string): Promise<boolean> {
+        const { error } = await supabase.from('template_items').delete().eq('id', id);
+        return !error;
     }
 
     async getStatusConfigs(): Promise<StatusConfig[]> {

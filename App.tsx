@@ -29,6 +29,7 @@ import ReceiveInvoice from './components/ReceiveInvoice';
 import InvoiceHistory from './components/InvoiceHistory';
 import StockByVehicle from './components/StockByVehicle';
 import StockDashboardMini from './components/StockDashboardMini';
+import TemplateManager from './components/TemplateManagement';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -91,14 +92,7 @@ const App: React.FC = () => {
   const [isStockByVehicleOpen, setIsStockByVehicleOpen] = useState(false);
 
   const [showToast, setShowToast] = useState<string | null>(null);
-  const [editingTemplate, setEditingTemplate] = useState<EvaluationTemplate | null>(null);
 
-  useEffect(() => {
-    if (editingTemplate) {
-      setShowToast(`Edição de "${editingTemplate.name}" estará disponível em breve!`);
-      setEditingTemplate(null);
-    }
-  }, [editingTemplate]);
 
   const refreshServices = async () => {
     try {
@@ -633,14 +627,22 @@ const App: React.FC = () => {
                 </div>
               )}
 
+
+
+              // ... (in component body)
+
               {settingsTab !== 'hub' && (
                 <div className="space-y-6">
-                  <div className="flex items-center gap-4 mb-2 sm:mb-4">
-                    <button onClick={() => setSettingsTab('hub')} className="p-3 bg-slate-100 rounded-xl text-slate-600 active:scale-90 transition-all"><ArrowLeft size={20} /></button>
-                    <h3 className="text-sm sm:text-lg font-bold uppercase text-slate-800">{settingsOptions.find(o => o.id === settingsTab)?.label}</h3>
-                  </div>
+                  {settingsTab !== 'templates' && (
+                    <div className="flex items-center gap-4 mb-2 sm:mb-4">
+                      <button onClick={() => setSettingsTab('hub')} className="p-3 bg-slate-100 rounded-xl text-slate-600 active:scale-90 transition-all"><ArrowLeft size={20} /></button>
+                      <h3 className="text-sm sm:text-lg font-bold uppercase text-slate-800">{settingsOptions.find(o => o.id === settingsTab)?.label}</h3>
+                    </div>
+                  )}
+
                   {settingsTab === 'profile' && <ProfileTab user={user} />}
                   {settingsTab === 'stock' && (
+                    // ... stock content same as before ...
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 animate-in slide-in-from-bottom-2 duration-500">
                       <div className="bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border-2 border-slate-100 shadow-sm flex flex-col items-center text-center gap-4 md:col-span-2">
                         <div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center text-green-500 shadow-xl">
@@ -656,10 +658,9 @@ const App: React.FC = () => {
                       <button onClick={() => setIsInvoiceHistoryOpen(true)} className="p-6 sm:p-8 bg-white border-2 border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] flex items-center gap-5 sm:gap-6 group transition-all shadow-sm md:col-span-2"><div className="w-14 h-14 sm:w-16 sm:h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400"><RotateCcw size={28} /></div><div className="flex-1 text-left"><h3 className="text-xs sm:text-sm font-bold uppercase text-slate-800">Histórico de Notas</h3><p className="text-[10px] font-medium text-slate-400 mt-1 uppercase">Consultar Recebimentos</p></div><ChevronRight size={20} className="text-slate-200" /></button>
                     </div>
                   )}
+
                   {settingsTab === 'templates' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                      {allTemplates.map(t => (<div key={t.id} onClick={() => setEditingTemplate(t)} className="p-5 sm:p-6 bg-white border-2 border-slate-100 rounded-[2rem] flex items-center justify-between group hover:border-green-500 transition-all shadow-sm cursor-pointer"><div><h3 className="text-sm sm:text-base font-bold uppercase text-slate-800 tracking-tight">{t.name}</h3></div><ChevronRight size={18} className="text-slate-300 group-hover:text-green-500" /></div>))}
-                    </div>
+                    <TemplateManager onClose={() => setSettingsTab('hub')} />
                   )}
                   {settingsTab === 'statuses' && <StatusManagement />}
                   {settingsTab === 'catalog' && <CatalogManagement />}

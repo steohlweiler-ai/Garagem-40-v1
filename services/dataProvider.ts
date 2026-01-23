@@ -202,12 +202,48 @@ class DataProvider {
         return true;
     }
 
-    async getTemplates() {
+    async getTemplates(activeOnly: boolean = true) {
         if (this.useSupabase) {
-            const data = await supabaseDB.getTemplates();
-            if (data && data.length > 0) return data;
+            const data = await supabaseDB.getTemplates(activeOnly);
+            if (data) return data;
         }
         return mockDB.getTemplates();
+    }
+
+    async addTemplate(name: string, active: boolean) {
+        if (this.useSupabase) return await supabaseDB.addTemplate(name, active);
+        console.warn('Mock addTemplate not implemented');
+        return null;
+    }
+
+    async updateTemplate(id: string, updates: { name?: string, active?: boolean }) {
+        if (this.useSupabase) return await supabaseDB.updateTemplate(id, updates);
+        console.warn('Mock updateTemplate not implemented');
+        return true;
+    }
+
+    async deleteTemplate(id: string) {
+        if (this.useSupabase) return await supabaseDB.deleteTemplate(id);
+        console.warn('Mock deleteTemplate not implemented');
+        return true;
+    }
+
+    async addTemplateItem(templateId: string, item: { name: string, category: string, price: number, type: 'fixed' | 'hour' }) {
+        if (this.useSupabase) return await supabaseDB.addTemplateItem(templateId, item);
+        console.warn('Mock addTemplateItem not implemented');
+        return true;
+    }
+
+    async updateTemplateItem(id: string, updates: { name?: string, category?: string, default_price?: number, billing_type?: 'fixed' | 'hour' }) {
+        if (this.useSupabase) return await supabaseDB.updateTemplateItem(id, updates);
+        console.warn('Mock updateTemplateItem not implemented');
+        return true;
+    }
+
+    async deleteTemplateItem(id: string) {
+        if (this.useSupabase) return await supabaseDB.deleteTemplateItem(id);
+        console.warn('Mock deleteTemplateItem not implemented');
+        return true;
     }
 
     async getAppointments(): Promise<Appointment[]> {
