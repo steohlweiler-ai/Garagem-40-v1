@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { User, Mail, Shield, Smartphone, Key, Check, Lock, AlertCircle } from 'lucide-react';
 import { UserAccount } from '../types';
+import { authService } from '../services/authService';
 
 interface ProfileTabProps {
   user: UserAccount;
@@ -12,7 +13,7 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ user }) => {
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
       setErrorMsg('As senhas não coincidem');
@@ -25,10 +26,21 @@ const ProfileTab: React.FC<ProfileTabProps> = ({ user }) => {
       return;
     }
 
-    // Mock success
-    setStatus('success');
-    setPasswords({ current: '', new: '', confirm: '' });
-    setTimeout(() => setStatus('idle'), 3000);
+    // Submit to Supabase
+    try {
+      const { error } = await authService.updatePassword(passwords.new);
+      if (error) {
+        setErrorMsg('Erro ao atualizar senha: ' + error.message);
+        setStatus('error');
+      } else {
+        setStatus('success');
+        setPasswords({ current: '', new: '', confirm: '' });
+        setTimeout(() => setStatus('idle'), 3000);
+      }
+    } catch (e) {
+      setErrorMsg('Erro inesperado ao atualizar senha.');
+      setStatus('error');
+    }
   };
 
   // 3. Loading State (Skeleton) - If user object is totally missing or empty (unlikely with auth, but possible in transit)

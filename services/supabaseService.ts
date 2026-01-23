@@ -20,6 +20,26 @@ export { SUPABASE_URL, SUPABASE_KEY };
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 class SupabaseService {
+    // ===================== STORAGE OPERATIONS =====================
+
+    async uploadFile(file: File, bucket: string, path?: string): Promise<string | null> {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${path ? path + '/' : ''}${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, file);
+
+        if (uploadError) {
+            console.error('Supabase Storage Error (uploadFile):', uploadError);
+            return null;
+        }
+
+        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        return data.publicUrl;
+    }
+
     // ===================== READ OPERATIONS =====================
 
     async getClients(): Promise<Client[]> {

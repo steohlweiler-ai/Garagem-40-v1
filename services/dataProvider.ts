@@ -18,6 +18,17 @@ class DataProvider {
         console.log(`[DataProvider] Initialized with source: ${DATA_SOURCE} (useSupabase: ${this.useSupabase})`);
     }
 
+    // ===================== STORAGE =====================
+
+    async uploadFile(file: File, bucket: string = 'evidencias'): Promise<string | null> {
+        if (this.useSupabase) {
+            return await supabaseDB.uploadFile(file, bucket);
+        }
+        // Mock fallback
+        console.warn('[DataProvider] Upload is not persistent in mock mode.');
+        return URL.createObjectURL(file);
+    }
+
     // ===================== LEITURA =====================
 
     async getClients(): Promise<Client[]> {

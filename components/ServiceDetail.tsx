@@ -230,14 +230,22 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
     try {
       let finalUrl = '';
       let mediaType: 'image' | 'video' = 'image';
+
       if (mediaSource instanceof File) {
-        finalUrl = await blobToBase64(mediaSource);
+        // UPLOAD TO STORAGE
+        const uploadedUrl = await dataProvider.uploadFile(mediaSource, 'evidencias');
+        if (!uploadedUrl) {
+          alert('Erro ao fazer upload da mídia.');
+          return;
+        }
+        finalUrl = uploadedUrl;
         mediaType = mediaSource.type.startsWith('video') ? 'video' : 'image';
       } else {
-        const response = await fetch(mediaSource.url);
-        finalUrl = await blobToBase64(await response.blob());
+        // Reuse existing URL (or re-upload if needed, but usually just linking)
+        finalUrl = mediaSource.url;
         mediaType = mediaSource.type;
       }
+
       const newMedia: ItemMedia = { id: generateUUID(), url: finalUrl, type: mediaType };
       const currentMedia = selectedTaskForDetails.media || [];
       await dataProvider.updateTask(serviceId, selectedTaskForDetails.id, { media: [...currentMedia, newMedia] });
@@ -245,6 +253,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
       onUpdate();
     } catch (e) {
       console.error(e);
+      alert('Erro ao adicionar mídia.');
     } finally {
       setIsProcessingMedia(false);
       setCameraMode(null);
@@ -796,20 +805,28 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                             Valor Total
                           </span>
                           <span className="text-2xl font-black font-mono text-white leading-none">
-                            {formatCurrency(
-                              service.tasks.reduce((acc, task) => {
-                                if (task.charge_type === 'Fixo') {
-                                  return acc + (task.fixed_value || 0);
-                                } else {
-                                  const isTaskInProgress = task.status === 'in_progress';
-                                  const elapsed = isTaskInProgress && task.started_at
-                                    ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
-                                    : 0;
-                                  const totalSeconds = (task.time_spent_seconds || 0) + elapsed;
-                                  return acc + ((task.rate_per_hour || 0) * totalSeconds) / 3600;
-                                }
-                              }, 0)
-                            )}
+                            {(() => {
+                              const val = formatCurrency(
+                                service.tasks.reduce((acc, task) => {
+                                  if (task.charge_type === 'Fixo') {
+                                    return acc + (task.fixed_value || 0);
+                                  } else {
+                                    const isTaskInProgress = task.status === 'in_progress';
+                                    const elapsed = isTaskInProgress && task.started_at
+                                      ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
+                                      : 0;
+                                    const totalSeconds = (task.time_spent_seconds || 0) + elapsed;
+                                    return acc + ((task.rate_per_hour || 0) * totalSeconds) / 3600;
+                                  }
+                                }, 0)
+                              );
+                              const isLong = val.length > 10;
+                              return (
+                                <span className={`${isLong ? 'text-lg sm:text-xl' : 'text-2xl'} font-black font-mono text-white leading-none break-all`}>
+                                  {val}
+                                </span>
+                              );
+                            })()}
                           </span>
                         </div>
                       </div>
