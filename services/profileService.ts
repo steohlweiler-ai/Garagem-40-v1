@@ -49,19 +49,43 @@ export const profileService = {
         const existingProfile = await this.getProfileByUserId(user.id);
         if (existingProfile) return existingProfile;
 
-        // Create new profile
+        // 1. Create Organization (Business Logic: Auto-create for new Admin)
+        const orgName = metadata?.name || `Oficina de ${user.email?.split('@')[0]}`;
+        let organizationId = 'org-default';
+
+        try {
+            const { data: orgData, error: orgError } = await supabase
+                .from('organizações')
+                .insert({
+                    name: orgName,
+                    active: true
+                })
+                .select('id')
+                .single();
+
+            if (orgData) {
+                organizationId = orgData.id;
+            } else if (orgError) {
+                console.warn('Failed to create organization, falling back to default:', orgError);
+                // Optional: check if org-default exists or handle error better
+            }
+        } catch (e) {
+            console.error('Unexpected error creating organization:', e);
+        }
+
+        // 2. Create User Profile linked to new Organization
         const newProfile = {
             user_id: user.id, // The link column
             email: user.email!,
             name: metadata?.name || user.user_metadata?.name || 'Novo Usuário',
-            role: 'operator', // Default role as requested
+            role: 'admin', // Force ADMIN for the creator of the org
             active: true,
-            organization_id: 'org-default', // Default org
+            organization_id: organizationId,
             permissions: {
                 access_clients: true,
-                view_values_execution: false,
-                view_values_reports: false,
-                create_templates: false,
+                view_values_execution: true,
+                view_values_reports: true,
+                create_templates: true,
                 manage_reminders: true
             }
         };

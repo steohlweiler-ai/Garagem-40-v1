@@ -25,6 +25,7 @@ import {
   generateUUID,
   calculateDelayStatus
 } from '../utils/helpers';
+import { calculateServiceStatus } from '../utils/statusMachine';
 import StatusBadge from './StatusBadge';
 import EvaluationSheet from './EvaluationSheet';
 import PrintModal from './PrintModal';
@@ -136,15 +137,42 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   const hasActiveReminders = service.reminders?.some(r => r.status === 'active');
 
+  const refreshServiceStatus = async (currentServiceState: ServiceJob) => {
+    const newStatus = calculateServiceStatus(currentServiceState);
+    if (newStatus !== currentServiceState.status) {
+      const newStatusEntry = {
+        id: generateUUID(),
+        status: newStatus,
+        timestamp: new Date().toISOString(),
+        action_source: 'SYSTEM_RULE',
+        user_name: 'Sistema'
+      };
+      await dataProvider.updateService(currentServiceState.id, {
+        status: newStatus,
+        status_history: [...(currentServiceState.status_history || []), newStatusEntry]
+      } as any);
+    }
+  };
+
   const handleToggleReminder = async (reminder: Reminder) => {
     const nextStatus = reminder.status === 'active' ? 'done' : 'active';
     await dataProvider.updateReminder(reminder.id, { status: nextStatus });
+
+    // Check Status Logic
+    const updatedReminders = service.reminders.map(r => r.id === reminder.id ? { ...r, status: nextStatus } : r);
+    await refreshServiceStatus({ ...service, reminders: updatedReminders } as ServiceJob);
+
     loadData();
     onUpdate();
   };
 
   const handleDeleteReminder = async (id: string) => {
     await dataProvider.deleteReminder(id);
+
+    // Check Status Logic
+    const updatedReminders = service.reminders.filter(r => r.id !== id);
+    await refreshServiceStatus({ ...service, reminders: updatedReminders } as ServiceJob);
+
     loadData();
     onUpdate();
   };
@@ -160,6 +188,12 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
     await dataProvider.addReminder(serviceId, newR);
 
+    // Check Status Logic (New reminder -> possibly LEMBRETE)
+    // We don't have the new ID here easily for local sim, but we know there's at least one active reminder now
+    // Simulating the new reminder for status check:
+    const simReminder = { ...newR, status: 'active' } as Reminder;
+    await refreshServiceStatus({ ...service, reminders: [...service.reminders, simReminder] } as ServiceJob);
+
     setNewReminderTitle('');
     setIsAddingReminder(false);
     loadData();
@@ -172,12 +206,19 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
       status: nextStatus,
       started_at: undefined
     });
+
+    // Check Status Logic
+    const updatedTasks = service.tasks.map(t => t.id === task.id ? { ...t, status: nextStatus } : t);
+    await refreshServiceStatus({ ...service, tasks: updatedTasks } as any);
+
     loadData();
     onUpdate();
   };
 
   const handleToggleTaskTimer = async (task: ServiceTask) => {
     if (task.status === 'done') return;
+
+    let updatedService = { ...service! };
 
     if (task.status === 'in_progress') {
       const sessionSeconds = task.started_at
@@ -191,19 +232,30 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
         started_at: undefined,
         time_spent_seconds: total
       });
+
+      // Update local state for immediate check
+      const updatedTasks = updatedService.tasks.map(t => t.id === task.id ? { ...t, status: 'todo' as const, started_at: undefined, time_spent_seconds: total } : t);
+      updatedService.tasks = updatedTasks;
+
     } else {
       // Pause other running tasks first
-      for (const t of service.tasks) {
-        if (t.status === 'in_progress') {
+      const updatedTasks = updatedService.tasks.map(t => {
+        if (t.status === 'in_progress' && t.id !== task.id) {
+          // ... logic to pause others ...
+          // doing this via DB call too
+          return { ...t, status: 'todo' as const }; // simplifying local update for status check
+        }
+        return t;
+      });
+
+      // Actually perform DB updates for others
+      for (const t of service!.tasks) {
+        if (t.status === 'in_progress' && t.id !== task.id) {
+          // ... (persist logic)
           const sSec = t.started_at
             ? Math.floor((Date.now() - new Date(t.started_at).getTime()) / 1000)
             : 0;
-
-          await dataProvider.updateTask(serviceId, t.id, {
-            status: 'todo',
-            started_at: undefined,
-            time_spent_seconds: (t.time_spent_seconds || 0) + sSec
-          });
+          await dataProvider.updateTask(serviceId, t.id, { status: 'todo', started_at: undefined, time_spent_seconds: (t.time_spent_seconds || 0) + sSec });
         }
       }
 
@@ -211,7 +263,15 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
         status: 'in_progress',
         started_at: new Date().toISOString()
       });
+
+      // Local update for status logic
+      updatedTasks.find(t => t.id === task.id)!.status = 'in_progress';
+      updatedTasks.find(t => t.id === task.id)!.started_at = new Date().toISOString();
+      updatedService.tasks = updatedTasks;
     }
+
+    // CHECK STATUS MACHINE
+    await refreshServiceStatus(updatedService);
 
     loadData();
     onUpdate();

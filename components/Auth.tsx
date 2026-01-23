@@ -12,7 +12,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [workshopName, setWorkshopName] = useState('');
+  // const [workshopName, setWorkshopName] = useState(''); // Removed
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +26,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     if (USE_MOCK) {
       // Mock Behavior
       setTimeout(() => {
-        onLogin({ email, name: mode === 'register' ? workshopName : 'Usuário Mock', role: 'admin' }); // Mock admin
+        const generatedName = 'Oficina de ' + email.split('@')[0];
+        onLogin({ email, name: mode === 'register' ? generatedName : 'Usuário Mock', role: 'admin' }); // Mock admin
         setLoading(false);
       }, 500);
       return;
@@ -58,13 +59,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
           throw new Error('As senhas não conferem.');
         }
 
-        const { user, error: signUpError } = await authService.signUp(email, password, { name: workshopName });
+        const generatedName = 'Oficina de ' + email.split('@')[0];
+        const { user, error: signUpError } = await authService.signUp(email, password, { name: generatedName });
 
         if (signUpError) throw signUpError;
         if (!user) throw new Error('Erro ao criar conta');
 
         // Create Profile immediately
-        const profile = await profileService.ensureUserProfile(user, { name: workshopName });
+        const profile = await profileService.ensureUserProfile(user, { name: generatedName });
         if (profile) {
           onLogin(profile);
         } else {
@@ -131,22 +133,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {mode === 'register' && (
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nome da Oficina</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={workshopName}
-                  onChange={(e) => setWorkshopName(e.target.value)}
-                  placeholder="Minha Oficina Mecânica"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent focus:border-green-500 focus:bg-white rounded-2xl text-sm font-bold transition-all outline-none"
-                />
-                <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={20} />
-              </div>
-            </div>
-          )}
 
           <div className="space-y-2">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">E-mail</label>
