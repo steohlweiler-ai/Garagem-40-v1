@@ -5,7 +5,7 @@ import {
     StatusLogEntry, ServiceStatus, WorkshopSettings,
     DelayCriteria, EvaluationTemplate, StatusConfig, VehicleColor,
     Appointment, CatalogItem, IntegrationState, UserAccount,
-    Product, Invoice, StockMovement, Supplier, StockAllocation
+    Product, Invoice, StockMovement, Supplier, StockAllocation, ChargeType
 } from '../types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -202,16 +202,68 @@ class SupabaseService {
     }
 
     async getTemplates(): Promise<EvaluationTemplate[]> {
-        const { data, error } = await supabase.from('modelos_de_avaliação').select('*');
-        if (error) return [];
-        return data.map(t => ({
-            id: t.id,
-            organization_id: t.organization_id,
-            name: t.name,
-            sections: t.sections || [],
-            is_default: t.is_default,
-            created_at: t.created_at
-        }));
+        // 1. Fetch Templates
+        const { data: templates, error: tmplError } = await supabase
+            .from('service_templates')
+            .select('*')
+            .eq('active', true);
+
+        if (tmplError || !templates) {
+            console.error('Error fetching service_templates:', tmplError);
+            return [];
+        }
+
+        // 2. Fetch Items for these templates
+        const templateIds = templates.map(t => t.id);
+        const { data: items, error: itemsError } = await supabase
+            .from('template_items')
+            .select('*')
+            .in('template_id', templateIds);
+
+        if (itemsError) {
+            console.error('Error fetching template_items:', itemsError);
+            return [];
+        }
+
+        // 3. Map to structure
+        const result: EvaluationTemplate[] = templates.map(t => {
+            const tItems = items?.filter(i => i.template_id === t.id) || [];
+
+            // Group by category
+            const categories = Array.from(new Set(tItems.map(i => i.category || 'Geral')));
+            const sections = categories.map(cat => {
+                const catItems = tItems.filter(i => (i.category || 'Geral') === cat);
+                return {
+                    section_name: cat,
+                    items: catItems.map(i => ({
+                        id: i.id,
+                        key: i.id,
+                        label: i.name,
+                        allow_subitems: true,
+                        subitems: ['Troca', 'Chap.', 'Pintura'], // Preserving requested features
+                        allow_notes: true,
+                        allow_media: true,
+                        is_active: true,
+                        allowed_charge_type: 'Ambos' as const,
+                        default_charge_type: (i.billing_type === 'fixed' ? 'Fixo' : 'Hora') as ChargeType,
+                        default_rate_per_hour: 120, // Default or fetch if avail
+                        default_fixed_value: Number(i.default_price) || 0
+                    }))
+                };
+            });
+
+            return {
+                id: t.id,
+                organization_id: 'org-default',
+                name: t.name,
+                active: t.active,
+                sections: sections,
+                is_default: t.name === 'Chapeação e Pintura' || sections.length > 0, // Heuristic for default
+                created_at: new Date().toISOString()
+            };
+        });
+
+        return result;
     }
 
     async getStatusConfigs(): Promise<StatusConfig[]> {
@@ -686,14 +738,15 @@ class SupabaseService {
     }
 
     async updateService(id: string, updates: Partial<ServiceJob>): Promise<boolean> {
-        const { status, priority, total_value, estimated_delivery, archived } = updates;
+        const { status, priority, total_value, estimated_delivery, archived, inspection } = updates;
 
         const { error } = await supabase.from('serviços').update({
             ...(status && { status }),
             ...(priority && { priority }),
             ...(total_value !== undefined && { total_value }),
             ...(estimated_delivery && { estimated_delivery }),
-            ...(archived !== undefined && { archived })
+            ...(archived !== undefined && { archived }),
+            ...(inspection && { inspection })
         }).eq('id', id);
 
         if (error) {

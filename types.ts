@@ -164,6 +164,7 @@ export interface ServiceTask {
 }
 
 export interface InspectionTemplateItem {
+  id?: string; // Added ID from DB
   key: string;
   label: string;
   allow_subitems: boolean;
@@ -187,13 +188,15 @@ export interface EvaluationTemplate {
   id: string;
   organization_id?: string;
   name: string;
+  active: boolean; // Changed from is_default or added
   sections: InspectionTemplateSection[];
-  is_default: boolean;
+  is_default: boolean; // Kept for compatibility if needed, or mapped from 'active'
   created_at?: string;
 }
 
 export interface InspectionData {
   template_id?: string;
+  template_name?: string; // Added to track which template was used
   items: { [key: string]: boolean };
   general_notes: string;
 }
@@ -217,6 +220,7 @@ export interface ServiceJob {
   created_by_name?: string;
   inspection?: InspectionData;
   service_type?: 'novo' | 'retrabalho';
+  active_template_id?: string; // New field to track active template for this OS
 }
 
 export interface Client {
