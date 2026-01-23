@@ -252,8 +252,8 @@ class SupabaseService {
                         is_active: true,
                         allowed_charge_type: 'Ambos' as const,
                         default_charge_type: (i.billing_type === 'fixed' ? 'Fixo' : 'Hora') as ChargeType,
-                        default_rate_per_hour: 120, // Default or fetch if avail
-                        default_fixed_value: Number(i.default_price) || 0
+                        default_rate_per_hour: i.billing_type === 'hour' ? (Number(i.default_price) || 0) : 120,
+                        default_fixed_value: i.billing_type === 'fixed' ? (Number(i.default_price) || 0) : 0
                     }))
                 };
             });

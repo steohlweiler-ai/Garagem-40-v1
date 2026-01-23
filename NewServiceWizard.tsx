@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X, Camera, User, ClipboardCheck, CheckCircle, Car, Check, Wrench,
@@ -51,6 +50,8 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
   const modelDropdownRef = useRef<HTMLDivElement>(null);
 
   const [activeTemplate, setActiveTemplate] = useState<EvaluationTemplate | null>(null);
+  const [availableTemplates, setAvailableTemplates] = useState<EvaluationTemplate[]>([]);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
@@ -89,8 +90,9 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
 
   useEffect(() => {
     const loadData = async () => {
-      const templates = await dataProvider.getTemplates();
-      const defaultTemplate = templates.find(t => t.is_default);
+      const templates = await dataProvider.getTemplates(true);
+      setAvailableTemplates(templates);
+      const defaultTemplate = templates.find(t => t.is_default) || templates[0];
       if (defaultTemplate) applyTemplate(defaultTemplate);
 
       const cat = await dataProvider.getCatalog();
@@ -109,6 +111,7 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
 
   const applyTemplate = (template: EvaluationTemplate) => {
     setActiveTemplate(template);
+    setExpandedItem(null);
     const initialChecklist: Record<string, ItemDetail> = {};
     template.sections.forEach(section => {
       section.items.forEach(item => {
@@ -433,6 +436,41 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
 
           {step === 3 && activeTemplate && (
             <div className="space-y-6">
+              {/* TEMPLATE SELECTOR HEADER */}
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Modelo de Avaliação</span>
+                  <h3 className="text-sm font-black uppercase text-slate-800 tracking-tight flex items-center gap-2">
+                    {activeTemplate.name}
+                    {availableTemplates.length > 1 && (
+                      <button onClick={() => setShowTemplateSelector(!showTemplateSelector)} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-md hover:bg-blue-100 transition-colors uppercase tracking-wide">
+                        Alterar
+                      </button>
+                    )}
+                  </h3>
+                </div>
+                {showTemplateSelector && (
+                  <div className="absolute top-24 left-4 right-4 bg-white border-2 border-slate-100 rounded-2xl shadow-2xl z-[70] overflow-hidden animate-in slide-in-from-top-2 p-2">
+                    <div className="p-2 border-b border-slate-50 mb-1 flex justify-between items-center">
+                      <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Selecionar Modelo</span>
+                      <button onClick={() => setShowTemplateSelector(false)}><X size={16} className="text-slate-300" /></button>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {availableTemplates.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => { applyTemplate(t); setShowTemplateSelector(false); }}
+                          className={`w-full text-left p-3 rounded-xl mb-1 flex items-center justify-between ${activeTemplate.id === t.id ? 'bg-green-50 text-green-700' : 'hover:bg-slate-50 text-slate-600'}`}
+                        >
+                          <span className="text-xs font-bold uppercase">{t.name}</span>
+                          {activeTemplate.id === t.id && <Check size={14} />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="max-w-xl mx-auto relative">
                 <input type="text" placeholder="Buscar item de avaliação..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-100 border-2 border-transparent focus:border-green-500 rounded-2xl text-sm font-bold outline-none shadow-inner" />
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
