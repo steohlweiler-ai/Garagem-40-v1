@@ -122,6 +122,68 @@ const App: React.FC = () => {
     localStorage.setItem('g40_dashboard_filters', JSON.stringify(dashboardAdvancedFilters));
   }, [dashboardAdvancedFilters]);
 
+  // ===================== HARDWARE BACK BUTTON LOGIC =====================
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // Rule 1 & 2: Modals (Wizard, Detail, etc.)
+      if (isWizardOpen) {
+        event.preventDefault(); // Try to prevent, though browsers are tricky
+        // Dirty check for Wizard is complex without accessing internal state directly here.
+        // For simpler Global Handler, we will just confirm closing if Wizard is open.
+        // Ideally Wizard should manage its own dirty state, but we are at App level.
+        // We can just ask:
+        if (window.confirm('Deseja cancelar a abertura da OS? Dados não salvos serão perdidos.')) {
+          setIsWizardOpen(false);
+        } else {
+          // Push state back to prevent exit if user cancels
+          window.history.pushState(null, '', window.location.pathname);
+        }
+        return;
+      }
+
+      if (selectedServiceId) {
+        // Just close detail
+        setSelectedServiceId(null);
+        return;
+      }
+
+      if (isReceiveInvoiceOpen) { setIsReceiveInvoiceOpen(false); return; }
+      if (isInvoiceHistoryOpen) { setIsInvoiceHistoryOpen(false); return; }
+      if (isStockByVehicleOpen) { setIsStockByVehicleOpen(false); return; }
+      if (isFilterModalOpen) { setIsFilterModalOpen(false); return; }
+
+      // Rule 1: Sub-tabs (Settings)
+      if (activeTab === 'settings' && settingsTab !== 'hub') {
+        setSettingsTab('hub');
+        return;
+      }
+
+      // Rule 3: Exit App (Dashboard)
+      // If we are on Dashboard or main tabs, clarify exit
+      if (activeTab === 'dashboard' || activeTab === 'clients' || activeTab === 'stock' || activeTab === 'agendamentos') {
+        // Browser default behavior will exit if we don't push state.
+        // If we want to show custom confirmation:
+        if (!window.confirm('Deseja sair do sistema?')) {
+          window.history.pushState(null, '', window.location.pathname);
+        }
+      } else {
+        // If on other tabs (e.g. settings root), go back to dashboard
+        setTab('dashboard');
+      }
+    };
+
+    // Initialize history state to allow capture
+    window.history.pushState(null, '', window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [
+    isWizardOpen, selectedServiceId, isReceiveInvoiceOpen, isInvoiceHistoryOpen, isStockByVehicleOpen, isFilterModalOpen,
+    activeTab, settingsTab
+  ]);
+
   const handleLogin = async (userData: any) => {
     try {
       // Se já vier com ID e Role (do Supabase/AuthService), usamos direto

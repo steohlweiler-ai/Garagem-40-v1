@@ -363,13 +363,20 @@ class DataProvider {
                 const result = await supabaseDB.addService(s);
                 if (result) {
                     console.log('[DataProvider] Service added to Supabase:', result.id);
+                    if (s.estimated_delivery) {
+                        await this.syncDeliveryAppointment(result);
+                    }
                     return result;
                 }
             } catch (e) {
                 console.warn('Supabase addService failed, falling back to mock.', e);
             }
         }
-        return mockDB.addService(s);
+        const result = mockDB.addService(s);
+        if (result && s.estimated_delivery) {
+            this.syncDeliveryAppointment(result);
+        }
+        return result;
     }
 
     async updateService(id: string, u: Partial<ServiceJob>): Promise<boolean> {
@@ -378,6 +385,13 @@ class DataProvider {
                 const success = await supabaseDB.updateService(id, u);
                 if (success) {
                     console.log('[DataProvider] Service updated in Supabase:', id);
+                    if (u.estimated_delivery !== undefined || u.vehicle_id) {
+                        // Fetch full service if needed to get plate? For now, assuming optimistic update or let the specific handler fetch
+                        // We need the service to know the plate if vehicle_id is not passed.
+                        // But 'syncDeliveryAppointment' will handle checking if appointment exists.
+                        const fullService = await this.getServiceById(id);
+                        if (fullService) await this.syncDeliveryAppointment(fullService);
+                    }
                     return true;
                 }
             } catch (e) {
@@ -385,8 +399,77 @@ class DataProvider {
             }
         }
         mockDB.updateService(id, u);
+        // Mock sync
+        if (u.estimated_delivery !== undefined) {
+            const s = mockDB.getServiceById(id);
+            if (s) this.syncDeliveryAppointment(s);
+        }
         return true;
     }
+
+    // ===================== SYNC HELPERS =====================
+
+    private async syncDeliveryAppointment(service: ServiceJob) {
+        // 1. Check if appointment already exists (derived-{serviceId})
+        const allApps = await this.getAppointments();
+        const existingApp = allApps.find(a => a.id === `derived-${service.id}` || a.service_id === service.id);
+
+        // 2. If Service has no delivery date (cleared), remove appointment
+        if (!service.estimated_delivery) {
+            if (existingApp) {
+                await this.deleteAppointment(existingApp.id);
+            }
+            return;
+        }
+
+        // 3. Prepare data
+        const dateObj = new Date(service.estimated_delivery);
+        const dateStr = dateObj.toISOString().split('T')[0];
+        const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        let plate = '???';
+        if (service.vehicle_id) {
+            const v = await this.getVehicleById(service.vehicle_id);
+            if (v) plate = v.plate;
+        }
+
+        const appData: Partial<Appointment> = {
+            id: `derived-${service.id}`,
+            service_id: service.id,
+            title: `Entrega: ${plate}`,
+            description: `Entrega prevista da OS`,
+            date: dateStr,
+            time: timeStr,
+            vehicle_plate: plate,
+            type: 'service_delivery',
+            notify_enabled: true,
+            notify_before_minutes: 60
+        };
+
+        // 4. Update or Create
+        if (existingApp) {
+            // Only update if changed
+            if (existingApp.date !== dateStr || existingApp.time !== timeStr || existingApp.vehicle_plate !== plate) {
+                // We only update if it is a 'system' appointment (type service_delivery) to avoid overwriting user edits?
+                // Requirement says "Always reflect", so we overwrite.
+                // We can't use `updateAppointment` because it's not exposed properly in DataProvider interface yet, 
+                // but `addAppointment` in mock behaves like upsert if we implement it, 
+                // OR we verify if `addAppointment` supports upsert.
+                // MockDB addAppointment pushes. We should delete and recreate or implement updateAppointment.
+                // Actually we don't have updateAppointment exposed publically in the interface above line 223.
+                // Let's assume we can delete and re-add for now to be safe and simple, 
+                // UNLESS we want to add `updateAppointment` method.
+                // Checking interface... `addAppointment` returns Appointment.
+
+                // Let's trust `addAppointment` to handle ID collision OR just delete old first.
+                await this.deleteAppointment(existingApp.id);
+                await this.addAppointment(appData);
+            }
+        } else {
+            await this.addAppointment(appData);
+        }
+    }
+
 
     // ===================== ESCRITA - TASKS =====================
 
