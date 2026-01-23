@@ -110,38 +110,33 @@ const ItemEditorModal: React.FC<ItemEditorProps> = ({ templateId, item, isOpen, 
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Categoria</label>
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Categoria</label>
                         <div className="flex gap-2 overflow-x-auto py-1 no-scrollbar">
-                            {['Geral', 'Lataria', 'Mecânica', 'Elétrica', 'Acabamento'].map(cat => (
+                            {['Estrutura', 'Complementares', 'Outros'].map(cat => (
                                 <button
                                     key={cat}
                                     onClick={() => setCategory(cat)}
-                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap border ${category === cat ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-slate-200 text-slate-400'}`}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase whitespace-nowrap border-2 transition-all ${category === cat ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-400'}`}
                                 >
                                     {cat}
                                 </button>
                             ))}
                         </div>
-                        <input
-                            value={category}
-                            onChange={e => setCategory(e.target.value)}
-                            placeholder="Outra categoria..."
-                            className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-xs font-bold text-slate-600 focus:border-green-500 outline-none mt-1"
-                        />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Valor Base (R$)</label>
+                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Valor Base (R$)</label>
                             <input
                                 type="number"
+                                inputMode="decimal"
                                 value={price}
                                 onChange={e => setPrice(e.target.value)}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 font-bold text-slate-800 focus:border-green-500 outline-none"
+                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 font-black text-slate-800 focus:border-green-500 outline-none"
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Cobrança</label>
+                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Cobrança</label>
                             <div className="flex bg-slate-100 p-1 rounded-xl">
                                 <button onClick={() => setType('fixed')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${type === 'fixed' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400'}`}>Fixo</button>
                                 <button onClick={() => setType('hour')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${type === 'hour' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Hora</button>
@@ -234,12 +229,15 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onBack, onUpd
 
             {/* Configs */}
             <div className="px-6 py-4 bg-slate-50 border-b flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Status do Modelo</span>
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Opções do Modelo</span>
                 <button
                     onClick={toggleActive}
-                    className={`px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all flex items-center gap-2 ${isActive ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-400'}`}
+                    className={`relative px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-3 ${isActive ? 'bg-green-100 text-green-700 pr-3 pl-11' : 'bg-slate-200 text-slate-400 pl-3 pr-11'}`}
                 >
-                    {isActive ? <><Check size={14} /> Ativo (Padrão)</> : 'Inativo'}
+                    <div className={`absolute w-8 h-6 bg-white rounded-lg shadow-sm transition-all flex items-center justify-center ${isActive ? 'left-[calc(100%-2.25rem)]' : 'left-1'}`}>
+                        {isActive ? <Check size={12} className="text-green-600" strokeWidth={3} /> : <X size={12} className="text-slate-400" strokeWidth={3} />}
+                    </div>
+                    {isActive ? 'Modelo Padrão (Ativo)' : 'Não é Padrão'}
                 </button>
             </div>
 
