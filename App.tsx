@@ -315,15 +315,15 @@ const App: React.FC = () => {
       { id: 'profile', label: 'Meu Perfil', desc: 'Dados da conta', icon: <User size={20} /> },
       { id: 'stock', label: 'Estoque', desc: 'Peças e notas', icon: <Package size={20} /> },
       { id: 'templates', label: 'Fichas', desc: 'Modelos de inspeção', icon: <FileCode size={20} /> },
-      { id: 'statuses', label: 'Status', desc: 'Etapas do fluxo', icon: <Tag size={20} />, adminOnly: true },
-      { id: 'catalog', label: 'Veículos', desc: 'Marcas e modelos', icon: <Briefcase size={20} />, adminOnly: true },
-      { id: 'colors', label: 'Cores', desc: 'Paleta do sistema', icon: <Palette size={20} />, adminOnly: true },
-      { id: 'integrations', label: 'Conexões', desc: 'Google e n8n', icon: <Share2 size={20} />, adminOnly: true },
-      { id: 'users', label: 'Equipe', desc: 'Colaboradores', icon: <Users size={20} />, adminOnly: true },
-      { id: 'workshop', label: 'Oficina', desc: 'Dados da OS', icon: <Store size={20} />, adminOnly: true },
-      { id: 'delay', label: 'Atrasos', desc: 'Regras de tempo', icon: <Clock size={20} />, adminOnly: true },
-      { id: 'status', label: 'Diagnóstico', desc: 'Verificar conexão', icon: <ShieldAlert size={20} />, adminOnly: true }
-    ].filter(t => !t.adminOnly || user.role?.toLowerCase() === 'admin');
+      { id: 'statuses', label: 'Status', desc: 'Etapas do fluxo', icon: <Tag size={20} /> },
+      { id: 'catalog', label: 'Veículos', desc: 'Marcas e modelos', icon: <Briefcase size={20} /> },
+      { id: 'colors', label: 'Cores', desc: 'Paleta do sistema', icon: <Palette size={20} /> },
+      { id: 'integrations', label: 'Conexões', desc: 'Google e n8n', icon: <Share2 size={20} /> },
+      { id: 'users', label: 'Equipe', desc: 'Colaboradores', icon: <Users size={20} /> },
+      { id: 'workshop', label: 'Oficina', desc: 'Dados da OS', icon: <Store size={20} /> },
+      { id: 'delay', label: 'Atrasos', desc: 'Regras de tempo', icon: <Clock size={20} /> },
+      { id: 'status', label: 'Diagnóstico', desc: 'Verificar conexão', icon: <ShieldAlert size={20} /> }
+    ];
   }, [user]);
 
   if (!isAuthenticated || !user) return <Auth onLogin={handleLogin} />;
@@ -577,14 +577,14 @@ const App: React.FC = () => {
                       {allTemplates.map(t => (<div key={t.id} onClick={() => setEditingTemplate(t)} className="p-5 sm:p-6 bg-white border-2 border-slate-100 rounded-[2rem] flex items-center justify-between group hover:border-green-500 transition-all shadow-sm cursor-pointer"><div><h3 className="text-sm sm:text-base font-bold uppercase text-slate-800 tracking-tight">{t.name}</h3></div><ChevronRight size={18} className="text-slate-300 group-hover:text-green-500" /></div>))}
                     </div>
                   )}
-                  {settingsTab === 'statuses' && user.role?.toLowerCase() === 'admin' && <StatusManagement />}
-                  {settingsTab === 'catalog' && user.role?.toLowerCase() === 'admin' && <CatalogManagement />}
-                  {settingsTab === 'colors' && user.role?.toLowerCase() === 'admin' && <ColorManagement />}
-                  {settingsTab === 'integrations' && user.role?.toLowerCase() === 'admin' && <IntegrationsSettings />}
-                  {settingsTab === 'users' && user.role?.toLowerCase() === 'admin' && <UserManagement />}
-                  {settingsTab === 'delay' && user.role?.toLowerCase() === 'admin' && <DelaySettings user={user} />}
-                  {settingsTab === 'workshop' && user.role?.toLowerCase() === 'admin' && <WorkshopSettingsComp />}
-                  {settingsTab === 'status' && user.role?.toLowerCase() === 'admin' && (
+                  {settingsTab === 'statuses' && <StatusManagement />}
+                  {settingsTab === 'catalog' && <CatalogManagement />}
+                  {settingsTab === 'colors' && <ColorManagement />}
+                  {settingsTab === 'integrations' && <IntegrationsSettings />}
+                  {settingsTab === 'users' && <UserManagement />}
+                  {settingsTab === 'delay' && <DelaySettings user={user} />}
+                  {settingsTab === 'workshop' && <WorkshopSettingsComp />}
+                  {settingsTab === 'status' && (
                     <div className="bg-white p-6 rounded-[2rem] border-2 border-slate-100 space-y-4">
                       <h2 className="text-xl font-bold uppercase">Diagnóstico de Conexão</h2>
                       <div className="grid grid-cols-2 gap-4">
