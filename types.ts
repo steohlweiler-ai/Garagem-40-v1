@@ -176,6 +176,9 @@ export interface InspectionTemplateItem {
   default_charge_type: ChargeType;
   default_rate_per_hour: number;
   default_fixed_value: number;
+  default_price: number;
+  price?: number; // Added for compatibility
+  defaultPrice?: number; // Added for compatibility
   default_estimated_time?: number;
 }
 

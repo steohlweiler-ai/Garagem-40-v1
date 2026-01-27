@@ -231,6 +231,8 @@ class SupabaseService {
             return [];
         }
 
+        console.log('DEBUG: Raw Template Items from DB:', items); // Log raw items to check default_price existence and format
+
         // 3. Map to structure
         const result: EvaluationTemplate[] = templates.map(t => {
             const tItems = items?.filter(i => i.template_id === t.id) || [];
@@ -253,7 +255,10 @@ class SupabaseService {
                         allowed_charge_type: 'Ambos' as const,
                         default_charge_type: (i.billing_type === 'fixed' ? 'Fixo' : 'Hora') as ChargeType,
                         default_rate_per_hour: i.billing_type === 'hour' ? (Number(i.default_price) || 0) : 120,
-                        default_fixed_value: i.billing_type === 'fixed' ? (Number(i.default_price) || 0) : 0
+                        default_fixed_value: i.billing_type === 'fixed' ? (Number(i.default_price) || 0) : 0,
+                        default_price: Number(i.default_price) || 0,
+                        price: Number(i.default_price) || 0,
+                        defaultPrice: Number(i.default_price) || 0
                     }))
                 };
             });

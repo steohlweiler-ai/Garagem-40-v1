@@ -31,6 +31,8 @@ const ItemEditorModal: React.FC<ItemEditorProps> = ({ templateId, item, isOpen, 
         if (isOpen) {
             if (item) {
                 setName(item.label);
+                setPrice(item.default_price ? String(item.default_price) : '0');
+                setType(item.default_charge_type === 'Hora' ? 'hour' : 'fixed');
                 // We need to support category retrieval. 
                 // Currently `item` in `InspectionTemplateItem` doesn't explicitly store category string 
                 // (it is grouped in sections in EvaluationTemplate).
@@ -259,31 +261,34 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onBack, onUpd
                             <div className="h-px bg-slate-100 flex-1" />
                         </div>
 
-                        {section.items.map(item => (
-                            <div key={item.id} className="group bg-white border-2 border-slate-100 rounded-2xl p-4 flex items-center gap-4 hover:border-green-500 transition-all shadow-sm">
-                                <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400">
-                                    <GripVertical size={16} />
-                                </div>
-                                <div className="flex-1 cursor-pointer" onClick={() => { setEditingItem({ item, category: section.section_name }); setShowItemModal(true); }}>
-                                    <h4 className="text-xs font-black uppercase text-slate-800">{item.label}</h4>
-                                    <div className="flex items-center gap-3 mt-1">
-                                        <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                                            {item.default_charge_type === 'Hora' ? <Clock size={10} /> : <DollarSign size={10} />}
-                                            {item.default_charge_type}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md">
-                                            R$ {item.default_fixed_value}
-                                        </span>
+                        {section.items.map(item => {
+                            console.log('DEBUG: Rendering Item:', item.label, item); // Debug item props
+                            return (
+                                <div key={item.id} className="group bg-white border-2 border-slate-100 rounded-2xl p-4 flex items-center gap-4 hover:border-green-500 transition-all shadow-sm">
+                                    <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400">
+                                        <GripVertical size={16} />
                                     </div>
+                                    <div className="flex-1 cursor-pointer" onClick={() => { setEditingItem({ item, category: section.section_name }); setShowItemModal(true); }}>
+                                        <h4 className="text-xs font-black uppercase text-slate-800">{item.label}</h4>
+                                        <div className="flex items-center gap-3 mt-1">
+                                            <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                                {item.default_charge_type === 'Hora' ? <Clock size={10} /> : <DollarSign size={10} />}
+                                                {item.default_charge_type}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md">
+                                                R$ {item.default_price}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => item.id && handleDeleteItem(item.id)}
+                                        className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
                                 </div>
-                                <button
-                                    onClick={() => item.id && handleDeleteItem(item.id)}
-                                    className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 ))}
             </div>
