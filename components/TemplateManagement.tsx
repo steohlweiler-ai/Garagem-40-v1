@@ -15,65 +15,101 @@ interface TemplateManagerProps {
 interface ItemEditorProps {
     templateId: string;
     item?: InspectionTemplateItem; // If null, creating new
+    initialCategory?: string;
     isOpen: boolean;
     onClose: () => void;
     onSave: () => void;
 }
 
-const ItemEditorModal: React.FC<ItemEditorProps> = ({ templateId, item, isOpen, onClose, onSave }) => {
+const ItemEditorModal: React.FC<ItemEditorProps> = ({ templateId, item, initialCategory, isOpen, onClose, onSave }) => {
+    // Basic Info
     const [name, setName] = useState('');
-    const [category, setCategory] = useState('');
-    const [price, setPrice] = useState('0');
-    const [type, setType] = useState<'fixed' | 'hour'>('fixed');
+    const [category, setCategory] = useState('Geral');
     const [isSaving, setIsSaving] = useState(false);
+
+    // Granular Configuration
+    // Troca
+    const [trocaAtivo, setTrocaAtivo] = useState(false);
+    const [trocaValor, setTrocaValor] = useState('0');
+
+    // Chapeação
+    const [chapAtivo, setChapAtivo] = useState(false);
+    const [chapTipo, setChapTipo] = useState<'hora' | 'fixo'>('hora');
+    const [chapValor, setChapValor] = useState('0');
+
+    // Pintura
+    const [pinturaAtivo, setPinturaAtivo] = useState(false);
+    const [pinturaTipo, setPinturaTipo] = useState<'hora' | 'fixo'>('hora');
+    const [pinturaValor, setPinturaValor] = useState('0');
 
     useEffect(() => {
         if (isOpen) {
             if (item) {
-                setName(item.label);
-                setPrice(item.default_price ? String(item.default_price) : '0');
-                setType(item.default_charge_type === 'Hora' ? 'hour' : 'fixed');
-                // We need to support category retrieval. 
-                // Currently `item` in `InspectionTemplateItem` doesn't explicitly store category string 
-                // (it is grouped in sections in EvaluationTemplate).
-                // However, the EDITOR receives the item which is mapped. 
-                // We might need to pass the category explicitly if we want to pre-fill it correctly 
-                // OR we can infer it if we pass the section name.
-                // For simplicity now, we'll let user re-select or pass it in props.
-                // Let's assume we pass category name in a separate prop if needed, or just default to 'Geral'.
+                setName(item.label || '');
+                setCategory(initialCategory || 'Geral');
+
+                setTrocaAtivo(!!item.troca_ativo);
+                setTrocaValor(item.troca_valor ? String(item.troca_valor) : '0');
+
+                setChapAtivo(!!item.chap_ativo);
+                setChapTipo(item.chap_tipo_cobranca === 'fixo' ? 'fixo' : 'hora');
+                setChapValor(item.chap_padrao ? String(item.chap_padrao) : '0');
+
+                setPinturaAtivo(!!item.pintura_ativo);
+                setPinturaTipo(item.pintura_tipo_cobranca === 'fixo' ? 'fixo' : 'hora');
+                setPinturaValor(item.pintura_padrao ? String(item.pintura_padrao) : '0');
             } else {
                 setName('');
-                setCategory('Geral');
-                setPrice('0');
-                setType('fixed');
+                setCategory(initialCategory || 'Geral');
+
+                // Defaults for new item
+                setTrocaAtivo(false);
+                setTrocaValor('0');
+
+                setChapAtivo(true);
+                setChapTipo('hora'); // Default per user request
+                setChapValor('0');
+
+                setPinturaAtivo(true);
+                setPinturaTipo('hora'); // Default per user request
+                setPinturaValor('0');
             }
         }
-    }, [isOpen, item]);
+    }, [isOpen, item, initialCategory]);
 
     const handleSave = async () => {
         if (!name.trim()) return;
         setIsSaving(true);
-        const numericPrice = parseFloat(price.replace(',', '.')) || 0;
+
+        const parseVal = (v: string) => parseFloat(v.replace(',', '.')) || 0;
+
+        const payload = {
+            label: name, // Frontend uses label, DB mapping handles it
+            name: name,   // redundancy for safety
+            category,
+
+            // Granular
+            troca_ativo: trocaAtivo,
+            troca_valor: parseVal(trocaValor),
+
+            chap_ativo: chapAtivo,
+            chap_tipo_cobranca: chapTipo,
+            chap_padrao: parseVal(chapValor),
+
+            pintura_ativo: pinturaAtivo,
+            pintura_tipo_cobranca: pinturaTipo,
+            pintura_padrao: parseVal(pinturaValor),
+
+            // Legacy/Compat defaults (needed for some logic)
+            default_price: 0,
+            billing_type: 'fixed'
+        };
 
         try {
-            if (item) {
-                // Update
-                if (item.id) {
-                    await dataProvider.updateTemplateItem(item.id, {
-                        name,
-                        category,
-                        default_price: numericPrice,
-                        billing_type: type
-                    });
-                }
+            if (item && item.id) {
+                await dataProvider.updateTemplateItem(item.id, payload);
             } else {
-                // Create
-                await dataProvider.addTemplateItem(templateId, {
-                    name,
-                    category,
-                    price: numericPrice,
-                    type
-                });
+                await dataProvider.addTemplateItem(templateId, payload);
             }
             onSave();
             onClose();
@@ -87,15 +123,98 @@ const ItemEditorModal: React.FC<ItemEditorProps> = ({ templateId, item, isOpen, 
 
     if (!isOpen) return null;
 
+    const renderServiceConfig = (
+        label: string,
+        active: boolean,
+        setActive: (v: boolean) => void,
+        type: 'hora' | 'fixo' | null, // null if no type selector (Troca might not have type? User said ALL have columns)
+        setType: ((v: 'hora' | 'fixo') => void) | null,
+        value: string,
+        setValue: (v: string) => void
+    ) => (
+        <div className={`p-4 rounded-xl border-2 transition-all ${active ? 'bg-white border-green-500 shadow-md' : 'bg-slate-50 border-slate-100 opacity-80'}`}>
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setActive(!active)}
+                        className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${active ? 'bg-green-500 border-green-500 text-white' : 'bg-slate-200 border-slate-300 text-transparent'}`}
+                    >
+                        <Check size={14} strokeWidth={4} />
+                    </button>
+                    <span className="font-black uppercase text-xs text-slate-700">{label}</span>
+                </div>
+                {active && type && setType && (
+                    <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                        <button onClick={() => setType('fixo')} className={`px-2 py-1 rounded-md text-[9px] font-black uppercase ${type === 'fixo' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400'}`}>Fixo</button>
+                        <button onClick={() => setType('hora')} className={`px-2 py-1 rounded-md text-[9px] font-black uppercase ${type === 'hora' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Hora</button>
+                    </div>
+                )}
+            </div>
+
+            {active && (
+                <div className="pl-9">
+                    {/* TROCA SPECIAL CASE: Usually just value? User said: "Se... Hora... Campo de valor desabilitado".
+                        Implicitly, Troca might behave same way. If 'type' is supported.
+                        If type is 'hora', value is disabled/hidden.
+                    */}
+                    {(!type || type === 'fixo') ? (
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-bold uppercase text-slate-400">Valor (R$)</label>
+                            <input
+                                type="number"
+                                inputMode="decimal"
+                                value={value}
+                                onChange={e => setValue(e.target.value)}
+                                className="w-full bg-slate-50 border-2 border-slate-200 rounded-lg px-3 py-2 font-black text-slate-800 focus:border-green-500 outline-none text-sm"
+                            />
+                        </div>
+                    ) : (
+                        <div className="px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-blue-600 font-bold uppercase flex items-center gap-2">
+                            <AlertTriangle size={12} />
+                            Usa Valor Global (Hora)
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+
+    // Note: For TROCA, the user said "independentemente das colunas troca...". So Troca should support Hora/Fixo too?
+    // DB schema has `troca_valor` but no `troca_tipo_cobranca`?
+    // Let's check INSPECTIONTEMPLATEITEM interface in types.ts
+    // 196:   troca_ativo?: boolean;
+    // 197:   troca_valor?: number;
+    // Missing `troca_tipo_cobranca`.
+    // However, user Requirement says: "Isso deve valer independentemente para as colunas troca, chap e pintura."
+    // If DB doesn't support `troca_tipo_cobranca`, I can't save it.
+    // I will Assume Troca is FIXED VALUE logic for now, OR I should add support. 
+    // Given the prompt "O banco de dados foi atualizado: Itens de Lataria agora são cobrados por 'HORA'...", 
+    // maybe Troca implies a generic labor? 
+    // But if I have no field, I can't persist 'Hora' for Troca.
+    // I will Implement Troca as FIXED only (value input always enabled) UNLESS I see `troca_type` in types.
+    // I confirmed types.ts previously. `troca_ativo` and `troca_valor`. No `troca_type`.
+    // BUT the user instruction is very specific: "Se o usuário selecionar Tipo de Cobrança = 'HORA'... vale independentemente para as colunas troca..."
+    // This implies `troca` SHOULD have it. Maybe I missed it or it's implied?
+    // Or maybe "Troca" IS a "Lataria" item? No, Troca is a service type.
+    // I will implement Troca as 'Fixo' (value input enabled). 
+    // If the user insists on Troca being Hourly, they need a DB field.
+    // Wait, let's look at `types.ts` again.
+    // 188: chap_tipo_cobranca
+    // 193: pintura_tipo_cobranca
+    // Troca is missing.
+    // I will stick to what exists. Troca likely stays as Value.
+    // BUT I will modify the UI for Troca to look consistent, maybe just without the selector.
+
     return (
         <div className="fixed inset-0 z-[200] bg-black/50 flex items-end sm:items-center justify-center animate-in fade-in duration-200">
-            <div className="bg-white w-full sm:w-[400px] sm:rounded-3xl rounded-t-[2rem] p-6 space-y-6 animate-in slide-in-from-bottom-10 duration-300">
+            <div className="bg-white w-full sm:w-[500px] sm:rounded-3xl rounded-t-[2rem] p-6 space-y-6 animate-in slide-in-from-bottom-10 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center">
                     <h3 className="text-lg font-black uppercase text-slate-800">{item ? 'Editar Item' : 'Novo Item'}</h3>
                     <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-500"><X size={20} /></button>
                 </div>
 
                 <div className="space-y-4">
+                    {/* NAME & CATEGORY */}
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Nome do Item</label>
                         <div className="relative">
@@ -126,23 +245,18 @@ const ItemEditorModal: React.FC<ItemEditorProps> = ({ templateId, item, isOpen, 
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Valor Base (R$)</label>
-                            <input
-                                type="number"
-                                inputMode="decimal"
-                                value={price}
-                                onChange={e => setPrice(e.target.value)}
-                                className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 font-black text-slate-800 focus:border-green-500 outline-none"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Cobrança</label>
-                            <div className="flex bg-slate-100 p-1 rounded-xl">
-                                <button onClick={() => setType('fixed')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${type === 'fixed' ? 'bg-white text-green-600 shadow-sm' : 'text-slate-400'}`}>Fixo</button>
-                                <button onClick={() => setType('hour')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${type === 'hour' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>Hora</button>
-                            </div>
+                    {/* SERVICES CONFIG */}
+                    <div className="space-y-1 pt-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 ml-1">Serviços Disponíveis para este Item</label>
+                        <div className="space-y-3">
+                            {/* Troca - No type selector because no DB support yet, assumes value input */}
+                            {renderServiceConfig('Troca', trocaAtivo, setTrocaAtivo, null, null, trocaValor, setTrocaValor)}
+
+                            {/* Chapeação */}
+                            {renderServiceConfig('Chapeação', chapAtivo, setChapAtivo, chapTipo, setChapTipo, chapValor, setChapValor)}
+
+                            {/* Pintura */}
+                            {renderServiceConfig('Pintura', pinturaAtivo, setPinturaAtivo, pinturaTipo, setPinturaTipo, pinturaValor, setPinturaValor)}
                         </div>
                     </div>
                 </div>
@@ -153,7 +267,7 @@ const ItemEditorModal: React.FC<ItemEditorProps> = ({ templateId, item, isOpen, 
                         disabled={isSaving}
                         className="w-full py-4 bg-green-600 text-white rounded-2xl font-black uppercase text-sm shadow-xl hover:bg-green-700 active:scale-95 transition-all disabled:opacity-50"
                     >
-                        {isSaving ? 'Salvando...' : 'Salvar Item'}
+                        {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                     </button>
                 </div>
             </div>
@@ -308,6 +422,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ template, onBack, onUpd
                 onSave={onUpdate}
                 templateId={template.id}
                 item={editingItem?.item}
+                initialCategory={editingItem?.category}
             />
         </div>
     );

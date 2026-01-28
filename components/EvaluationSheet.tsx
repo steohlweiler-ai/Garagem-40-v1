@@ -319,7 +319,7 @@ const EvaluationSheet: React.FC<EvaluationSheetProps> = ({ service, onClose }) =
                       <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-100 space-y-6 mx-2 animate-in slide-in-from-top-2">
                         <div className="flex gap-3 flex-wrap">
                           {item.subitems?.map(st => (
-                            <button key={st} onClick={() => handleToggleType(item.label, st)} className={`px-4 py-2 rounded-xl border-2 text-[9px] font-black uppercase transition-all ${detail?.selectedTypes.includes(st.toLowerCase()) ? 'bg-green-600 border-green-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}>{st}</button>
+                            <button key={st} onClick={() => handleToggleType(item.label, st)} className={`px-4 py-2 rounded-xl border-2 text-[9px] font-black uppercase transition-all ${detail?.selectedTypes.includes(st.toLowerCase()) ? 'bg-green-600 border-green-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}>{st.split('(')[0].trim()}</button>
                           ))}
                         </div>
                         <div className="space-y-1"><label className="text-[9px] font-black uppercase text-slate-400 ml-1">Relato Cliente</label><VoiceInput value={detail?.relato || ''} onTranscript={(v) => updateItemDetail(item.label, { relato: v })} placeholder="Diga as observações..." className="!bg-white !rounded-2xl" /></div>

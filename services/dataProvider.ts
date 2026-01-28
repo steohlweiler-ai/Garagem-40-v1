@@ -228,13 +228,13 @@ class DataProvider {
         return true;
     }
 
-    async addTemplateItem(templateId: string, item: { name: string, category: string, price: number, type: 'fixed' | 'hour' }) {
+    async addTemplateItem(templateId: string, item: Partial<import('../types').InspectionTemplateItem>) {
         if (this.useSupabase) return await supabaseDB.addTemplateItem(templateId, item);
         console.warn('Mock addTemplateItem not implemented');
         return true;
     }
 
-    async updateTemplateItem(id: string, updates: { name?: string, category?: string, default_price?: number, billing_type?: 'fixed' | 'hour' }) {
+    async updateTemplateItem(id: string, updates: Partial<import('../types').InspectionTemplateItem>) {
         if (this.useSupabase) return await supabaseDB.updateTemplateItem(id, updates);
         console.warn('Mock updateTemplateItem not implemented');
         return true;

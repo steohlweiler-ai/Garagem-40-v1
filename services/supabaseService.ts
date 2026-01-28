@@ -327,25 +327,64 @@ class SupabaseService {
         return !error;
     }
 
-    async addTemplateItem(templateId: string, item: { name: string, category: string, price: number, type: 'fixed' | 'hour' }): Promise<boolean> {
-        const { error } = await supabase.from('template_items').insert({
+    async addTemplateItem(templateId: string, item: Partial<EvaluationTemplate | any>): Promise<boolean> {
+        // Mapping from InspectionTemplateItem (frontend) to DB columns
+        const payload: any = {
             template_id: templateId,
-            name: item.name,
+            organization_id: 'org-default',
+            name: item.label || item.name,
             category: item.category,
-            default_price: item.price,
-            billing_type: item.type,
-            organization_id: 'org-default'
-        });
+            default_price: item.default_price || item.price || 0,
+            billing_type: (item.default_charge_type === 'Hora' || item.type === 'hour') ? 'hour' : 'fixed',
+
+            // New Granular Fields
+            chap_ativo: item.chap_ativo,
+            chap_tipo_cobranca: item.chap_tipo_cobranca,
+            chap_padrao: item.chap_padrao,
+
+            pintura_ativo: item.pintura_ativo,
+            pintura_tipo_cobranca: item.pintura_tipo_cobranca,
+            pintura_padrao: item.pintura_padrao,
+
+            troca_ativo: item.troca_ativo,
+            troca_valor: item.troca_valor
+        };
+
+        const { error } = await supabase.from('template_items').insert(payload);
         return !error;
     }
 
-    async updateTemplateItem(id: string, updates: { name?: string, category?: string, default_price?: number, billing_type?: 'fixed' | 'hour' }): Promise<boolean> {
-        const { error } = await supabase.from('template_items').update(updates).eq('id', id);
-        return !error;
-    }
+    async updateTemplateItem(id: string, updates: Partial<EvaluationTemplate | any>): Promise<boolean> {
+        const payload: any = { updated_at: new Date().toISOString() };
 
-    async deleteTemplateItem(id: string): Promise<boolean> {
-        const { error } = await supabase.from('template_items').delete().eq('id', id);
+        if (updates.label !== undefined) payload.name = updates.label;
+        if (updates.name !== undefined) payload.name = updates.name; // Fallback
+
+        if (updates.category !== undefined) payload.category = updates.category;
+
+        if (updates.default_price !== undefined) payload.default_price = updates.default_price;
+        if (updates.price !== undefined) payload.default_price = updates.price; // Fallback
+
+        if (updates.default_charge_type !== undefined) {
+            payload.billing_type = updates.default_charge_type === 'Hora' ? 'hour' : 'fixed';
+        }
+        if (updates.type !== undefined) { // Fallback
+            payload.billing_type = updates.type === 'hour' ? 'hour' : 'fixed';
+        }
+
+        // Expanded fields
+        if (updates.chap_ativo !== undefined) payload.chap_ativo = updates.chap_ativo;
+        if (updates.chap_tipo_cobranca !== undefined) payload.chap_tipo_cobranca = updates.chap_tipo_cobranca;
+        if (updates.chap_padrao !== undefined) payload.chap_padrao = updates.chap_padrao;
+
+        if (updates.pintura_ativo !== undefined) payload.pintura_ativo = updates.pintura_ativo;
+        if (updates.pintura_tipo_cobranca !== undefined) payload.pintura_tipo_cobranca = updates.pintura_tipo_cobranca;
+        if (updates.pintura_padrao !== undefined) payload.pintura_padrao = updates.pintura_padrao;
+
+        if (updates.troca_ativo !== undefined) payload.troca_ativo = updates.troca_ativo;
+        if (updates.troca_valor !== undefined) payload.troca_valor = updates.troca_valor;
+
+        const { error } = await supabase.from('template_items').update(payload).eq('id', id);
         return !error;
     }
 
