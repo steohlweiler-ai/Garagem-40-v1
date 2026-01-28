@@ -1008,31 +1008,61 @@ class SupabaseService {
 
 
     async updateWorkshopSettings(settings: Partial<WorkshopSettings>): Promise<boolean> {
-        // If we have an ID, we update that specific row.
-        // Otherwise we upsert based on organization_id (assuming single row per org)
-        const payload: any = {
-            organization_id: 'org-default',
-            ...settings
-        };
+        // Build payload with only the rate fields that we know exist
+        const payload: any = {};
 
-        // Remove 'id' from payload if it's there to avoid changing PK if not intended,
-        // although upsert usually handles it. But let's be safe.
-        // Actually, for .update() we need the ID in the filter, not necessarily body.
-
-        let query;
-
-        if (settings.id) {
-            query = supabase.from('configuracoes_oficina').update(payload).eq('id', settings.id);
-        } else {
-            // Fallback: try to match by organization_id if your schema constraint supports it
-            // OR just upsert hoping for only one row key.
-            // Given user feedback "single row design", we might want to ensure we don't create dupes.
-            query = supabase.from('configuracoes_oficina').upsert(payload);
+        if (settings.valor_hora_chapeacao !== undefined) {
+            payload.valor_hora_chapeacao = settings.valor_hora_chapeacao;
+        }
+        if (settings.valor_hora_pintura !== undefined) {
+            payload.valor_hora_pintura = settings.valor_hora_pintura;
+        }
+        if (settings.valor_hora_mecanica !== undefined) {
+            payload.valor_hora_mecanica = settings.valor_hora_mecanica;
+        }
+        if (settings.name !== undefined) {
+            payload.name = settings.name;
+        }
+        if (settings.address !== undefined) {
+            payload.address = settings.address;
+        }
+        if (settings.phone !== undefined) {
+            payload.phone = settings.phone;
+        }
+        if (settings.cnpj !== undefined) {
+            payload.cnpj = settings.cnpj;
         }
 
-        const { error } = await query;
-        return !error;
+        console.log('[updateWorkshopSettings] Settings ID:', settings.id);
+        console.log('[updateWorkshopSettings] Payload:', payload);
+
+        let query;
+        let error;
+
+        if (settings.id) {
+            const result = await supabase
+                .from('configuracoes_oficina')
+                .update(payload)
+                .eq('id', settings.id);
+            error = result.error;
+            console.log('[updateWorkshopSettings] Update result:', result);
+        } else {
+            // Fallback: update all rows (should be only one)
+            const result = await supabase
+                .from('configuracoes_oficina')
+                .update(payload)
+                .neq('id', '00000000-0000-0000-0000-000000000000'); // Match all rows
+            error = result.error;
+            console.log('[updateWorkshopSettings] Update all result:', result);
+        }
+
+        if (error) {
+            console.error('[updateWorkshopSettings] Error:', error);
+            return false;
+        }
+        return true;
     }
+
 
     async updateDelayCriteria(criteria: Partial<DelayCriteria>): Promise<boolean> {
         const { error } = await supabase.from('critérios_de_atraso').upsert({
