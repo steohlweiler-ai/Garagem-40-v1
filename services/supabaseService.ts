@@ -179,16 +179,51 @@ class SupabaseService {
             .limit(1)
             .single();
 
-        if (error || !data) return null;
+        if (data) {
+            return {
+                id: data.id,
+                name: data.name,
+                address: data.address,
+                phone: data.phone,
+                cnpj: data.cnpj,
+                valor_hora_chapeacao: data.valor_hora_chapeacao,
+                valor_hora_pintura: data.valor_hora_pintura,
+                valor_hora_mecanica: data.valor_hora_mecanica
+            };
+        }
+
+        // AUTO-CREATE if missing (to solve ID not found error)
+        console.warn("Settings row missing. Creating default row...");
+        const defaultSettings = {
+            name: 'Oficina Padrão',
+            address: '',
+            phone: '',
+            cnpj: '',
+            valor_hora_chapeacao: 50,
+            valor_hora_pintura: 50,
+            valor_hora_mecanica: 50
+        };
+
+        const { data: newData, error: createError } = await supabase
+            .from('configurações_de_oficina')
+            .insert(defaultSettings)
+            .select()
+            .single();
+
+        if (createError || !newData) {
+            console.error("Failed to auto-create settings:", createError);
+            return null;
+        }
+
         return {
-            id: data.id,
-            name: data.name,
-            address: data.address,
-            phone: data.phone,
-            cnpj: data.cnpj,
-            valor_hora_chapeacao: data.valor_hora_chapeacao,
-            valor_hora_pintura: data.valor_hora_pintura,
-            valor_hora_mecanica: data.valor_hora_mecanica
+            id: newData.id,
+            name: newData.name,
+            address: newData.address,
+            phone: newData.phone,
+            cnpj: newData.cnpj,
+            valor_hora_chapeacao: newData.valor_hora_chapeacao,
+            valor_hora_pintura: newData.valor_hora_pintura,
+            valor_hora_mecanica: newData.valor_hora_mecanica
         };
     }
 
