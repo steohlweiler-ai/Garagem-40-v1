@@ -174,7 +174,7 @@ class SupabaseService {
 
     async getWorkshopSettings(): Promise<WorkshopSettings | null> {
         const { data, error } = await supabase
-            .from('configurações_de_oficina')
+            .from('configuracoes_oficina')
             .select('id, name, address, phone, cnpj, valor_hora_chapeacao, valor_hora_pintura, valor_hora_mecanica')
             .limit(1)
             .single();
@@ -205,7 +205,7 @@ class SupabaseService {
         };
 
         const { data: newData, error: createError } = await supabase
-            .from('configurações_de_oficina')
+            .from('configuracoes_oficina')
             .insert(defaultSettings)
             .select()
             .single();
@@ -1022,12 +1022,12 @@ class SupabaseService {
         let query;
 
         if (settings.id) {
-            query = supabase.from('configurações_de_oficina').update(payload).eq('id', settings.id);
+            query = supabase.from('configuracoes_oficina').update(payload).eq('id', settings.id);
         } else {
             // Fallback: try to match by organization_id if your schema constraint supports it
             // OR just upsert hoping for only one row key.
             // Given user feedback "single row design", we might want to ensure we don't create dupes.
-            query = supabase.from('configurações_de_oficina').upsert(payload);
+            query = supabase.from('configuracoes_oficina').upsert(payload);
         }
 
         const { error } = await query;
