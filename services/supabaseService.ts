@@ -942,7 +942,10 @@ class SupabaseService {
             rate_per_hour: task.rate_per_hour || 120,
             fixed_value: task.fixed_value || 0,
             order: task.order || 0,
-            from_template_id: task.from_template_id || null
+            from_template_id: task.from_template_id || null,
+            relato: task.relato || null,
+            diagnostico: task.diagnostico || null,
+            media: task.media || null
         }).select().single();
 
         if (error) {
@@ -1139,6 +1142,7 @@ class SupabaseService {
             observation: t.observation,
             relato: t.relato,
             diagnostico: t.diagnostico,
+            media: t.media || [],
             started_at: t.started_at,
             ended_at: t.ended_at,
             duration_seconds: t.duration_seconds,
