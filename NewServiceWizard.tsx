@@ -6,7 +6,7 @@ import {
   Users, Briefcase, Phone, Mail, MessageSquare, Info, Smartphone, AlertTriangle, UserPlus, Hash
 } from 'lucide-react';
 import { dataProvider } from './services/dataProvider';
-import { ServiceJob, ServiceStatus, EvaluationTemplate, ItemMedia, Client, Vehicle, ChargeType, CatalogItem } from './types';
+import { ServiceJob, ServiceStatus, EvaluationTemplate, ItemMedia, Client, Vehicle, ChargeType, CatalogItem, WorkshopSettings, InspectionTemplateItem } from './types';
 import { blobToBase64, formatCurrency, generateUUID } from './utils/helpers';
 import VoiceInput from './components/VoiceInput';
 import Stepper from './components/Stepper';
@@ -62,6 +62,7 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [settings, setSettings] = useState<WorkshopSettings | null>(null);
 
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const modelSuggestions = useMemo(() => {
@@ -97,6 +98,9 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
 
       const cat = await dataProvider.getCatalog();
       setCatalog(cat);
+
+      const s = await dataProvider.getWorkshopSettings();
+      setSettings(s);
     };
     loadData();
 
@@ -219,6 +223,24 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
     });
   };
 
+
+
+  const calculatePrice = (type: string, item: InspectionTemplateItem) => {
+    if (!settings) return 0;
+    if (type === 'Troca') return item.troca_valor || 0;
+    if (type === 'Chap.') {
+      if (item.chap_tipo_cobranca === 'hora') return (item.chap_padrao || 0) * (settings.valor_hora_chapeacao || 0);
+      return item.chap_padrao || 0;
+    }
+    if (type === 'Pintura') {
+      if (item.pintura_tipo_cobranca === 'hora') return (item.pintura_padrao || 0) * (settings.valor_hora_pintura || 0);
+      return item.pintura_padrao || 0;
+    }
+    // Fallback for generic or old template structure
+    if (item.default_charge_type === 'Hora') return (item.default_rate_per_hour || 0) * (settings.valor_hora_mecanica || 120);
+    return item.default_fixed_value || 0;
+  };
+
   const handleNext = () => {
     if (step === 1 && isStep1Valid) {
       if (selectedVehicleId) setShowKmUpdateModal(true);
@@ -279,26 +301,49 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
     for (const [item, detail] of Object.entries(checklist) as [string, ItemDetail][]) {
       if (!detail.checked) continue;
 
-      const isTroca = detail.selectedTypes.includes('troca');
-      const hasChap = detail.selectedTypes.includes('chap.');
-      const hasPintura = detail.selectedTypes.includes('pintura');
-      const defaultChargeInfo = { charge_type: detail.defaultChargeType || 'Fixo', fixed_value: detail.defaultFixedValue || 0, rate_per_hour: detail.defaultRatePerHour || 120, from_template_id: activeTemplate?.id || null };
+      const isTroca = detail.selectedTypes.includes('troca') || detail.selectedTypes.includes('Troca'); // Case sensitive handling
+      const hasChap = detail.selectedTypes.includes('chap.') || detail.selectedTypes.includes('Chap.');
+      const hasPintura = detail.selectedTypes.includes('pintura') || detail.selectedTypes.includes('Pintura');
 
-      if (isTroca) {
-        await dataProvider.addTask(service.id, `Troca do ${item}`, { type: 'Troca', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, ...defaultChargeInfo } as any);
-      } else {
-        if (hasChap) await dataProvider.addTask(service.id, `${item} - Chapeação`, { type: 'Chap.', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, ...defaultChargeInfo } as any);
-        if (hasPintura) await dataProvider.addTask(service.id, `${item} - Pintura`, { type: 'Pintura', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, ...defaultChargeInfo } as any);
-
-        if (!hasChap && !hasPintura) {
-          await dataProvider.addTask(service.id, item, {
-            type: detail.selectedTypes.join(' + ') || 'Avaliação',
-            relato: detail.relato,
-            diagnostico: detail.diagnostico,
-            media: detail.media,
-            ...defaultChargeInfo
-          } as any);
+      // Find original item template for pricing
+      let itemTemplate: InspectionTemplateItem | undefined;
+      if (activeTemplate) {
+        for (const sect of activeTemplate.sections) {
+          const found = sect.items.find(i => i.label === item);
+          if (found) { itemTemplate = found; break; }
         }
+      }
+
+      if (isTroca && itemTemplate) {
+        const price = calculatePrice('Troca', itemTemplate);
+        await dataProvider.addTask(service.id, `Troca do ${item}`, { type: 'Troca', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, charge_type: 'Fixo', fixed_value: price, rate_per_hour: 0 } as any);
+      } else if (isTroca) {
+        // Fallback if template id lost
+        await dataProvider.addTask(service.id, `Troca do ${item}`, { type: 'Troca', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media } as any);
+      }
+
+      if (hasChap && itemTemplate) {
+        const price = calculatePrice('Chap.', itemTemplate);
+        const usedRate = itemTemplate.chap_tipo_cobranca === 'hora' ? settings?.valor_hora_chapeacao : 0;
+        await dataProvider.addTask(service.id, `${item} - Chapeação`, { type: 'Chap.', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, charge_type: 'Fixo', fixed_value: price, rate_per_hour: usedRate } as any);
+      }
+
+      if (hasPintura && itemTemplate) {
+        const price = calculatePrice('Pintura', itemTemplate);
+        const usedRate = itemTemplate.pintura_tipo_cobranca === 'hora' ? settings?.valor_hora_pintura : 0;
+        await dataProvider.addTask(service.id, `${item} - Pintura`, { type: 'Pintura', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, charge_type: 'Fixo', fixed_value: price, rate_per_hour: usedRate } as any);
+      }
+
+      if (!hasChap && !hasPintura && !isTroca) {
+        // Standard/Generic Item
+        const price = itemTemplate ? calculatePrice('General', itemTemplate) : 0;
+        await dataProvider.addTask(service.id, item, {
+          type: detail.selectedTypes.join(' + ') || 'Avaliação',
+          relato: detail.relato,
+          diagnostico: detail.diagnostico,
+          media: detail.media,
+          charge_type: 'Fixo', fixed_value: price
+        } as any);
       }
     }
 
@@ -495,7 +540,14 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
                               </div>
                               {isExpanded && (
                                 <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-100 space-y-5 mx-1 animate-in slide-in-from-top-2">
-                                  <div className="flex gap-2 flex-wrap">{item.subitems?.map(st => (<button key={st} onClick={() => handleToggleType(item.label, st)} className={`px-4 py-2 rounded-xl border-2 text-[9px] font-black uppercase transition-all ${detail.selectedTypes.includes(st) ? 'bg-green-600 border-green-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}>{st}</button>))}</div>
+                                  <div className="flex gap-2 flex-wrap">{item.subitems?.map(st => {
+                                    const price = calculatePrice(st, item);
+                                    return (
+                                      <button key={st} onClick={() => handleToggleType(item.label, st)} className={`px-4 py-2 rounded-xl border-2 text-[9px] font-black uppercase transition-all ${detail.selectedTypes.includes(st) ? 'bg-green-600 border-green-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-400'}`}>
+                                        {st} {price > 0 && <span className="opacity-80 ml-1">({formatCurrency(price)})</span>}
+                                      </button>
+                                    );
+                                  })}</div>
                                   <div className="space-y-2"><label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1">Relato</label><VoiceInput value={detail.relato} onTranscript={(v) => updateItemDetail(item.label, { relato: v })} placeholder="Relato do cliente..." className="!bg-white !rounded-2xl !min-h-[100px] !text-sm" /></div>
                                   <div className="space-y-2">
                                     <div className="flex justify-between items-center px-1"><label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Diagnóstico Técnico</label><label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={detail.autoDiagnostico} onChange={e => updateItemDetail(item.label, { autoDiagnostico: e.target.checked })} className="w-4 h-4 rounded border-slate-300" /><span className="text-[8px] font-black text-slate-400 uppercase">Preencher do Relato</span></label></div>

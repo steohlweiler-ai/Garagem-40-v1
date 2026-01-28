@@ -129,6 +129,9 @@ export interface WorkshopSettings {
   address: string;
   phone: string;
   cnpj: string;
+  valor_hora_chapeacao?: number;
+  valor_hora_pintura?: number;
+  valor_hora_mecanica?: number;
 }
 
 export interface DelayAuditLog {
@@ -180,6 +183,18 @@ export interface InspectionTemplateItem {
   price?: number; // Added for compatibility
   defaultPrice?: number; // Added for compatibility
   default_estimated_time?: number;
+
+  // New Granular Pricing Fields
+  chap_ativo?: boolean;
+  chap_tipo_cobranca?: 'hora' | 'fixo';
+  chap_padrao?: number;
+
+  pintura_ativo?: boolean;
+  pintura_tipo_cobranca?: 'hora' | 'fixo';
+  pintura_padrao?: number;
+
+  troca_ativo?: boolean;
+  troca_valor?: number;
 }
 
 export interface InspectionTemplateSection {

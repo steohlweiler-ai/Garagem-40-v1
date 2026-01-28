@@ -179,7 +179,10 @@ class SupabaseService {
             name: data.name,
             address: data.address,
             phone: data.phone,
-            cnpj: data.cnpj
+            cnpj: data.cnpj,
+            valor_hora_chapeacao: data.valor_hora_chapeacao,
+            valor_hora_pintura: data.valor_hora_pintura,
+            valor_hora_mecanica: data.valor_hora_mecanica
         };
     }
 
@@ -248,7 +251,11 @@ class SupabaseService {
                         key: i.id,
                         label: i.name,
                         allow_subitems: true,
-                        subitems: ['Troca', 'Chap.', 'Pintura'], // Preserving requested features
+                        subitems: [
+                            i.troca_ativo ? 'Troca' : null,
+                            i.chap_ativo ? 'Chap.' : null,
+                            i.pintura_ativo ? 'Pintura' : null
+                        ].filter(Boolean) as string[],
                         allow_notes: true,
                         allow_media: true,
                         is_active: true,
@@ -258,7 +265,17 @@ class SupabaseService {
                         default_fixed_value: i.billing_type === 'fixed' ? (Number(i.default_price) || 0) : 0,
                         default_price: Number(i.default_price) || 0,
                         price: Number(i.default_price) || 0,
-                        defaultPrice: Number(i.default_price) || 0
+                        defaultPrice: Number(i.default_price) || 0,
+
+                        // New granular mapping
+                        chap_ativo: i.chap_ativo,
+                        chap_tipo_cobranca: i.chap_tipo_cobranca,
+                        chap_padrao: Number(i.chap_padrao) || 0,
+                        pintura_ativo: i.pintura_ativo,
+                        pintura_tipo_cobranca: i.pintura_tipo_cobranca,
+                        pintura_padrao: Number(i.pintura_padrao) || 0,
+                        troca_ativo: i.troca_ativo,
+                        troca_valor: Number(i.troca_valor) || 0
                     }))
                 };
             });
