@@ -26,11 +26,14 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
         return val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
-    // Helper to parse pt-BR string to number
+    // Helper to parse pt-BR string to number with STRICT sanitization
     const parseValue = (val: string) => {
-        // Remove thousands separators (.), replace decimal separator (,) with (.)
-        const clean = val.replace(/\./g, '').replace(',', '.');
-        const num = parseFloat(clean);
+        if (!val) return 0;
+        // Remova "R$", espaços e pontos de milhar
+        const cleaned = val.replace(/R\$/g, '').replace(/\./g, '').replace(/\s/g, '');
+        // Substitua a vírgula decimal por ponto
+        const withDot = cleaned.replace(',', '.');
+        const num = parseFloat(withDot);
         return isNaN(num) ? 0 : num;
     };
 
@@ -39,6 +42,7 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
         const loadSettings = async () => {
             try {
                 const data = await dataProvider.getWorkshopSettings();
+                console.log("Loaded Settings:", data); // Debug load
                 setSettings(data);
                 if (data) {
                     setDisplayValues({
@@ -58,13 +62,7 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
     }, []);
 
     const handleChange = (field: 'chapeacao' | 'pintura' | 'mecanica', value: string) => {
-        // Allow user to type freely, just filter invalid chars mostly
-        // Logic: Allow numbers, dots and commas.
-        // We only update the display value here. We verify/parse on blur or implicitly
-
-        // Simple regex to allow currency-like typing
-        if (!/^[0-9.,]*$/.test(value)) return;
-
+        // Allow user to type freely, just filter invalid chars mostly, but allow partial entry
         setDisplayValues(prev => ({ ...prev, [field]: value }));
     };
 
@@ -84,30 +82,31 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
             [settingField]: numVal
         });
 
-        // Auto-save on blur? The user requested "Save on blur"? 
-        // "Opção A: Um Toast 'Salvo com sucesso' ao sair do campo (onBlur)." - implied auto-save or just feedback?
-        // Usually explicit save is safer, but let's trigger handleSave if value changed.
-        // To avoid excessive saves, we could check if it changed.
-
         if (settings[settingField] !== numVal) {
-            // We need to update settings state first which is async-ish, 
-            // but here we can just call save with the new value directly to be safe.
             saveSingleField(settingField, numVal);
         }
     };
 
     const saveSingleField = async (field: keyof WorkshopSettings, value: number) => {
-        if (!settings) return;
+        if (!settings || !settings.id) {
+            console.error("Critical: No Settings ID found!", settings);
+            setToast({ message: "Erro: ID não encontrado.", type: 'error' });
+            return;
+        }
+
         setIsSaving(true);
+        const payload = {
+            id: settings.id,
+            [field]: value
+        };
+        console.log('Sending Single Field Payload:', payload);
+
         try {
-            await dataProvider.updateWorkshopSettings({
-                id: settings.id, // CRITICAL: Pass the ID
-                [field]: value
-            });
+            await dataProvider.updateWorkshopSettings(payload);
             setToast({ message: "Salvo!", type: 'success' });
             setTimeout(() => setToast(null), 2000);
         } catch (error) {
-            console.error("Failed to save:", error);
+            console.error("Supabase Error (Single Field):", error);
             setToast({ message: "Erro ao salvar.", type: 'error' });
         } finally {
             setIsSaving(false);
@@ -115,24 +114,33 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
     }
 
     const handleSave = async () => {
-        if (!settings) return;
-        setIsSaving(true);
-        try {
-            // Update all from current display values to be sure
-            const chapeacao = parseValue(displayValues.chapeacao);
-            const pintura = parseValue(displayValues.pintura);
-            const mecanica = parseValue(displayValues.mecanica);
+        if (!settings || !settings.id) {
+            console.error("Critical: No Settings ID found!", settings);
+            setToast({ message: "Erro: ID não encontrado.", type: 'error' });
+            return;
+        }
 
-            await dataProvider.updateWorkshopSettings({
-                id: settings.id,
-                valor_hora_chapeacao: chapeacao,
-                valor_hora_pintura: pintura,
-                valor_hora_mecanica: mecanica
-            });
+        setIsSaving(true);
+
+        const chapeacao = parseValue(displayValues.chapeacao);
+        const pintura = parseValue(displayValues.pintura);
+        const mecanica = parseValue(displayValues.mecanica);
+
+        const payload = {
+            id: settings.id,
+            valor_hora_chapeacao: chapeacao,
+            valor_hora_pintura: pintura,
+            valor_hora_mecanica: mecanica
+        };
+
+        console.log('Payload enviado:', payload);
+
+        try {
+            await dataProvider.updateWorkshopSettings(payload);
             setToast({ message: "Valores atualizados com sucesso!", type: 'success' });
             setTimeout(() => setToast(null), 3000);
         } catch (error) {
-            console.error("Failed to save settings:", error);
+            console.error("Erro Supabase:", error);
             setToast({ message: "Erro ao salvar alterações.", type: 'error' });
         } finally {
             setIsSaving(false);
