@@ -324,25 +324,29 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
 
       if (hasChap && itemTemplate) {
         const price = calculatePrice('Chap.', itemTemplate);
-        const usedRate = itemTemplate.chap_tipo_cobranca === 'hora' ? settings?.valor_hora_chapeacao : 0;
-        await dataProvider.addTask(service.id, `${item} - Chapeação`, { type: 'Chap.', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, charge_type: 'Fixo', fixed_value: price, rate_per_hour: usedRate } as any);
+        const isHourly = itemTemplate.chap_tipo_cobranca === 'hora';
+        const usedRate = isHourly ? settings?.valor_hora_chapeacao : 0;
+        await dataProvider.addTask(service.id, `${item} - Chapeação`, { type: 'Chap.', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, charge_type: isHourly ? 'Hora' : 'Fixo', fixed_value: price, rate_per_hour: usedRate } as any);
       }
 
       if (hasPintura && itemTemplate) {
         const price = calculatePrice('Pintura', itemTemplate);
-        const usedRate = itemTemplate.pintura_tipo_cobranca === 'hora' ? settings?.valor_hora_pintura : 0;
-        await dataProvider.addTask(service.id, `${item} - Pintura`, { type: 'Pintura', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, charge_type: 'Fixo', fixed_value: price, rate_per_hour: usedRate } as any);
+        const isHourly = itemTemplate.pintura_tipo_cobranca === 'hora';
+        const usedRate = isHourly ? settings?.valor_hora_pintura : 0;
+        await dataProvider.addTask(service.id, `${item} - Pintura`, { type: 'Pintura', relato: detail.relato, diagnostico: detail.diagnostico, media: detail.media, charge_type: isHourly ? 'Hora' : 'Fixo', fixed_value: price, rate_per_hour: usedRate } as any);
       }
 
       if (!hasChap && !hasPintura && !isTroca) {
-        // Standard/Generic Item
+        // Standard/Generic Item - respects template default_charge_type
         const price = itemTemplate ? calculatePrice('General', itemTemplate) : 0;
         await dataProvider.addTask(service.id, item, {
           type: detail.selectedTypes.join(' + ') || 'Avaliação',
           relato: detail.relato,
           diagnostico: detail.diagnostico,
           media: detail.media,
-          charge_type: 'Fixo', fixed_value: price
+          charge_type: detail.defaultChargeType || 'Fixo',
+          fixed_value: price,
+          rate_per_hour: detail.defaultRatePerHour || 0
         } as any);
       }
     }
