@@ -30,6 +30,7 @@ import InvoiceHistory from './components/InvoiceHistory';
 import StockByVehicle from './components/StockByVehicle';
 import StockDashboardMini from './components/StockDashboardMini';
 import TemplateManager from './components/TemplateManagement';
+import RatesSettings from './components/RatesSettings';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -371,6 +372,7 @@ const App: React.FC = () => {
       { id: 'profile', label: 'Meu Perfil', desc: 'Dados da conta', icon: <User size={20} /> },
       { id: 'stock', label: 'Estoque', desc: 'Peças e notas', icon: <Package size={20} /> },
       { id: 'templates', label: 'Fichas', desc: 'Modelos de inspeção', icon: <FileCode size={20} /> },
+      { id: 'rates', label: 'Mão de Obra', desc: 'Valores por hora', icon: <DollarSign size={20} /> },
       { id: 'statuses', label: 'Status', desc: 'Etapas do fluxo', icon: <Tag size={20} /> },
       { id: 'catalog', label: 'Veículos', desc: 'Marcas e modelos', icon: <Briefcase size={20} /> },
       { id: 'colors', label: 'Cores', desc: 'Paleta do sistema', icon: <Palette size={20} /> },
@@ -669,6 +671,7 @@ const App: React.FC = () => {
                   {settingsTab === 'users' && <UserManagement />}
                   {settingsTab === 'delay' && <DelaySettings user={user} />}
                   {settingsTab === 'workshop' && <WorkshopSettingsComp />}
+                  {settingsTab === 'rates' && <RatesSettings onClose={() => setSettingsTab('hub')} />}
                   {settingsTab === 'status' && (
                     <div className="bg-white p-6 rounded-[2rem] border-2 border-slate-100 space-y-4">
                       <h2 className="text-xl font-bold uppercase">Diagnóstico de Conexão</h2>
