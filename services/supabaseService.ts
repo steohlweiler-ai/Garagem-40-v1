@@ -504,10 +504,10 @@ class SupabaseService {
         return data.map(u => ({
             id: u.id,
             organization_id: u.organization_id || 'org-default',
-            name: u.name,
+            name: u.nome || u.name || 'Usuário',
             email: u.email,
             phone: u.phone || '',
-            role: u.role as any,
+            role: (u.papel || u.role || 'operador') as any,
             active: u.active ?? true,
             permissions: u.permissions || {},
             created_at: u.created_at || new Date().toISOString()
@@ -543,10 +543,10 @@ class SupabaseService {
         return {
             id: data.id,
             organization_id: data.organization_id || 'org-default',
-            name: data.name,
+            name: data.nome || data.name || 'Usuário',
             email: data.email,
             phone: data.phone || '',
-            role: data.role as any,
+            role: (data.papel || data.role || 'operador') as any,
             active: data.active ?? true,
             permissions: data.permissions || {},
             created_at: data.created_at || new Date().toISOString()

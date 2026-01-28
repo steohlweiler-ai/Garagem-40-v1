@@ -31,11 +31,11 @@ export const profileService = {
         return {
             id: data.id,
             organization_id: data.organization_id || 'org-default',
-            name: data.name,
+            name: data.nome || data.name || 'Usuário',
             email: data.email,
             phone: data.phone || '',
             // Map 'papel' from DB to 'role' in App
-            role: (data.papel || data.role || 'admin') as any,
+            role: (data.papel || 'admin') as any,
             active: data.active ?? true,
             permissions: data.permissions || {},
             created_at: data.created_at
@@ -105,10 +105,10 @@ export const profileService = {
         return {
             id: data.id,
             organization_id: data.organization_id,
-            name: data.name,
+            name: data.nome || data.name || 'Usuário',
             email: data.email,
             phone: data.phone || '',
-            role: (data.papel || data.role || 'admin') as any,
+            role: (data.papel || 'admin') as any,
             active: data.active,
             permissions: data.permissions || {},
             created_at: data.created_at
