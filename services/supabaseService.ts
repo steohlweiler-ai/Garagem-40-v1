@@ -834,9 +834,30 @@ class SupabaseService {
     }
 
     async addAppointment(a: Partial<Appointment>): Promise<Appointment | null> {
+        // Remove custom ID if present (Supabase auto-generates UUIDs)
+        const { id, ...appointmentData } = a;
+
+        // If this is a service_delivery appointment, use upsert based on service_id
+        if (a.type === 'service_delivery' && a.service_id) {
+            const { data, error } = await supabase.from('agendamentos')
+                .upsert({
+                    organization_id: 'org-default',
+                    ...appointmentData
+                }, { onConflict: 'service_id' })
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Supabase Error (addAppointment upsert):', error);
+                return null;
+            }
+            return data;
+        }
+
+        // Regular appointment insert
         const { data, error } = await supabase.from('agendamentos').insert({
             organization_id: 'org-default',
-            ...a
+            ...appointmentData
         }).select().single();
 
         if (error) {

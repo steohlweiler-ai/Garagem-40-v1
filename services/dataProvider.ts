@@ -446,9 +446,9 @@ class DataProvider {
     // ===================== SYNC HELPERS =====================
 
     private async syncDeliveryAppointment(service: ServiceJob) {
-        // 1. Check if appointment already exists (derived-{serviceId})
+        // 1. Check if appointment already exists by service_id
         const allApps = await this.getAppointments();
-        const existingApp = allApps.find(a => a.id === `derived-${service.id}` || a.service_id === service.id);
+        const existingApp = allApps.find(a => a.service_id === service.id);
 
         // 2. If Service has no delivery date (cleared), remove appointment
         if (!service.estimated_delivery) {
@@ -470,7 +470,6 @@ class DataProvider {
         }
 
         const appData: Partial<Appointment> = {
-            id: `derived-${service.id}`,
             service_id: service.id,
             title: `Entrega: ${plate}`,
             description: `Entrega prevista da OS`,
@@ -482,28 +481,8 @@ class DataProvider {
             notify_before_minutes: 60
         };
 
-        // 4. Update or Create
-        if (existingApp) {
-            // Only update if changed
-            if (existingApp.date !== dateStr || existingApp.time !== timeStr || existingApp.vehicle_plate !== plate) {
-                // We only update if it is a 'system' appointment (type service_delivery) to avoid overwriting user edits?
-                // Requirement says "Always reflect", so we overwrite.
-                // We can't use `updateAppointment` because it's not exposed properly in DataProvider interface yet, 
-                // but `addAppointment` in mock behaves like upsert if we implement it, 
-                // OR we verify if `addAppointment` supports upsert.
-                // MockDB addAppointment pushes. We should delete and recreate or implement updateAppointment.
-                // Actually we don't have updateAppointment exposed publically in the interface above line 223.
-                // Let's assume we can delete and re-add for now to be safe and simple, 
-                // UNLESS we want to add `updateAppointment` method.
-                // Checking interface... `addAppointment` returns Appointment.
-
-                // Let's trust `addAppointment` to handle ID collision OR just delete old first.
-                await this.deleteAppointment(existingApp.id);
-                await this.addAppointment(appData);
-            }
-        } else {
-            await this.addAppointment(appData);
-        }
+        // 4. Use addAppointment which handles upsert for service_delivery type
+        await this.addAppointment(appData);
     }
 
 
