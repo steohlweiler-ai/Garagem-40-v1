@@ -43,21 +43,17 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
         // Busca o perfil no Supabase
         const profile = await profileService.getProfileByUserId(user.id);
+        console.log('Profile loaded:', profile);
 
         if (profile) {
-          // CORREÇÃO AQUI: Mapeamos 'papel' (do banco) para 'role' (do app)
-          onLogin({
-            ...profile,
-            role: profile.papel // O App espera 'role'
-          });
+          onLogin(profile);
         } else {
           // Fallback: Se não existir perfil, tenta criar
           const newProfile = await profileService.ensureUserProfile(user);
+          console.log('New Profile created:', newProfile);
+
           if (newProfile) {
-            onLogin({
-              ...newProfile,
-              role: newProfile.papel // Mapeamento também no fallback
-            });
+            onLogin(newProfile);
           } else {
             throw new Error('Perfil de usuário não encontrado.');
           }
@@ -78,11 +74,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         // Cria o perfil imediatamente
         const profile = await profileService.ensureUserProfile(user, { name: generatedName });
         if (profile) {
-          // CORREÇÃO AQUI TAMBÉM
-          onLogin({
-            ...profile,
-            role: profile.papel
-          });
+          console.log('Registered Profile:', profile);
+          onLogin(profile);
         } else {
           throw new Error('Conta criada, mas erro ao gerar perfil.');
         }
