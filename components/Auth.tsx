@@ -24,10 +24,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     // @ts-ignore
     const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
     if (USE_MOCK) {
-      // Mock Behavior
       setTimeout(() => {
         const generatedName = 'Oficina de ' + email.split('@')[0];
-        onLogin({ email, name: mode === 'register' ? generatedName : 'Usuário Mock', role: 'admin' }); // Mock admin
+        // Note que no Mock você usava 'role', confirmando que o App espera isso
+        onLogin({ email, name: mode === 'register' ? generatedName : 'Usuário Mock', role: 'admin' });
         setLoading(false);
       }, 500);
       return;
@@ -35,26 +35,36 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
     try {
       if (mode === 'login') {
-        // LOGIN FLOW
+        // --- FLUXO DE LOGIN ---
         const { user, error: authError } = await authService.signInWithPassword(email, password);
 
         if (authError) throw authError;
         if (!user) throw new Error('Erro ao autenticar');
 
-        // Fetch Profile
+        // Busca o perfil no Supabase
         const profile = await profileService.getProfileByUserId(user.id);
 
         if (profile) {
-          onLogin(profile);
+          // CORREÇÃO AQUI: Mapeamos 'papel' (do banco) para 'role' (do app)
+          onLogin({
+            ...profile,
+            role: profile.papel // O App espera 'role'
+          });
         } else {
-          // If no profile exists (edge case), try to create one or error out
+          // Fallback: Se não existir perfil, tenta criar
           const newProfile = await profileService.ensureUserProfile(user);
-          if (newProfile) onLogin(newProfile);
-          else throw new Error('Perfil de usuário não encontrado.');
+          if (newProfile) {
+            onLogin({
+              ...newProfile,
+              role: newProfile.papel // Mapeamento também no fallback
+            });
+          } else {
+            throw new Error('Perfil de usuário não encontrado.');
+          }
         }
 
       } else {
-        // REGISTER FLOW
+        // --- FLUXO DE CADASTRO ---
         if (password !== confirmPassword) {
           throw new Error('As senhas não conferem.');
         }
@@ -65,10 +75,14 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         if (signUpError) throw signUpError;
         if (!user) throw new Error('Erro ao criar conta');
 
-        // Create Profile immediately
+        // Cria o perfil imediatamente
         const profile = await profileService.ensureUserProfile(user, { name: generatedName });
         if (profile) {
-          onLogin(profile);
+          // CORREÇÃO AQUI TAMBÉM
+          onLogin({
+            ...profile,
+            role: profile.papel
+          });
         } else {
           throw new Error('Conta criada, mas erro ao gerar perfil.');
         }
