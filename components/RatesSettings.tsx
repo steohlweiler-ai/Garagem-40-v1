@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DollarSign, Save, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { WorkshopSettings } from '../types';
@@ -36,6 +36,13 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
         const withDot = cleaned.replace(',', '.');
         const num = parseFloat(withDot);
         return isNaN(num) ? 0 : num;
+    };
+
+    // Refs for focus management
+    const inputRefs = {
+        chapeacao: useRef<HTMLInputElement>(null),
+        pintura: useRef<HTMLInputElement>(null),
+        mecanica: useRef<HTMLInputElement>(null)
     };
 
     // Load initial settings
@@ -94,6 +101,20 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
         } else {
             // User cancelled saving, so discard changes and exit
             onClose();
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, key: 'chapeacao' | 'pintura' | 'mecanica') => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (key === 'chapeacao') {
+                inputRefs.pintura.current?.focus();
+            } else if (key === 'pintura') {
+                inputRefs.mecanica.current?.focus();
+            } else if (key === 'mecanica') {
+                inputRefs.mecanica.current?.blur(); // Remove mobile keyboard
+                handleSave();
+            }
         }
     };
 
@@ -242,13 +263,16 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
                             <div className="relative w-full max-w-[180px]">
                                 <div className="absolute left-0 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl select-none">R$</div>
                                 <input
+                                    ref={inputRefs[card.key]}
                                     type="text"
                                     inputMode="decimal"
                                     value={displayValues[card.key]}
                                     onChange={(e) => handleChange(card.key, e.target.value)}
+                                    onKeyDown={(e) => handleKeyDown(e, card.key)}
                                     // Removed auto-save on blur, now only formatting
                                     onBlur={() => handleBlur(card.key)}
                                     onFocus={(e) => e.target.select()}
+                                    enterKeyHint={card.key === 'mecanica' ? 'done' : 'next'}
                                     className={`w-full bg-transparent text-center text-4xl font-black text-slate-800 outline-none border-b-2 border-slate-200 py-2 pl-8 pr-8 transition-all ${card.borderColor} focus:border-opacity-100 placeholder-slate-200`}
                                     placeholder="0,00"
                                 />
