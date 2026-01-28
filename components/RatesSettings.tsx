@@ -98,9 +98,29 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
     };
 
     const handleSave = async (): Promise<boolean> => {
-        if (!settings || !settings.id) {
-            console.error("Critical: No Settings ID found!", settings);
-            setToast({ message: "Erro: ID não encontrado.", type: 'error' });
+        let currentId = settings?.id;
+
+        console.log('Tentando salvar com ID:', currentId);
+
+        // Hardened Logic: If ID is missing, try to find it one last time
+        if (!currentId) {
+            console.warn("ID missing on save. Attempting re-fetch...");
+            try {
+                const refreshed = await dataProvider.getWorkshopSettings();
+                if (refreshed && refreshed.id) {
+                    currentId = refreshed.id;
+                    setSettings(prev => prev ? { ...prev, id: refreshed.id } : refreshed);
+                    console.log("ID recovered via re-fetch:", currentId);
+                }
+            } catch (e) {
+                console.error("Failed to recover ID:", e);
+            }
+        }
+
+        // Final check
+        if (!currentId) {
+            console.error("Critical: Aborting save. ID completely missing.");
+            setToast({ message: "Erro crítico: ID não encontrado.", type: 'error' });
             return false;
         }
 
@@ -111,7 +131,7 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
         const mecanica = parseValue(displayValues.mecanica);
 
         const payload = {
-            id: settings.id,
+            id: currentId,
             valor_hora_chapeacao: chapeacao,
             valor_hora_pintura: pintura,
             valor_hora_mecanica: mecanica
@@ -121,12 +141,11 @@ const RatesSettings: React.FC<RatesSettingsProps> = ({ onClose }) => {
 
         try {
             const success = await dataProvider.updateWorkshopSettings(payload);
-            if (!success) throw new Error("Update returned false"); // DataProvider sometimes returns boolean
+            if (!success) throw new Error("Update returned false");
 
             setToast({ message: "Salvo com sucesso!", type: 'success' });
             setHasChanges(false);
 
-            // "Salvar e Sair" behavior
             setTimeout(() => {
                 onClose();
             }, 500);

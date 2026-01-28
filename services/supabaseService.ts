@@ -176,6 +176,7 @@ class SupabaseService {
         const { data, error } = await supabase
             .from('configurações_de_oficina')
             .select('id, name, address, phone, cnpj, valor_hora_chapeacao, valor_hora_pintura, valor_hora_mecanica')
+            .limit(1)
             .single();
 
         if (error || !data) return null;
