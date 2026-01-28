@@ -176,6 +176,7 @@ class SupabaseService {
         const { data, error } = await supabase.from('configurações_de_oficina').select('*').single();
         if (error || !data) return null;
         return {
+            id: data.id,
             name: data.name,
             address: data.address,
             phone: data.phone,
@@ -964,11 +965,32 @@ class SupabaseService {
 
     // ===================== SETTINGS & TEMPLATES = : =====================
 
+
+
     async updateWorkshopSettings(settings: Partial<WorkshopSettings>): Promise<boolean> {
-        const { error } = await supabase.from('configurações_de_oficina').upsert({
+        // If we have an ID, we update that specific row.
+        // Otherwise we upsert based on organization_id (assuming single row per org)
+        const payload: any = {
             organization_id: 'org-default',
             ...settings
-        });
+        };
+
+        // Remove 'id' from payload if it's there to avoid changing PK if not intended,
+        // although upsert usually handles it. But let's be safe.
+        // Actually, for .update() we need the ID in the filter, not necessarily body.
+
+        let query;
+
+        if (settings.id) {
+            query = supabase.from('configurações_de_oficina').update(payload).eq('id', settings.id);
+        } else {
+            // Fallback: try to match by organization_id if your schema constraint supports it
+            // OR just upsert hoping for only one row key.
+            // Given user feedback "single row design", we might want to ensure we don't create dupes.
+            query = supabase.from('configurações_de_oficina').upsert(payload);
+        }
+
+        const { error } = await query;
         return !error;
     }
 
