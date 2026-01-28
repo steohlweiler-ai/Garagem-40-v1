@@ -635,7 +635,7 @@ const App: React.FC = () => {
 
               {settingsTab !== 'hub' && (
                 <div className="space-y-6">
-                  {settingsTab !== 'templates' && (
+                  {settingsTab !== 'templates' && settingsTab !== 'rates' && (
                     <div className="flex items-center gap-4 mb-2 sm:mb-4">
                       <button onClick={() => setSettingsTab('hub')} className="p-3 bg-slate-100 rounded-xl text-slate-600 active:scale-90 transition-all"><ArrowLeft size={20} /></button>
                       <h3 className="text-sm sm:text-lg font-bold uppercase text-slate-800">{settingsOptions.find(o => o.id === settingsTab)?.label}</h3>

@@ -173,7 +173,11 @@ class SupabaseService {
     }
 
     async getWorkshopSettings(): Promise<WorkshopSettings | null> {
-        const { data, error } = await supabase.from('configurações_de_oficina').select('*').single();
+        const { data, error } = await supabase
+            .from('configurações_de_oficina')
+            .select('id, name, address, phone, cnpj, valor_hora_chapeacao, valor_hora_pintura, valor_hora_mecanica')
+            .single();
+
         if (error || !data) return null;
         return {
             id: data.id,
