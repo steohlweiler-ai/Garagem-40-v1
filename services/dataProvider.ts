@@ -446,6 +446,8 @@ class DataProvider {
     // ===================== SYNC HELPERS =====================
 
     private async syncDeliveryAppointment(service: ServiceJob) {
+        console.log('[DataProvider] syncDeliveryAppointment called for service:', service.id, 'estimated_delivery:', service.estimated_delivery);
+
         // 1. Check if appointment already exists by service_id
         const allApps = await this.getAppointments();
         const existingApp = allApps.find(a => a.service_id === service.id);

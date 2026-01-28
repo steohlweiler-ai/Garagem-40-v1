@@ -914,6 +914,7 @@ class SupabaseService {
                 action_source: 'Criação'
             }],
             entry_at: newService.entry_at || new Date().toISOString(),
+            estimated_delivery: newService.estimated_delivery,
             archived: newService.archived,
             created_by: newService.created_by,
             created_by_name: newService.created_by_name,

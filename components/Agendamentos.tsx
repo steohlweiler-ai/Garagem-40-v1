@@ -14,6 +14,7 @@ type CalendarView = 'month' | 'week' | 'day';
 const Agendamentos: React.FC = () => {
   const [view, setView] = useState<CalendarView>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -30,6 +31,16 @@ const Agendamentos: React.FC = () => {
   });
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+
+  // Filter appointments by selected day or show upcoming
+  const filteredAppointments = useMemo(() => {
+    if (selectedDay) {
+      return appointments.filter(a => a.date === selectedDay);
+    }
+    // Show upcoming appointments (today and future)
+    const today = new Date().toISOString().split('T')[0];
+    return appointments.filter(a => a.date >= today).slice(0, 10);
+  }, [appointments, selectedDay]);
 
   useEffect(() => {
     const load = async () => {
@@ -189,43 +200,67 @@ const Agendamentos: React.FC = () => {
               const dayStr = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
               const dayApps = appointments.filter(a => a.date === dayStr);
               const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
+              const isSelected = selectedDay === dayStr;
 
               return (
-                <div
+                <button
                   key={idx}
-                  className={`aspect-square rounded-2xl flex flex-col items-center justify-center relative border transition-all ${isToday ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-transparent text-slate-500'
+                  onClick={() => setSelectedDay(isSelected ? null : dayStr)}
+                  className={`aspect-square rounded-2xl flex flex-col items-center justify-center relative border-2 transition-all active:scale-95 ${isSelected
+                      ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-md ring-2 ring-indigo-200'
+                      : isToday
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg'
+                        : dayApps.length > 0
+                          ? 'bg-white border-slate-200 text-slate-700 shadow-sm hover:border-indigo-300'
+                          : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'
                     }`}
                 >
-                  <span className="calendar-day">{day}</span>
+                  <span className="text-sm font-bold">{day}</span>
                   {dayApps.length > 0 && (
-                    <div className="absolute bottom-1.5 flex gap-0.5">
+                    <div className="absolute bottom-1 flex gap-0.5">
                       {dayApps.slice(0, 3).map((a, i) => (
-                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${a.type === 'service_delivery' ? 'bg-green-400' : 'bg-orange-400'}`} />
+                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${a.type === 'service_delivery' ? 'bg-green-500' : 'bg-orange-400'}`} />
                       ))}
+                      {dayApps.length > 3 && <span className="text-[8px] text-slate-400">+{dayApps.length - 3}</span>}
                     </div>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
         </div>
       )}
 
-      {/* Upcoming */}
+      {/* Day Header & List */}
       <div className="space-y-4 px-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[3px] ml-2">Próximos Compromissos</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[3px] ml-2">
+              {selectedDay
+                ? `${new Date(selectedDay + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}`
+                : 'Próximos Compromissos'
+              }
+            </h3>
+            {selectedDay && (
+              <button
+                onClick={() => setSelectedDay(null)}
+                className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide bg-indigo-50 px-3 py-1 rounded-full"
+              >
+                Ver todos
+              </button>
+            )}
+          </div>
           <Filter size={16} className="text-slate-300 mr-2" />
         </div>
         <div className="space-y-3">
-          {appointments.length > 0 ? appointments.slice(0, 10).map(app => (
+          {filteredAppointments.length > 0 ? filteredAppointments.map(app => (
             <div
               key={app.id}
-              className={`p-5 rounded-[2.25rem] border-2 bg-white flex items-center justify-between transition-all active:scale-[0.98] ${app.type === 'service_delivery' ? 'border-green-50' : 'border-slate-50'
+              className={`p-5 rounded-[2.25rem] border-2 bg-white flex items-center justify-between transition-all active:scale-[0.98] ${app.type === 'service_delivery' ? 'border-green-100 bg-gradient-to-r from-green-50/50 to-white' : 'border-slate-50'
                 }`}
             >
               <div className="flex gap-4 items-center flex-1">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${app.type === 'service_delivery' ? 'bg-green-50 text-green-600' : 'bg-slate-50 text-slate-300'
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${app.type === 'service_delivery' ? 'bg-green-100 text-green-600' : 'bg-slate-50 text-slate-300'
                   }`}>
                   {app.type === 'service_delivery' ? <CheckCircle2 size={24} /> : <CalendarIcon size={24} />}
                 </div>
@@ -246,18 +281,20 @@ const Agendamentos: React.FC = () => {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2">
-                <p className="text-[10px] font-bold text-slate-300 uppercase">{new Date(app.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                <p className="text-[10px] font-bold text-slate-300 uppercase">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
                 {app.type === 'manual' && (
                   <button onClick={() => handleDelete(app.id)} className="p-3 text-slate-200 hover:text-red-500 active:scale-125 transition-all"><Trash2 size={16} /></button>
                 )}
               </div>
             </div>
           )) : (
-            <div className="py-20 text-center space-y-4 bg-white/50 rounded-[2.5rem] border-2 border-dashed border-slate-100">
-              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-100">
+            <div className="py-16 text-center space-y-4 bg-white/50 rounded-[2.5rem] border-2 border-dashed border-slate-100">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200">
                 <CalendarIcon size={32} />
               </div>
-              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Nenhum compromisso</p>
+              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                {selectedDay ? 'Nenhum compromisso neste dia' : 'Nenhum compromisso'}
+              </p>
             </div>
           )}
         </div>
