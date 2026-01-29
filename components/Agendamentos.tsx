@@ -156,6 +156,32 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
     showToast('Agendamento removido');
   };
 
+  // Estado para edição de lembrete
+  const [editingReminder, setEditingReminder] = useState<ReminderWithService | null>(null);
+  const [reminderEditData, setReminderEditData] = useState({ title: '', date: '', time: '' });
+
+  const handleEditReminder = (reminder: ReminderWithService) => {
+    setEditingReminder(reminder);
+    setReminderEditData({
+      title: reminder.title,
+      date: reminder.date,
+      time: reminder.time
+    });
+  };
+
+  const handleSaveReminderEdit = async () => {
+    if (!editingReminder || !reminderEditData.title || !reminderEditData.date || !reminderEditData.time) return;
+    await dataProvider.updateReminder(editingReminder.id, {
+      title: reminderEditData.title,
+      date: reminderEditData.date,
+      time: reminderEditData.time
+    });
+    setEditingReminder(null);
+    const allReminders = await dataProvider.getAllReminders(true);
+    setReminders(allReminders);
+    showToast('Lembrete atualizado!');
+  };
+
   // Toggle reminder status between active/done
   const handleToggleReminder = async (reminder: ReminderWithService) => {
     const newStatus = reminder.status === 'active' ? 'done' : 'active';
@@ -347,15 +373,13 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
                     >
                       {item.status === 'done' ? <CircleCheck size={20} /> : <Circle size={20} />}
                     </button>
-                    {onOpenService && (
-                      <button
-                        onClick={() => onOpenService(item.service_id)}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 transition-all active:scale-90"
-                        title="Editar lembrete"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleEditReminder(item as ReminderWithService)}
+                      className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 transition-all active:scale-90"
+                      title="Editar lembrete"
+                    >
+                      <Pencil size={16} />
+                    </button>
                   </div>
                 ) : (
                   <button
@@ -520,6 +544,67 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
               <div className="flex gap-4 pt-4 border-t">
                 <button onClick={() => setEditingAppointment(null)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Cancelar</button>
                 <button onClick={handleSaveEdit} className="flex-[2] py-5 bg-indigo-600 text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl">Salvar Alterações</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição de Lembrete */}
+      {editingReminder && (
+        <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-in fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-t-[3.5rem] p-8 space-y-6 animate-in slide-in-from-bottom-20">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold uppercase text-slate-800 tracking-tight leading-none">Editar Lembrete</h3>
+                <p className="text-[10px] font-medium text-slate-400 uppercase mt-2 tracking-widest">
+                  {editingReminder.vehicle_plate && `${editingReminder.vehicle_plate} • `}
+                  {editingReminder.client_name}
+                </p>
+              </div>
+              <button onClick={() => setEditingReminder(null)} className="p-4 bg-slate-100 rounded-full text-slate-300 active:scale-90 transition-all touch-target"><X size={24} /></button>
+            </div>
+            <div className="space-y-4">
+              {/* Título */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Descrição *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={reminderEditData.title}
+                    onChange={e => setReminderEditData({ ...reminderEditData, title: e.target.value })}
+                    className="w-full p-4 pr-14 bg-amber-50 border-2 border-amber-200 focus:border-amber-400 rounded-2xl text-sm font-semibold outline-none"
+                    placeholder="Descrição do lembrete"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white">
+                    <Bell size={18} />
+                  </div>
+                </div>
+              </div>
+              {/* Data e Hora */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Data *</label>
+                  <input
+                    type="date"
+                    value={reminderEditData.date}
+                    onChange={e => setReminderEditData({ ...reminderEditData, date: e.target.value })}
+                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-amber-400 rounded-2xl text-sm font-semibold outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Horário *</label>
+                  <input
+                    type="time"
+                    value={reminderEditData.time}
+                    onChange={e => setReminderEditData({ ...reminderEditData, time: e.target.value })}
+                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-amber-400 rounded-2xl text-sm font-semibold outline-none"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4 pt-4 border-t">
+                <button onClick={() => setEditingReminder(null)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Cancelar</button>
+                <button onClick={handleSaveReminderEdit} className="flex-[2] py-5 bg-amber-500 text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all">Salvar</button>
               </div>
             </div>
           </div>
