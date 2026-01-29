@@ -834,11 +834,14 @@ class SupabaseService {
     }
 
     async addAppointment(a: Partial<Appointment>): Promise<Appointment | null> {
+        console.log('[Supabase] addAppointment called with:', JSON.stringify(a, null, 2));
+
         // Remove custom ID if present (Supabase auto-generates UUIDs)
         const { id, ...appointmentData } = a;
 
         // If this is a service_delivery appointment, use upsert based on service_id
         if (a.type === 'service_delivery' && a.service_id) {
+            console.log('[Supabase] Using upsert for service_delivery appointment');
             const { data, error } = await supabase.from('agendamentos')
                 .upsert({
                     organization_id: 'org-default',
@@ -848,22 +851,25 @@ class SupabaseService {
                 .single();
 
             if (error) {
-                console.error('Supabase Error (addAppointment upsert):', error);
+                console.error('[Supabase] Error (addAppointment upsert):', error);
                 return null;
             }
+            console.log('[Supabase] Appointment upserted successfully:', data);
             return data;
         }
 
         // Regular appointment insert
+        console.log('[Supabase] Using regular insert for manual appointment');
         const { data, error } = await supabase.from('agendamentos').insert({
             organization_id: 'org-default',
             ...appointmentData
         }).select().single();
 
         if (error) {
-            console.error('Supabase Error (addAppointment):', error);
+            console.error('[Supabase] Error (addAppointment insert):', error);
             return null;
         }
+        console.log('[Supabase] Appointment inserted successfully:', data);
         return data;
     }
 
