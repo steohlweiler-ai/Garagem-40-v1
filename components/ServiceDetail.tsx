@@ -5,7 +5,7 @@ import {
   Check, Info, Package, DollarSign, StickyNote, Plus, Calendar as CalendarIcon,
   Pause, Search, ChevronDown, ChevronUp, AlertTriangle, PlayCircle, RotateCcw,
   ArrowRight, LayoutPanelTop, BellRing, Trash, BellPlus, History, Video, Mic, Image as ImageIcon,
-  CheckCircle2, Timer, Upload, Save, Calendar, Bell
+  CheckCircle2, Timer, Upload, Save, Calendar, Bell, Pencil
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import {
@@ -61,6 +61,10 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   const [newReminderTime, setNewReminderTime] = useState(
     new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   );
+
+  // Estado para edição de lembrete existente
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [editReminderData, setEditReminderData] = useState({ title: '', date: '', time: '' });
 
   const [selectedTaskForDetails, setSelectedTaskForDetails] =
     useState<ServiceTask | null>(null);
@@ -173,6 +177,27 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
     const updatedReminders = service.reminders.filter(r => r.id !== id);
     await refreshServiceStatus({ ...service, reminders: updatedReminders } as ServiceJob);
 
+    loadData();
+    onUpdate();
+  };
+
+  const handleEditReminder = (reminder: Reminder) => {
+    setEditingReminder(reminder);
+    setEditReminderData({
+      title: reminder.title,
+      date: reminder.date,
+      time: reminder.time
+    });
+  };
+
+  const handleSaveReminderEdit = async () => {
+    if (!editingReminder || !editReminderData.title || !editReminderData.date || !editReminderData.time) return;
+    await dataProvider.updateReminder(editingReminder.id, {
+      title: editReminderData.title,
+      date: editReminderData.date,
+      time: editReminderData.time
+    });
+    setEditingReminder(null);
     loadData();
     onUpdate();
   };
@@ -589,12 +614,22 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleDeleteReminder(rem.id)}
-                      className="p-2 text-amber-300 hover:text-red-500 active:scale-125 transition-all"
-                    >
-                      <Trash size={14} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleEditReminder(rem)}
+                        className="p-2 text-amber-300 hover:text-indigo-500 active:scale-125 transition-all"
+                        title="Editar lembrete"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReminder(rem.id)}
+                        className="p-2 text-amber-300 hover:text-red-500 active:scale-125 transition-all"
+                        title="Excluir lembrete"
+                      >
+                        <Trash size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
