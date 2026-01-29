@@ -251,8 +251,8 @@ class DataProvider {
         return mockDB.getAppointments();
     }
 
-    async getAllReminders(): Promise<import('../types').ReminderWithService[]> {
-        if (this.useSupabase) return await supabaseDB.getAllReminders();
+    async getAllReminders(includeCompleted = false): Promise<import('../types').ReminderWithService[]> {
+        if (this.useSupabase) return await supabaseDB.getAllReminders(includeCompleted);
         console.warn('[DataProvider] getAllReminders mock not implemented');
         return [];
     }

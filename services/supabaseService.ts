@@ -1059,16 +1059,22 @@ class SupabaseService {
     }
 
     /**
-     * Busca todos os lembretes ativos com dados do serviço e veículo associados
+     * Busca lembretes com dados do serviço e veículo associados
+     * @param includeCompleted - se true, inclui lembretes concluídos (padrão: false)
      */
-    async getAllReminders(): Promise<ReminderWithService[]> {
-        // Buscar lembretes ativos
-        const { data: reminders, error } = await supabase
+    async getAllReminders(includeCompleted = false): Promise<ReminderWithService[]> {
+        // Buscar lembretes
+        let query = supabase
             .from('lembretes')
             .select('*')
-            .eq('status', 'active')
             .order('date', { ascending: true })
             .order('time', { ascending: true });
+
+        if (!includeCompleted) {
+            query = query.eq('status', 'active');
+        }
+
+        const { data: reminders, error } = await query;
 
         if (error || !reminders) {
             console.error('Supabase Error (getAllReminders):', error);

@@ -631,7 +631,14 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'agendamentos' && <Agendamentos />}
+          {activeTab === 'agendamentos' && (
+            <Agendamentos
+              onOpenService={(serviceId) => {
+                setSelectedServiceId(serviceId);
+                setTab('dashboard');
+              }}
+            />
+          )}
 
           {activeTab === 'settings' && (
             <div className="max-w-4xl mx-auto space-y-6">

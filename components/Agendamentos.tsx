@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar as CalendarIcon, Clock, Plus, Search, ChevronLeft, ChevronRight,
   Car, User, Bell, Check, X, RefreshCw, Smartphone, Trash2, LayoutGrid,
-  CalendarDays, CalendarRange, Filter, CheckCircle2, BellRing
+  CalendarDays, CalendarRange, Filter, CheckCircle2, BellRing, ExternalLink, CircleCheck, Circle
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { Appointment, ReminderWithService } from '../types';
@@ -14,7 +14,11 @@ type CalendarView = 'month' | 'week' | 'day';
 // Tipo unificado para exibição na agenda
 type AgendaItem = (Appointment & { itemType: 'appointment' }) | (ReminderWithService & { itemType: 'reminder' });
 
-const Agendamentos: React.FC = () => {
+interface AgendamentosProps {
+  onOpenService?: (serviceId: string) => void;
+}
+
+const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   const [view, setView] = useState<CalendarView>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -72,8 +76,8 @@ const Agendamentos: React.FC = () => {
       }
       setAppointments(filteredApps);
 
-      // Buscar lembretes
-      const allReminders = await dataProvider.getAllReminders();
+      // Buscar lembretes (incluindo concluídos para mostrar com visual riscado)
+      const allReminders = await dataProvider.getAllReminders(true);
       let filteredReminders = allReminders;
       if (search) {
         const q = search.toLowerCase();
@@ -152,6 +156,15 @@ const Agendamentos: React.FC = () => {
     showToast('Agendamento removido');
   };
 
+  // Toggle reminder status between active/done
+  const handleToggleReminder = async (reminder: ReminderWithService) => {
+    const newStatus = reminder.status === 'active' ? 'done' : 'active';
+    await dataProvider.updateReminder(reminder.id, { status: newStatus });
+    // Refresh reminders (incluindo concluídos)
+    const allReminders = await dataProvider.getAllReminders(true);
+    setReminders(allReminders);
+    showToast(newStatus === 'done' ? 'Lembrete concluído!' : 'Lembrete reativado!');
+  };
 
   const daysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -312,18 +325,27 @@ const Agendamentos: React.FC = () => {
             <div
               key={item.itemType === 'reminder' ? `rem-${item.id}` : item.id}
               className={`p-5 rounded-[2.25rem] border-2 bg-white flex items-start justify-between transition-all ${item.itemType === 'reminder'
-                  ? 'border-amber-100 bg-gradient-to-r from-amber-50/50 to-white'
-                  : item.itemType === 'appointment' && item.type === 'service_delivery'
-                    ? 'border-green-100 bg-gradient-to-r from-green-50/50 to-white'
-                    : 'border-slate-50'
+                ? item.status === 'done'
+                  ? 'border-slate-100 bg-slate-50/50 opacity-60'
+                  : 'border-amber-100 bg-gradient-to-r from-amber-50/50 to-white'
+                : item.itemType === 'appointment' && item.type === 'service_delivery'
+                  ? 'border-green-100 bg-gradient-to-r from-green-50/50 to-white'
+                  : 'border-slate-50'
                 }`}
             >
               <div className="flex gap-4 items-start flex-1">
                 {/* Icon - different for reminders vs appointments */}
                 {item.itemType === 'reminder' ? (
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner bg-amber-100 text-amber-600">
-                    <BellRing size={24} />
-                  </div>
+                  <button
+                    onClick={() => handleToggleReminder(item as ReminderWithService)}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${item.status === 'done'
+                      ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                      : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                      }`}
+                    title={item.status === 'done' ? 'Reativar lembrete' : 'Marcar como concluído'}
+                  >
+                    {item.status === 'done' ? <CircleCheck size={24} /> : <Circle size={24} />}
+                  </button>
                 ) : (
                   <button
                     onClick={() => handleEditAppointment(item as Appointment)}
@@ -337,9 +359,15 @@ const Agendamentos: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1.5">
                     {item.itemType === 'reminder' && (
-                      <span className="text-[8px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full uppercase">Lembrete</span>
+                      <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase ${item.status === 'done' ? 'text-green-600 bg-green-100' : 'text-amber-600 bg-amber-100'
+                        }`}>
+                        {item.status === 'done' ? 'Concluído' : 'Lembrete'}
+                      </span>
                     )}
-                    <p className="text-md font-semibold uppercase text-slate-800 tracking-tight truncate leading-none">{item.title}</p>
+                    <p className={`text-md font-semibold uppercase tracking-tight truncate leading-none ${item.itemType === 'reminder' && item.status === 'done'
+                      ? 'text-slate-400 line-through'
+                      : 'text-slate-800'
+                      }`}>{item.title}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <div className="flex items-center gap-1">
@@ -379,6 +407,15 @@ const Agendamentos: React.FC = () => {
               </div>
               <div className="flex flex-col items-end gap-2 ml-3">
                 <p className="text-[10px] font-bold text-slate-300 uppercase">{new Date(item.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                {item.itemType === 'reminder' && onOpenService && (
+                  <button
+                    onClick={() => onOpenService(item.service_id)}
+                    className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl active:scale-110 transition-all"
+                    title="Abrir ficha do veículo"
+                  >
+                    <ExternalLink size={16} />
+                  </button>
+                )}
                 {item.itemType === 'appointment' && item.type === 'manual' && (
                   <button onClick={() => handleDelete(item.id)} className="p-3 text-slate-200 hover:text-red-500 active:scale-125 transition-all"><Trash2 size={16} /></button>
                 )}
