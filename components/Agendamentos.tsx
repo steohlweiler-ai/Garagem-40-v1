@@ -3,13 +3,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar as CalendarIcon, Clock, Plus, Search, ChevronLeft, ChevronRight,
   Car, User, Bell, Check, X, RefreshCw, Smartphone, Trash2, LayoutGrid,
-  CalendarDays, CalendarRange, Filter, CheckCircle2
+  CalendarDays, CalendarRange, Filter, CheckCircle2, BellRing
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
-import { Appointment, Vehicle, Client } from '../types';
+import { Appointment, ReminderWithService } from '../types';
 import VoiceInput from './VoiceInput';
 
 type CalendarView = 'month' | 'week' | 'day';
+
+// Tipo unificado para exibição na agenda
+type AgendaItem = (Appointment & { itemType: 'appointment' }) | (ReminderWithService & { itemType: 'reminder' });
 
 const Agendamentos: React.FC = () => {
   const [view, setView] = useState<CalendarView>('month');
@@ -31,30 +34,56 @@ const Agendamentos: React.FC = () => {
   });
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [reminders, setReminders] = useState<ReminderWithService[]>([]);
 
-  // Filter appointments by selected day or show upcoming
-  const filteredAppointments = useMemo(() => {
+  // Mesclar agendamentos e lembretes
+  const allItems = useMemo<AgendaItem[]>(() => {
+    const appItems = appointments.map(a => ({ ...a, itemType: 'appointment' as const }));
+    const remItems = reminders.map(r => ({ ...r, itemType: 'reminder' as const }));
+    return [...appItems, ...remItems].sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return a.time.localeCompare(b.time);
+    });
+  }, [appointments, reminders]);
+
+  // Filter items by selected day or show upcoming
+  const filteredItems = useMemo(() => {
     if (selectedDay) {
-      return appointments.filter(a => a.date === selectedDay);
+      return allItems.filter(a => a.date === selectedDay);
     }
-    // Show upcoming appointments (today and future)
+    // Show upcoming items (today and future)
     const today = new Date().toISOString().split('T')[0];
-    return appointments.filter(a => a.date >= today).slice(0, 10);
-  }, [appointments, selectedDay]);
+    return allItems.filter(a => a.date >= today).slice(0, 15);
+  }, [allItems, selectedDay]);
 
   useEffect(() => {
     const load = async () => {
-      const all = await dataProvider.getAppointments();
-      let filtered = all;
+      // Buscar agendamentos
+      const allAppointments = await dataProvider.getAppointments();
+      let filteredApps = allAppointments;
       if (search) {
         const q = search.toLowerCase();
-        filtered = all.filter(a =>
+        filteredApps = allAppointments.filter(a =>
           a.title.toLowerCase().includes(q) ||
           a.vehicle_plate?.toLowerCase().includes(q) ||
-          a.description?.toLowerCase().includes(q)
+          a.description?.toLowerCase().includes(q) ||
+          a.client_name?.toLowerCase().includes(q)
         );
       }
-      setAppointments(filtered);
+      setAppointments(filteredApps);
+
+      // Buscar lembretes
+      const allReminders = await dataProvider.getAllReminders();
+      let filteredReminders = allReminders;
+      if (search) {
+        const q = search.toLowerCase();
+        filteredReminders = allReminders.filter(r =>
+          r.title.toLowerCase().includes(q) ||
+          r.vehicle_plate?.toLowerCase().includes(q) ||
+          r.client_name?.toLowerCase().includes(q)
+        );
+      }
+      setReminders(filteredReminders);
     };
     load();
   }, [search]);
@@ -279,64 +308,79 @@ const Agendamentos: React.FC = () => {
           <Filter size={16} className="text-slate-300 mr-2" />
         </div>
         <div className="space-y-3">
-          {filteredAppointments.length > 0 ? filteredAppointments.map(app => (
+          {filteredItems.length > 0 ? filteredItems.map(item => (
             <div
-              key={app.id}
-              className={`p-5 rounded-[2.25rem] border-2 bg-white flex items-start justify-between transition-all ${app.type === 'service_delivery' ? 'border-green-100 bg-gradient-to-r from-green-50/50 to-white' : 'border-slate-50'
+              key={item.itemType === 'reminder' ? `rem-${item.id}` : item.id}
+              className={`p-5 rounded-[2.25rem] border-2 bg-white flex items-start justify-between transition-all ${item.itemType === 'reminder'
+                  ? 'border-amber-100 bg-gradient-to-r from-amber-50/50 to-white'
+                  : item.itemType === 'appointment' && item.type === 'service_delivery'
+                    ? 'border-green-100 bg-gradient-to-r from-green-50/50 to-white'
+                    : 'border-slate-50'
                 }`}
             >
               <div className="flex gap-4 items-start flex-1">
-                {/* Icon - Clickable for editing date/time */}
-                <button
-                  onClick={() => handleEditAppointment(app)}
-                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${app.type === 'service_delivery' ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
-                    }`}
-                  title="Editar data/hora"
-                >
-                  {app.type === 'service_delivery' ? <CheckCircle2 size={24} /> : <CalendarIcon size={24} />}
-                </button>
+                {/* Icon - different for reminders vs appointments */}
+                {item.itemType === 'reminder' ? (
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner bg-amber-100 text-amber-600">
+                    <BellRing size={24} />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleEditAppointment(item as Appointment)}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${item.type === 'service_delivery' ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
+                      }`}
+                    title="Editar data/hora"
+                  >
+                    {item.type === 'service_delivery' ? <CheckCircle2 size={24} /> : <CalendarIcon size={24} />}
+                  </button>
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-md font-semibold uppercase text-slate-800 tracking-tight truncate leading-none mb-1.5">{app.title}</p>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    {item.itemType === 'reminder' && (
+                      <span className="text-[8px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full uppercase">Lembrete</span>
+                    )}
+                    <p className="text-md font-semibold uppercase text-slate-800 tracking-tight truncate leading-none">{item.title}</p>
+                  </div>
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <div className="flex items-center gap-1">
                       <Clock size={12} className="text-indigo-300" />
-                      <span className="text-[10px] font-bold text-indigo-400 uppercase">{app.time}</span>
+                      <span className="text-[10px] font-bold text-indigo-400 uppercase">{item.time}</span>
                     </div>
-                    {app.client_name && (
+                    {item.client_name && (
                       <div className="flex items-center gap-1">
                         <User size={12} className="text-amber-400" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase">{app.client_name}</span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">{item.client_name}</span>
                       </div>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {(app.vehicle_brand || app.vehicle_model) && (
+                    {(item.vehicle_brand || item.vehicle_model || item.vehicle_plate) && (
                       <div className="flex items-center gap-1">
                         <Car size={12} className="text-slate-300" />
                         <span className="text-[10px] font-bold text-slate-400 uppercase">
-                          {[app.vehicle_brand, app.vehicle_model].filter(Boolean).join(' ')}
+                          {item.vehicle_plate || [item.vehicle_brand, item.vehicle_model].filter(Boolean).join(' ')}
                         </span>
                       </div>
                     )}
-                    {app.client_phone && (
+                    {item.client_phone && (
                       <a
-                        href={`https://wa.me/55${app.client_phone.replace(/\D/g, '')}`}
+                        href={`https://wa.me/55${item.client_phone.replace(/\D/g, '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className="flex items-center gap-1 bg-green-50 hover:bg-green-100 px-2 py-0.5 rounded-full transition-all active:scale-95"
                       >
                         <Smartphone size={12} className="text-green-500" />
-                        <span className="text-[10px] font-bold text-green-600">{app.client_phone}</span>
+                        <span className="text-[10px] font-bold text-green-600">{item.client_phone}</span>
                       </a>
                     )}
                   </div>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-2 ml-3">
-                <p className="text-[10px] font-bold text-slate-300 uppercase">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
-                {app.type === 'manual' && (
-                  <button onClick={() => handleDelete(app.id)} className="p-3 text-slate-200 hover:text-red-500 active:scale-125 transition-all"><Trash2 size={16} /></button>
+                <p className="text-[10px] font-bold text-slate-300 uppercase">{new Date(item.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                {item.itemType === 'appointment' && item.type === 'manual' && (
+                  <button onClick={() => handleDelete(item.id)} className="p-3 text-slate-200 hover:text-red-500 active:scale-125 transition-all"><Trash2 size={16} /></button>
                 )}
               </div>
             </div>

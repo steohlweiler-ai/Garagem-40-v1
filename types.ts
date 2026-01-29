@@ -108,6 +108,15 @@ export interface Reminder {
   status: 'active' | 'done';
 }
 
+export interface ReminderWithService extends Reminder {
+  service_id: string;
+  vehicle_plate: string;
+  vehicle_brand: string;
+  vehicle_model: string;
+  client_name: string;
+  client_phone: string;
+}
+
 export interface PriorityOverride {
   priority: 'baixa' | 'media' | 'alta';
   days: number;

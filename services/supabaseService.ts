@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import {
-    ServiceJob, Client, Vehicle, ServiceTask, Reminder,
+    ServiceJob, Client, Vehicle, ServiceTask, Reminder, ReminderWithService,
     StatusLogEntry, ServiceStatus, WorkshopSettings,
     DelayCriteria, EvaluationTemplate, StatusConfig, VehicleColor,
     Appointment, CatalogItem, IntegrationState, UserAccount,
@@ -1056,6 +1056,77 @@ class SupabaseService {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Busca todos os lembretes ativos com dados do serviço e veículo associados
+     */
+    async getAllReminders(): Promise<ReminderWithService[]> {
+        // Buscar lembretes ativos
+        const { data: reminders, error } = await supabase
+            .from('lembretes')
+            .select('*')
+            .eq('status', 'active')
+            .order('date', { ascending: true })
+            .order('time', { ascending: true });
+
+        if (error || !reminders) {
+            console.error('Supabase Error (getAllReminders):', error);
+            return [];
+        }
+
+        // Buscar dados complementares dos serviços
+        const serviceIds = [...new Set(reminders.map((r: any) => r.service_id).filter(Boolean))];
+
+        if (serviceIds.length === 0) {
+            return reminders.map((r: any) => ({
+                id: r.id,
+                title: r.title,
+                message: r.message,
+                date: r.date,
+                time: r.time,
+                status: r.status,
+                service_id: r.service_id,
+                vehicle_plate: '',
+                vehicle_brand: '',
+                vehicle_model: '',
+                client_name: '',
+                client_phone: ''
+            }));
+        }
+
+        // Buscar serviços com veículos e clientes
+        const { data: services } = await supabase
+            .from('serviços')
+            .select(`
+                id,
+                veículos (plate, brand, model),
+                clientes (name, phone)
+            `)
+            .in('id', serviceIds);
+
+        const serviceMap = new Map<string, any>();
+        (services || []).forEach((s: any) => {
+            serviceMap.set(s.id, s);
+        });
+
+        return reminders.map((r: any) => {
+            const svc = serviceMap.get(r.service_id);
+            return {
+                id: r.id,
+                title: r.title,
+                message: r.message,
+                date: r.date,
+                time: r.time,
+                status: r.status,
+                service_id: r.service_id,
+                vehicle_plate: svc?.veículos?.plate || '',
+                vehicle_brand: svc?.veículos?.brand || '',
+                vehicle_model: svc?.veículos?.model || '',
+                client_name: svc?.clientes?.name || '',
+                client_phone: svc?.clientes?.phone || ''
+            };
+        });
     }
 
     // ===================== SETTINGS & TEMPLATES = : =====================
