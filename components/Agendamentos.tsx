@@ -209,7 +209,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   }, [currentDate]);
 
   return (
-    <div className="w-full max-w-[100vw] space-y-6 animate-in fade-in duration-300 pb-24 font-['Inter'] overflow-x-hidden">
+    <div className="w-full max-w-[100vw] space-y-4 sm:space-y-6 animate-in fade-in duration-300 pb-24 font-['Inter'] overflow-x-hidden">
 
       {toast && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] bg-slate-900 text-white px-6 py-4 rounded-[2rem] font-bold uppercase text-[10px] tracking-widest shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4">
@@ -218,7 +218,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       )}
 
       {/* Header & Sync */}
-      <div className="bg-white p-3 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-slate-50 shadow-sm space-y-4 sm:space-y-6">
+      <div className="bg-white p-2 sm:p-6 rounded-[1.5rem] sm:rounded-[2.5rem] border-2 border-slate-50 shadow-sm space-y-3 sm:space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
@@ -253,8 +253,8 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       </div>
 
       {/* Navigation */}
-      <div className="flex flex-col gap-3 sm:gap-4">
-        <div className="flex p-0.5 sm:p-1 bg-slate-200/50 rounded-[1.25rem] sm:rounded-[1.75rem] mx-0.5 sm:mx-1">
+      <div className="flex flex-col gap-2 sm:gap-4">
+        <div className="flex p-0.5 sm:p-1 bg-slate-200/50 rounded-xl sm:rounded-[1.75rem]">
           {[
             { id: 'month', label: 'Mês', icon: <LayoutGrid size={14} /> },
             { id: 'week', label: 'Semana', icon: <CalendarRange size={14} /> },
@@ -271,7 +271,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
           ))}
         </div>
 
-        <div className="flex items-center justify-between px-2 sm:px-6 bg-white py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] border-2 border-slate-50 shadow-sm">
+        <div className="flex items-center justify-between px-1 sm:px-6 bg-white py-2 sm:py-4 rounded-xl sm:rounded-[2rem] border-2 border-slate-50 shadow-sm">
           <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 bg-slate-50 rounded-full text-slate-300 active:bg-slate-100"><ChevronLeft size={20} /></button>
           <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">
             {currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
@@ -282,7 +282,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
 
       {/* Grid */}
       {view === 'month' && (
-        <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden p-1 sm:p-4">
+        <div className="bg-white rounded-xl sm:rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden p-0.5 sm:p-4">
           <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
             {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
               <div key={i} className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400 text-center py-1 sm:py-2">{d}</div>
