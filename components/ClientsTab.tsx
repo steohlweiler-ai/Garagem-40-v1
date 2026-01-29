@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users, Search, Plus, ChevronRight, User, Phone, MapPin,
   Tag, Info, Car, X, Edit2, CheckCircle2, Calendar, FileText,
-  AlertCircle
+  AlertCircle, Printer
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { Client, Vehicle, ServiceJob, ServiceStatus } from '../types';
@@ -25,6 +25,12 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
   // Estados para o formulário
   const [formData, setFormData] = useState({ name: '', phone: '', cpfCnpj: '', address: '', notes: '' });
   const [selectedVehicleHistory, setSelectedVehicleHistory] = useState<Vehicle | null>(null);
+
+  // States for Report
+  const [showReportConfig, setShowReportConfig] = useState(false);
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -78,6 +84,9 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
       notes: client.notes || ''
     });
     setIsEditing(false);
+    setShowReportConfig(false);
+    setReportStartDate('');
+    setReportEndDate('');
   };
 
   const handleSaveClient = async () => {
@@ -107,6 +116,129 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
     };
     loadHistory();
   }, [selectedVehicleHistory]);
+
+  const handleGenerateReport = async () => {
+    if (!selectedClient) return;
+    setIsGeneratingReport(true);
+
+    try {
+      const workshop = await dataProvider.getWorkshopSettings();
+      const clientVehicles = vehicles.filter(v => v.client_id === selectedClient.id);
+
+      let allServices: (ServiceJob & { vehicle_plate: string; vehicle_model: string })[] = [];
+
+      // Fetch services for all vehicles
+      for (const v of clientVehicles) {
+        const services = await dataProvider.getServicesByVehicle(v.id);
+        const mapped = services.map(s => ({ ...s, vehicle_plate: v.plate, vehicle_model: `${v.brand} ${v.model}` }));
+        allServices = [...allServices, ...mapped];
+      }
+
+      // Filter by Status (DONE/DELIVERED) and Date Range
+      const filtered = allServices.filter(s => {
+        const isCompleted = s.status === ServiceStatus.PRONTO || s.status === ServiceStatus.ENTREGUE;
+        if (!isCompleted) return false;
+
+        const sDate = new Date(s.entry_at).getTime();
+        const start = reportStartDate ? new Date(reportStartDate).setHours(0, 0, 0, 0) : 0;
+        const end = reportEndDate ? new Date(reportEndDate).setHours(23, 59, 59, 999) : Infinity;
+
+        return sDate >= start && sDate <= end;
+      });
+
+      // Sort by Date (descending)
+      filtered.sort((a, b) => new Date(b.entry_at).getTime() - new Date(a.entry_at).getTime());
+
+      const totalValue = filtered.reduce((acc, curr) => acc + (curr.total_value || 0), 0);
+
+      // GENERATE HTML
+      const printContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Relatório de Serviços - ${selectedClient.name}</title>
+          <style>
+            @page { size: A4; margin: 15mm; }
+            body { font-family: 'Inter', sans-serif; color: #1e293b; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 5mm; margin-bottom: 5mm; }
+            .title { font-size: 14pt; font-weight: 900; text-transform: uppercase; }
+            .subtitle { font-size: 9pt; color: #64748b; margin-top: 2px; }
+            .client-box { background: #f8fafc; padding: 4mm; border-radius: 2mm; margin-bottom: 5mm; }
+            .table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+            .table th { text-align: left; border-bottom: 1px solid #000; padding: 2mm 0; text-transform: uppercase; font-size: 8pt; color: #64748b; }
+            .table td { border-bottom: 1px solid #e2e8f0; padding: 3mm 0; vertical-align: top; }
+            .total-box { margin-top: 10mm; text-align: right; font-size: 12pt; font-weight: 900; border-top: 2px solid #000; padding-top: 5mm; }
+            .status-badge { font-size: 7pt; padding: 1px 4px; border-radius: 4px; border: 1px solid #cbd5e1; text-transform: uppercase; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">${workshop?.name || 'Oficina Mecânica'}</div>
+              <div class="subtitle">${workshop?.address || ''} | ${workshop?.phone || ''}</div>
+            </div>
+            <div style="text-align: right;">
+              <div class="title">Relatório de Serviços</div>
+              <div class="subtitle">Gerado em: ${new Date().toLocaleDateString('pt-BR')}</div>
+            </div>
+          </div>
+
+          <div class="client-box">
+             <div style="font-size: 8pt; color: #64748b; text-transform: uppercase; font-weight: 900;">Cliente</div>
+             <div style="font-size: 11pt; font-weight: 800;">${selectedClient.name}</div>
+             <div style="font-size: 9pt; margin-top: 2px;">${selectedClient.phone || ''}</div>
+             ${reportStartDate ? `<div style="margin-top: 5px; font-size: 8pt;">Período: ${new Date(reportStartDate).toLocaleDateString('pt-BR')} até ${reportEndDate ? new Date(reportEndDate).toLocaleDateString('pt-BR') : 'Hoje'}</div>` : ''}
+          </div>
+
+          <table class="table">
+            <thead>
+              <tr>
+                <th style="width: 15%">Data</th>
+                <th style="width: 15%">OS #</th>
+                <th style="width: 30%">Veículo</th>
+                <th style="width: 25%">Status</th>
+                <th style="width: 15%; text-align: right;">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map(s => `
+                <tr>
+                  <td>${new Date(s.entry_at).toLocaleDateString('pt-BR')}</td>
+                  <td style="font-family: monospace;">${s.id.substring(0, 8).toUpperCase()}</td>
+                  <td>
+                    <div style="font-weight: 800;">${s.vehicle_plate}</div>
+                    <div style="font-size: 7pt; color: #64748b; text-transform: uppercase;">${s.vehicle_model}</div>
+                  </td>
+                  <td><span class="status-badge">${s.status}</span></td>
+                  <td style="text-align: right; font-weight: 700;">${formatCurrency(s.total_value)}</td>
+                </tr>
+              `).join('')}
+              ${filtered.length === 0 ? '<tr><td colspan="5" style="text-align: center; padding: 10mm; color: #94a3b8;">Nenhum serviço encontrado neste período.</td></tr>' : ''}
+            </tbody>
+          </table>
+
+          <div class="total-box">
+            Total Geral: ${formatCurrency(totalValue)}
+          </div>
+        </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank', 'width=900,height=800');
+      if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+      } else {
+        alert('Permita pop-ups para imprimir.');
+      }
+
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao gerar relatório.');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-300">
@@ -257,10 +389,41 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
                     <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-800 flex items-center gap-2">
                       <Car size={16} /> Veículos do Cliente
                     </h4>
-                    <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[9px] font-black uppercase active:scale-95 transition-all">
-                      <Edit2 size={12} /> Editar Cadastro
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowReportConfig(!showReportConfig)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase active:scale-95 transition-all ${showReportConfig ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+                        <Printer size={12} /> Relatórios
+                      </button>
+                      <button onClick={() => setIsEditing(true)} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[9px] font-black uppercase active:scale-95 transition-all">
+                        <Edit2 size={12} /> Editar Cadastro
+                      </button>
+                    </div>
                   </div>
+
+                  {showReportConfig && (
+                    <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 space-y-3 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-[10px] font-black uppercase text-indigo-800 tracking-widest flex items-center gap-2">
+                          <FileText size={12} /> Relatório de Serviços
+                        </h5>
+                        <button onClick={handleGenerateReport} disabled={isGeneratingReport} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase shadow-lg shadow-indigo-200 active:scale-95 hover:bg-indigo-700 transition-all flex items-center gap-2">
+                          {isGeneratingReport ? 'Gerando...' : <><Printer size={12} /> Imprimir Relatório</>}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black uppercase text-indigo-400 ml-1">Data Início</label>
+                          <input type="date" value={reportStartDate} onChange={e => setReportStartDate(e.target.value)} className="w-full p-2 bg-white rounded-xl text-xs font-bold border border-indigo-100 outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black uppercase text-indigo-400 ml-1">Data Fim</label>
+                          <input type="date" value={reportEndDate} onChange={e => setReportEndDate(e.target.value)} className="w-full p-2 bg-white rounded-xl text-xs font-bold border border-indigo-100 outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700" />
+                        </div>
+                      </div>
+                      <p className="text-[9px] text-indigo-600/70 font-medium leading-tight px-1">
+                        * O relatório exibirá apenas serviços finalizados (Prontos ou Entregues) dentro do período selecionado.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="overflow-hidden rounded-2xl border-2 border-slate-50">
                     <table className="w-full text-left">
