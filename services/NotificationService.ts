@@ -85,6 +85,8 @@ class NotificationService {
             const now = new Date();
             const today = now.toISOString().split('T')[0];
 
+            console.log(`[NotificationService] Verificando ${appointments.length} agendamentos. Hoje: ${today}, Hora: ${now.toLocaleTimeString('pt-BR')}`);
+
             // Filtrar agendamentos de hoje que ainda não foram notificados
             const todayAppointments = appointments.filter(app =>
                 app.date === today &&
@@ -92,8 +94,13 @@ class NotificationService {
                 !this.notifiedIds.has(app.id)
             );
 
+            console.log(`[NotificationService] ${todayAppointments.length} agendamentos elegíveis hoje`);
+
             for (const app of todayAppointments) {
-                if (this.shouldNotify(app, now)) {
+                const shouldNotifyResult = this.shouldNotify(app, now);
+                console.log(`[NotificationService] App "${app.title}" (${app.time}, aviso ${app.notify_before_minutes}min antes) -> notificar: ${shouldNotifyResult}`);
+
+                if (shouldNotifyResult) {
                     this.sendNotification(app);
                     this.markAsNotified(app.id);
                 }
@@ -111,18 +118,32 @@ class NotificationService {
      * Verifica se deve disparar notificação para o agendamento
      */
     private shouldNotify(app: Appointment, now: Date): boolean {
-        const [hours, minutes] = app.time.split(':').map(Number);
-        const appointmentTime = new Date(app.date);
-        appointmentTime.setHours(hours, minutes, 0, 0);
+        // Parsear a hora do agendamento (formato HH:MM)
+        const timeParts = app.time.split(':');
+        const hours = parseInt(timeParts[0], 10);
+        const minutes = parseInt(timeParts[1], 10);
+
+        // Criar data do agendamento no fuso horário local
+        const dateParts = app.date.split('-');
+        const appointmentTime = new Date(
+            parseInt(dateParts[0], 10),  // ano
+            parseInt(dateParts[1], 10) - 1,  // mês (0-indexed)
+            parseInt(dateParts[2], 10),  // dia
+            hours,
+            minutes,
+            0
+        );
 
         // Calcular momento do aviso
         const notifyTime = new Date(appointmentTime.getTime() - (app.notify_before_minutes * 60 * 1000));
 
-        // Verificar se já passou o horário do aviso mas não passou muito
-        // (5 minutos de tolerância para não perder notificações)
-        const fiveMinutesAfter = new Date(notifyTime.getTime() + 5 * 60 * 1000);
+        // Janela de notificação: desde o notifyTime até o horário do evento
+        // Isso garante que a notificação dispare mesmo se o usuário abriu o app após o notifyTime
+        const windowEnd = appointmentTime;
 
-        return now >= notifyTime && now <= fiveMinutesAfter;
+        console.log(`[NotificationService] DEBUG: agendamento=${appointmentTime.toLocaleString('pt-BR')}, notifyTime=${notifyTime.toLocaleString('pt-BR')}, now=${now.toLocaleString('pt-BR')}`);
+
+        return now >= notifyTime && now <= windowEnd;
     }
 
     /**
