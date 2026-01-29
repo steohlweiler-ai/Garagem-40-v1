@@ -9,11 +9,62 @@ import { dataProvider } from '../services/dataProvider';
 import { UserAccount, UserRole, UserPermissions } from '../types';
 
 const INITIAL_PERMS: UserPermissions = {
-  access_clients: true,
-  view_values_execution: true,
-  view_values_reports: true,
-  create_templates: true,
-  manage_reminders: true
+  manage_team: false,
+  manage_clients: true,
+  manage_inventory: false,
+  config_rates: false,
+  config_vehicles: false,
+  config_system: false,
+  view_financials: false
+};
+
+// Role presets for automatic permission assignment
+const ROLE_PRESETS: Record<UserRole, Partial<UserPermissions>> = {
+  admin: {
+    manage_team: true,
+    manage_clients: true,
+    manage_inventory: true,
+    config_rates: true,
+    config_vehicles: true,
+    config_system: true,
+    view_financials: true
+  },
+  financeiro: {
+    manage_team: false,
+    manage_clients: true,
+    manage_inventory: true,
+    config_rates: false,
+    config_vehicles: false,
+    config_system: false,
+    view_financials: true
+  },
+  operador: {
+    manage_team: false,
+    manage_clients: true,
+    manage_inventory: false,
+    config_rates: false,
+    config_vehicles: false,
+    config_system: false,
+    view_financials: false
+  },
+  stock_manager: {
+    manage_team: false,
+    manage_clients: false,
+    manage_inventory: true,
+    config_rates: false,
+    config_vehicles: false,
+    config_system: false,
+    view_financials: false
+  },
+  visualizador: {
+    manage_team: false,
+    manage_clients: false,
+    manage_inventory: false,
+    config_rates: false,
+    config_vehicles: false,
+    config_system: false,
+    view_financials: false
+  }
 };
 
 const UserManagement: React.FC = () => {
@@ -213,12 +264,21 @@ const UserManagement: React.FC = () => {
                   <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Papel (Nível)</label>
                   <select
                     value={formData.role}
-                    onChange={e => setFormData({ ...formData, role: e.target.value as UserRole })}
+                    onChange={e => {
+                      const newRole = e.target.value as UserRole;
+                      const preset = ROLE_PRESETS[newRole] || {};
+                      setFormData({
+                        ...formData,
+                        role: newRole,
+                        permissions: { ...formData.permissions, ...preset }
+                      });
+                    }}
                     className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-slate-800 rounded-2xl text-sm font-bold outline-none uppercase"
                   >
                     <option value="admin">Admin</option>
                     <option value="operador">Operador</option>
                     <option value="financeiro">Financeiro</option>
+                    <option value="stock_manager">Estoquista</option>
                     <option value="visualizador">Visualizador</option>
                   </select>
                 </div>
@@ -243,11 +303,13 @@ const UserManagement: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
-                    { key: 'access_clients', label: 'Cadastro de Clientes' },
-                    { key: 'view_values_execution', label: 'Ver Valores (Operação)' },
-                    { key: 'view_values_reports', label: 'Relatórios Financeiros' },
-                    { key: 'create_templates', label: 'Gerenciar Fichas' },
-                    { key: 'manage_reminders', label: 'Gerenciar Lembretes' },
+                    { key: 'manage_team', label: 'Gerenciar Equipe' },
+                    { key: 'manage_clients', label: 'Cadastro de Clientes' },
+                    { key: 'manage_inventory', label: 'Estoque e Notas' },
+                    { key: 'config_rates', label: 'Config. Mão de Obra' },
+                    { key: 'config_vehicles', label: 'Veículos e Cores' },
+                    { key: 'config_system', label: 'Config. Sistema' },
+                    { key: 'view_financials', label: 'Ver Valores Financeiros' },
                   ].map(perm => (
                     <button
                       key={perm.key}

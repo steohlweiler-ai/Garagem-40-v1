@@ -290,11 +290,13 @@ const App: React.FC = () => {
             role: 'admin',
             active: true,
             permissions: {
-              access_clients: true,
-              view_values_execution: true,
-              view_values_reports: true,
-              create_templates: true,
-              manage_reminders: true
+              manage_team: true,
+              manage_clients: true,
+              manage_inventory: true,
+              config_rates: true,
+              config_vehicles: true,
+              config_system: true,
+              view_financials: true
             }
           });
           if (newUser) matchedUser = newUser;
@@ -464,25 +466,31 @@ const App: React.FC = () => {
 
   const settingsOptions = useMemo(() => {
     if (!user) return [];
-    return [
-      { id: 'profile', label: 'Meu Perfil', desc: 'Dados da conta', icon: <User size={20} /> },
-      { id: 'stock', label: 'Estoque', desc: 'Peças e notas', icon: <Package size={20} /> },
-      { id: 'templates', label: 'Fichas', desc: 'Modelos de inspeção', icon: <FileCode size={20} /> },
-      { id: 'rates', label: 'Mão de Obra', desc: 'Valores por hora', icon: <DollarSign size={20} /> },
-      { id: 'statuses', label: 'Status', desc: 'Etapas do fluxo', icon: <Tag size={20} /> },
-      { id: 'catalog', label: 'Veículos', desc: 'Marcas e modelos', icon: <Briefcase size={20} /> },
-      { id: 'colors', label: 'Cores', desc: 'Paleta do sistema', icon: <Palette size={20} /> },
-      { id: 'integrations', label: 'Conexões', desc: 'Google e n8n', icon: <Share2 size={20} /> },
-      { id: 'users', label: 'Equipe', desc: 'Colaboradores', icon: <Users size={20} /> },
-      { id: 'workshop', label: 'Oficina', desc: 'Dados da OS', icon: <Store size={20} /> },
-      { id: 'delay', label: 'Atrasos', desc: 'Regras de tempo', icon: <Clock size={20} /> },
-      { id: 'status', label: 'Diagnóstico', desc: 'Verificar conexão', icon: <ShieldAlert size={20} /> }
+    const isAdmin = user.role?.toLowerCase() === 'admin';
+
+    const allOptions = [
+      { id: 'profile', label: 'Meu Perfil', desc: 'Dados da conta', icon: <User size={20} />, perm: null },
+      { id: 'stock', label: 'Estoque', desc: 'Peças e notas', icon: <Package size={20} />, perm: 'manage_inventory' },
+      { id: 'templates', label: 'Fichas', desc: 'Modelos de inspeção', icon: <FileCode size={20} />, perm: null },
+      { id: 'rates', label: 'Mão de Obra', desc: 'Valores por hora', icon: <DollarSign size={20} />, perm: 'config_rates' },
+      { id: 'statuses', label: 'Status', desc: 'Etapas do fluxo', icon: <Tag size={20} />, perm: 'config_system' },
+      { id: 'catalog', label: 'Veículos', desc: 'Marcas e modelos', icon: <Briefcase size={20} />, perm: 'config_vehicles' },
+      { id: 'colors', label: 'Cores', desc: 'Paleta do sistema', icon: <Palette size={20} />, perm: 'config_vehicles' },
+      { id: 'integrations', label: 'Conexões', desc: 'Google e n8n', icon: <Share2 size={20} />, perm: 'config_system' },
+      { id: 'users', label: 'Equipe', desc: 'Colaboradores', icon: <Users size={20} />, perm: 'manage_team' },
+      { id: 'workshop', label: 'Oficina', desc: 'Dados da OS', icon: <Store size={20} />, perm: 'config_system' },
+      { id: 'delay', label: 'Atrasos', desc: 'Regras de tempo', icon: <Clock size={20} />, perm: 'config_system' },
+      { id: 'status', label: 'Diagnóstico', desc: 'Verificar conexão', icon: <ShieldAlert size={20} />, perm: null }
     ];
+
+    return allOptions.filter(opt =>
+      opt.perm === null || isAdmin || (user.permissions as any)?.[opt.perm]
+    );
   }, [user]);
 
   if (!isAuthenticated || !user) return <Auth onLogin={handleLogin} />;
 
-  const canAccessClients = user.role?.toLowerCase() === 'admin' || user.permissions?.access_clients;
+  const canAccessClients = user.role?.toLowerCase() === 'admin' || user.permissions?.manage_clients;
 
   const isAdvancedFilterActive = dashboardAdvancedFilters.statuses.length > 0 || !!dashboardAdvancedFilters.startDate || !!dashboardAdvancedFilters.endDate || dashboardAdvancedFilters.sortBy !== 'entrada_recente';
 
@@ -874,7 +882,7 @@ const App: React.FC = () => {
 
       {/* MODAIS RESPONSIVOS */}
       {isWizardOpen && <NewServiceWizard onClose={() => setIsWizardOpen(false)} onCreated={(s) => { refreshServices(); setIsWizardOpen(false); setSelectedServiceId(s.id); }} />}
-      {selectedServiceId && <ServiceDetail serviceId={selectedServiceId} onClose={() => setSelectedServiceId(null)} onUpdate={refreshServices} />}
+      {selectedServiceId && <ServiceDetail serviceId={selectedServiceId} onClose={() => setSelectedServiceId(null)} onUpdate={refreshServices} user={user} />}
 
       {isReceiveInvoiceOpen && <ReceiveInvoice user={user} onClose={() => setIsReceiveInvoiceOpen(false)} onProcessed={() => { setIsReceiveInvoiceOpen(false); refreshServices(); }} />}
       {isInvoiceHistoryOpen && <InvoiceHistory onClose={() => setIsInvoiceHistoryOpen(false)} />}

@@ -2,11 +2,13 @@
 export type UserRole = 'admin' | 'stock_manager' | 'operador' | 'financeiro' | 'visualizador';
 
 export interface UserPermissions {
-  access_clients: boolean;
-  view_values_execution: boolean;
-  view_values_reports: boolean;
-  create_templates: boolean;
-  manage_reminders: boolean;
+  manage_team: boolean;       // Equipe e Acessos
+  manage_clients: boolean;    // Cadastro de Clientes
+  manage_inventory: boolean;  // Estoque (Peças e Notas)
+  config_rates: boolean;      // Config. Mão de Obra
+  config_vehicles: boolean;   // Config. Veículos/Cores
+  config_system: boolean;     // Config. Integrações/Oficina/Atrasos
+  view_financials: boolean;   // Ver Valores Financeiros
 }
 
 export interface UserAccount {

@@ -16,7 +16,8 @@ import {
   ItemMedia,
   ChargeType,
   Reminder,
-  ServiceStatus
+  ServiceStatus,
+  UserAccount
 } from '../types';
 import {
   formatDuration,
@@ -31,14 +32,16 @@ import EvaluationSheet from './EvaluationSheet';
 import PrintModal from './PrintModal';
 import VoiceInput from './VoiceInput';
 import CameraCapture from './CameraCapture';
+import PriceDisplay from './PriceDisplay';
 
 interface ServiceDetailProps {
   serviceId: string;
   onClose: () => void;
   onUpdate: () => void;
+  user: UserAccount | null;
 }
 
-const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpdate }) => {
+const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpdate, user }) => {
   const [service, setService] = useState<ServiceJob | null>(null);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [client, setClient] = useState<Client | null>(null);
@@ -712,15 +715,17 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                                 </span>
                               )}
 
-                              <span className="text-[10px] font-black text-green-600 ml-auto bg-green-50/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-green-200 shadow-sm">
-                                {formatCurrency(
+                              <PriceDisplay
+                                value={
                                   task.charge_type === 'Fixo'
                                     ? task.fixed_value
                                     : (task.rate_per_hour *
                                       (task.time_spent_seconds || 0)) /
                                     3600
-                                )}
-                              </span>
+                                }
+                                user={user}
+                                className="text-[10px] font-black text-green-600 ml-auto bg-green-50/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-green-200 shadow-sm"
+                              />
                             </div>
                           </div>
 
@@ -901,30 +906,25 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                       </div>
                       <div className="w-full">
                         {(() => {
-                          const val = formatCurrency(
-                            service.tasks.reduce((acc, task) => {
-                              if (task.charge_type === 'Fixo') {
-                                return acc + (task.fixed_value || 0);
-                              } else {
-                                const isTaskInProgress = task.status === 'in_progress';
-                                const elapsed = isTaskInProgress && task.started_at
-                                  ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
-                                  : 0;
-                                const totalSeconds = (task.time_spent_seconds || 0) + elapsed;
-                                return acc + ((task.rate_per_hour || 0) * totalSeconds) / 3600;
-                              }
-                            }, 0)
-                          );
-                          // Múltiplos níveis de redução baseado no comprimento
-                          let fontSize = 'text-2xl';
-                          if (val.length > 15) fontSize = 'text-base';
-                          else if (val.length > 12) fontSize = 'text-lg';
-                          else if (val.length > 10) fontSize = 'text-xl';
+                          const totalValue = service.tasks.reduce((acc, task) => {
+                            if (task.charge_type === 'Fixo') {
+                              return acc + (task.fixed_value || 0);
+                            } else {
+                              const isTaskInProgress = task.status === 'in_progress';
+                              const elapsed = isTaskInProgress && task.started_at
+                                ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
+                                : 0;
+                              const totalSeconds = (task.time_spent_seconds || 0) + elapsed;
+                              return acc + ((task.rate_per_hour || 0) * totalSeconds) / 3600;
+                            }
+                          }, 0);
 
                           return (
-                            <span className={`${fontSize} font-black font-mono text-white leading-none whitespace-nowrap block`}>
-                              {val}
-                            </span>
+                            <PriceDisplay
+                              value={totalValue}
+                              user={user}
+                              className="text-2xl font-black font-mono text-white leading-none whitespace-nowrap block"
+                            />
                           );
                         })()}
                       </div>

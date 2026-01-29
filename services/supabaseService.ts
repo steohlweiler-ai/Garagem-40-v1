@@ -554,7 +554,19 @@ class SupabaseService {
     }
 
     async updateUser(id: string, u: Partial<UserAccount>): Promise<boolean> {
-        const { error } = await supabase.from('perfis_de_usuário').update(u).eq('id', id);
+        // Map frontend field names to database column names
+        const payload: Record<string, any> = {};
+        if (u.name !== undefined) payload.nome = u.name;
+        if (u.email !== undefined) payload.email = u.email;
+        if (u.phone !== undefined) payload.phone = u.phone;
+        if (u.role !== undefined) payload.papel = u.role;
+        if (u.active !== undefined) payload.active = u.active;
+        if (u.permissions !== undefined) payload.permissions = u.permissions;
+
+        const { error } = await supabase.from('perfis_de_usuário').update(payload).eq('id', id);
+        if (error) {
+            console.error('Supabase Error (updateUser):', error);
+        }
         return !error;
     }
 
