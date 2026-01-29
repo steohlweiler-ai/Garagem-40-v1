@@ -209,7 +209,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   }, [currentDate]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 pb-24 font-['Inter']">
+    <div className="space-y-6 animate-in fade-in duration-300 pb-24 font-['Inter'] overflow-x-hidden max-w-full">
 
       {toast && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] bg-slate-900 text-white px-6 py-4 rounded-[2rem] font-bold uppercase text-[10px] tracking-widest shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4">

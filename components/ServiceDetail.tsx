@@ -899,7 +899,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                           <span className="text-[8px] font-black uppercase text-green-300 tracking-[2px]">
                             Valor Total
                           </span>
-                          <span className="text-2xl font-black font-mono text-white leading-none">
+                          <span className="text-2xl font-black font-mono text-white leading-none whitespace-nowrap">
                             {(() => {
                               const val = formatCurrency(
                                 service.tasks.reduce((acc, task) => {
@@ -917,7 +917,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                               );
                               const isLong = val.length > 10;
                               return (
-                                <span className={`${isLong ? 'text-lg sm:text-xl' : 'text-2xl'} font-black font-mono text-white leading-none break-all`}>
+                                <span className={`${isLong ? 'text-lg sm:text-xl' : 'text-2xl'} font-black font-mono text-white leading-none whitespace-nowrap`}>
                                   {val}
                                 </span>
                               );
