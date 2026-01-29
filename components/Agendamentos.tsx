@@ -218,7 +218,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       )}
 
       {/* Header & Sync */}
-      <div className="bg-white p-4 sm:p-6 rounded-[2.5rem] border-2 border-slate-50 shadow-sm space-y-6">
+      <div className="bg-white p-3 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border-2 border-slate-50 shadow-sm space-y-4 sm:space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
@@ -253,8 +253,8 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       </div>
 
       {/* Navigation */}
-      <div className="flex flex-col gap-4">
-        <div className="flex p-1 bg-slate-200/50 rounded-[1.75rem] mx-1">
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="flex p-0.5 sm:p-1 bg-slate-200/50 rounded-[1.25rem] sm:rounded-[1.75rem] mx-0.5 sm:mx-1">
           {[
             { id: 'month', label: 'Mês', icon: <LayoutGrid size={14} /> },
             { id: 'week', label: 'Semana', icon: <CalendarRange size={14} /> },
@@ -263,7 +263,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
             <button
               key={t.id}
               onClick={() => setView(t.id as CalendarView)}
-              className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-2 ${view === t.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
+              className={`flex-1 py-2.5 sm:py-3 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest rounded-xl sm:rounded-2xl transition-all flex items-center justify-center gap-1 sm:gap-2 ${view === t.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
                 }`}
             >
               {t.icon} {t.label}
@@ -271,7 +271,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
           ))}
         </div>
 
-        <div className="flex items-center justify-between px-4 sm:px-6 bg-white py-4 rounded-[2rem] border-2 border-slate-50 shadow-sm">
+        <div className="flex items-center justify-between px-2 sm:px-6 bg-white py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] border-2 border-slate-50 shadow-sm">
           <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 bg-slate-50 rounded-full text-slate-300 active:bg-slate-100"><ChevronLeft size={20} /></button>
           <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">
             {currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
@@ -282,13 +282,13 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
 
       {/* Grid */}
       {view === 'month' && (
-        <div className="bg-white rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden p-1 sm:p-4">
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
-              <div key={d} className="text-[10px] font-bold uppercase text-slate-400 text-center py-2">{d}</div>
+        <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden p-1 sm:p-4">
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-1 sm:mb-2">
+            {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+              <div key={i} className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400 text-center py-1 sm:py-2">{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-0.5 sm:gap-2">
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-2 overflow-x-auto">
             {calendarGrid.map((day, idx) => {
               if (day === null) return <div key={`empty-${idx}`} />;
               const dayStr = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
@@ -300,8 +300,8 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
                 <button
                   key={idx}
                   onClick={() => setSelectedDay(isSelected ? null : dayStr)}
-                  className={`aspect-square rounded-2xl flex flex-col items-center justify-center relative border-2 transition-all active:scale-95 ${isSelected
-                    ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-md ring-2 ring-indigo-200'
+                  className={`aspect-square rounded-lg sm:rounded-2xl flex flex-col items-center justify-center relative border sm:border-2 transition-all active:scale-95 ${isSelected
+                    ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-md ring-1 sm:ring-2 ring-indigo-200'
                     : isToday
                       ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg'
                       : dayApps.length > 0

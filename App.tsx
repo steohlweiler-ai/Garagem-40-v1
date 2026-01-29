@@ -576,7 +576,7 @@ const App: React.FC = () => {
         </header>
 
         {/* ÁREA DE CONTEÚDO */}
-        <section className="p-4 sm:p-6 lg:p-10 flex-1 max-w-7xl mx-auto w-full pb-32 lg:pb-10">
+        <section className="p-2 sm:p-6 lg:p-10 flex-1 max-w-7xl mx-auto w-full pb-32 lg:pb-10">
           {activeTab === 'dashboard' && (
             <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500">
 
