@@ -75,7 +75,72 @@ class DataProvider {
         return Promise.resolve(mockDB.getServiceById(id) || null);
     }
 
+    // ===================== PERFORMANCE OPTIMIZED QUERIES =====================
+
+    async getServiceCounts(): Promise<Record<string, number>> {
+        if (this.useSupabase) {
+            try {
+                return await supabaseDB.getServiceCounts();
+            } catch (e) {
+                console.warn('Supabase getServiceCounts failed, using fallback.', e);
+            }
+        }
+        // Mock fallback - count from in-memory services
+        const services = mockDB.getServices();
+        const counts: Record<string, number> = {};
+        services.forEach(s => {
+            counts[s.status] = (counts[s.status] || 0) + 1;
+        });
+        counts['total'] = services.filter(s => s.status !== 'Entregue').length;
+        return counts;
+    }
+
+    async getServicesFiltered(options: {
+        excludeStatuses?: string[];
+        statuses?: string[];
+        limit?: number;
+        offset?: number;
+        sortBy?: 'priority' | 'entry_recent' | 'entry_oldest' | 'delivery';
+    }): Promise<{
+        data: ServiceJob[];
+        total: number;
+        hasMore: boolean;
+    }> {
+        if (this.useSupabase) {
+            try {
+                return await supabaseDB.getServicesFiltered(options);
+            } catch (e) {
+                console.warn('Supabase getServicesFiltered failed, using fallback.', e);
+            }
+        }
+
+        // Mock fallback - filter and paginate in memory
+        const { excludeStatuses = [], statuses = [], limit = 20, offset = 0 } = options;
+        let services = mockDB.getServices();
+
+        if (statuses.length > 0) {
+            services = services.filter(s => statuses.includes(s.status));
+        } else if (excludeStatuses.length > 0) {
+            services = services.filter(s => !excludeStatuses.includes(s.status));
+        }
+
+        // Sort: Lembrete first, then by entry_at ascending
+        services.sort((a, b) => {
+            const aIsLembrete = a.status === 'Lembrete' ? 0 : 1;
+            const bIsLembrete = b.status === 'Lembrete' ? 0 : 1;
+            if (aIsLembrete !== bIsLembrete) return aIsLembrete - bIsLembrete;
+            return new Date(a.entry_at).getTime() - new Date(b.entry_at).getTime();
+        });
+
+        const total = services.length;
+        const data = services.slice(offset, offset + limit);
+        const hasMore = offset + data.length < total;
+
+        return { data, total, hasMore };
+    }
+
     // ===================== LEITURA DE SUPORTE =====================
+
 
     async getProducts() {
         if (this.useSupabase) return await supabaseDB.getProducts();

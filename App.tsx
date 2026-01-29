@@ -45,6 +45,14 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
+  // ===================== PERFORMANCE OPTIMIZATION STATES =====================
+  const [statsCounts, setStatsCounts] = useState<Record<string, number>>({});
+  const [currentPage, setCurrentPage] = useState(0);
+  const [hasMoreServices, setHasMoreServices] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const PAGE_SIZE = 20;
+
   // Restaurar sessão
   useEffect(() => {
     const savedUser = localStorage.getItem('g40_user_session');
@@ -71,17 +79,82 @@ const App: React.FC = () => {
 
 
 
-  // Data Provider Integration (Async Load)
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const data = await dataProvider.getServices();
-        setServices(data);
-      } catch (err) {
-        console.error('Failed to load services:', err);
+  // ===================== ACTION-FIRST VIEW LOADING =====================
+  // Load stats (counts) separately - fast query for chips
+  const loadStats = async () => {
+    try {
+      const counts = await dataProvider.getServiceCounts();
+      setStatsCounts(counts);
+    } catch (err) {
+      console.error('Failed to load stats:', err);
+    }
+  };
+
+  // Load services with Action-First filtering and pagination
+  const loadServices = async (reset: boolean = false) => {
+    try {
+      if (reset) {
+        setIsInitialLoad(true);
+        setCurrentPage(0);
+      } else {
+        setIsLoadingMore(true);
       }
-    };
-    fetchServices();
+
+      const offset = reset ? 0 : currentPage * PAGE_SIZE;
+
+      // Action-First Logic: Determine which statuses to filter
+      let excludeStatuses: string[] = [];
+      let filterStatuses: string[] = [];
+
+      const isDefaultView = dashboardFilter === 'total' &&
+        dashboardAdvancedFilters.statuses.length === 0 &&
+        !dashboardAdvancedFilters.startDate &&
+        !dashboardAdvancedFilters.endDate;
+
+      if (isDefaultView) {
+        // Action-First: Exclude finalized statuses by default
+        excludeStatuses = ['Pronto', 'Entregue'];
+      } else if (dashboardFilter !== 'total' && dashboardFilter !== 'Atrasado') {
+        // Specific status selected via chip
+        filterStatuses = [dashboardFilter];
+      }
+
+      const result = await dataProvider.getServicesFiltered({
+        excludeStatuses,
+        statuses: filterStatuses,
+        limit: PAGE_SIZE,
+        offset,
+        sortBy: 'priority'
+      });
+
+      if (reset) {
+        setServices(result.data);
+      } else {
+        setServices(prev => [...prev, ...result.data]);
+      }
+
+      setHasMoreServices(result.hasMore);
+      setCurrentPage(prev => reset ? 1 : prev + 1);
+      setIsInitialLoad(false);
+      setIsLoadingMore(false);
+    } catch (err) {
+      console.error('Failed to load services:', err);
+      setIsLoadingMore(false);
+      setIsInitialLoad(false);
+    }
+  };
+
+  // Load more services (infinite scroll)
+  const loadMoreServices = () => {
+    if (!isLoadingMore && hasMoreServices) {
+      loadServices(false);
+    }
+  };
+
+  // Initial load on mount
+  useEffect(() => {
+    loadStats();
+    loadServices(true);
   }, []); // Run once on mount
 
   const [dashboardFilter, setDashboardFilter] = useState<string>('total');
@@ -108,18 +181,20 @@ const App: React.FC = () => {
 
 
   const refreshServices = async () => {
-    try {
-      const data = await dataProvider.getServices();
-      setServices(data);
-    } catch (err) {
-      console.error('Failed to refresh services:', err);
-    }
+    await Promise.all([loadStats(), loadServices(true)]);
   };
+
+  // Reload when filter changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadServices(true);
+    }
+  }, [dashboardFilter, dashboardAdvancedFilters]);
 
   useEffect(() => {
     if (isAuthenticated) {
-      refreshServices();
-      const interval = setInterval(refreshServices, 10000);
+      loadStats();
+      const interval = setInterval(loadStats, 15000); // Stats refresh every 15s
       return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
@@ -265,17 +340,26 @@ const App: React.FC = () => {
     if (isAuthenticated) loadSupportData();
   }, [isAuthenticated]);
 
+  // Stats now come from fast count API query
   const stats = useMemo(() => {
+    // Calculate delayed count client-side from loaded services (approximation)
+    // For accurate count, we'd need a server-side calculation
+    const atrasadoLocal = services.filter(s =>
+      s.estimated_delivery && delayCriteria &&
+      calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority).isDelayed &&
+      s.status !== ServiceStatus.ENTREGUE
+    ).length;
+
     return {
-      atrasado: services.filter(s => s.estimated_delivery && delayCriteria && calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority).isDelayed && s.status !== ServiceStatus.ENTREGUE).length,
-      pendente: services.filter(s => s.status === ServiceStatus.PENDENTE).length,
-      andamento: services.filter(s => s.status === ServiceStatus.EM_ANDAMENTO).length,
-      lembrete: services.filter(s => s.status === ServiceStatus.LEMBRETE).length,
-      pronto: services.filter(s => s.status === ServiceStatus.PRONTO).length,
-      entregue: services.filter(s => s.status === ServiceStatus.ENTREGUE).length,
-      total: services.filter(s => s.status !== ServiceStatus.ENTREGUE).length
+      atrasado: atrasadoLocal, // Calculated from loaded services
+      pendente: statsCounts['Pendente'] || 0,
+      andamento: statsCounts['Em Andamento'] || 0,
+      lembrete: statsCounts['Lembrete'] || 0,
+      pronto: statsCounts['Pronto'] || 0,
+      entregue: statsCounts['Entregue'] || 0,
+      total: statsCounts['total'] || 0
     };
-  }, [services, delayCriteria]);
+  }, [statsCounts, services, delayCriteria]);
 
   // State for vehicles and clients (cached for filtering)
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
@@ -574,7 +658,42 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 )}
+
+                {/* Load More / Infinite Scroll Trigger */}
+                {processedServices.length > 0 && hasMoreServices && (
+                  <div className="col-span-full flex justify-center py-6">
+                    <button
+                      onClick={loadMoreServices}
+                      disabled={isLoadingMore}
+                      className="flex items-center gap-3 px-8 py-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-600 font-bold uppercase text-[10px] tracking-widest hover:border-slate-400 hover:shadow-md transition-all disabled:opacity-50"
+                    >
+                      {isLoadingMore ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Carregando...
+                        </>
+                      ) : (
+                        <>Carregar Mais</>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Initial Loading State */}
+                {isInitialLoad && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-20">
+                    <svg className="animate-spin h-10 w-10 text-green-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Carregando veículos...</p>
+                  </div>
+                )}
               </div>
+
             </div>
           )}
 

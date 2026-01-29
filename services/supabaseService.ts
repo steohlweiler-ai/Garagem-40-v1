@@ -734,7 +734,139 @@ class SupabaseService {
         };
     }
 
+    // ===================== PERFORMANCE OPTIMIZED QUERIES =====================
+
+    /**
+     * Fast count query - returns service counts grouped by status
+     * Used for KPI chips without loading full service data
+     */
+    async getServiceCounts(): Promise<Record<string, number>> {
+        // Use individual count queries per status (Supabase limitation - no GROUP BY)
+        const statuses = ['Pendente', 'Em Andamento', 'Lembrete', 'Pronto', 'Entregue'];
+
+        const countPromises = statuses.map(async (status) => {
+            const { count, error } = await supabase
+                .from('serviços')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', status);
+
+            return { status, count: error ? 0 : (count || 0) };
+        });
+
+        // Also get total (excluding Entregue for active total)
+        const totalActivePromise = supabase
+            .from('serviços')
+            .select('*', { count: 'exact', head: true })
+            .not('status', 'eq', 'Entregue');
+
+        const [results, totalActiveRes] = await Promise.all([
+            Promise.all(countPromises),
+            totalActivePromise
+        ]);
+
+        const counts: Record<string, number> = {};
+        results.forEach(r => {
+            counts[r.status] = r.count;
+        });
+        counts['total'] = totalActiveRes.count || 0;
+
+        return counts;
+    }
+
+    /**
+     * Filtered and paginated service query
+     * Implements Action-First View: excludes finalized statuses by default
+     */
+    async getServicesFiltered(options: {
+        excludeStatuses?: string[];
+        statuses?: string[];
+        limit?: number;
+        offset?: number;
+        sortBy?: 'priority' | 'entry_recent' | 'entry_oldest' | 'delivery';
+    }): Promise<{
+        data: ServiceJob[];
+        total: number;
+        hasMore: boolean;
+    }> {
+        const {
+            excludeStatuses = [],
+            statuses = [],
+            limit = 20,
+            offset = 0,
+            sortBy = 'priority'
+        } = options;
+
+        // Build base query
+        let query = supabase.from('serviços').select('*', { count: 'exact' });
+
+        // Apply status filters
+        if (statuses.length > 0) {
+            query = query.in('status', statuses);
+        } else if (excludeStatuses.length > 0) {
+            for (const status of excludeStatuses) {
+                query = query.not('status', 'eq', status);
+            }
+        }
+
+        // Apply base sorting (will be refined client-side for priority)
+        query = query.order('entry_at', { ascending: true });
+
+        // Apply pagination
+        query = query.range(offset, offset + limit - 1);
+
+        const { data: services, error, count } = await query;
+
+        if (error) {
+            console.error('Supabase Error (getServicesFiltered):', error);
+            throw error;
+        }
+
+        if (!services || services.length === 0) {
+            return { data: [], total: count || 0, hasMore: false };
+        }
+
+        // Fetch relations for the paginated services (batched)
+        const serviceIds = services.map(s => s.id);
+
+        const [tasksRes, remindersRes, historyRes] = await Promise.all([
+            supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order'),
+            supabase.from('lembretes').select('*').in('service_id', serviceIds),
+            supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp')
+        ]);
+
+        // Map relations to services
+        const servicesWithRelations = services.map(s => ({
+            ...s,
+            tasks: (tasksRes.data || []).filter(t => t.service_id === s.id).map(this.mapTask),
+            reminders: (remindersRes.data || []).filter(r => r.service_id === s.id).map(this.mapReminder),
+            status_history: (historyRes.data || []).filter(h => h.service_id === s.id).map(this.mapStatusLog),
+            entry_at: s.entry_at || new Date().toISOString(),
+            archived: s.archived,
+            created_by: s.created_by,
+            created_by_name: s.created_by_name,
+            inspection: s.inspection
+        }));
+
+        // Client-side sort: Lembrete first, then by entry_at ascending (oldest first)
+        if (sortBy === 'priority') {
+            servicesWithRelations.sort((a, b) => {
+                const aIsLembrete = a.status === 'Lembrete' ? 0 : 1;
+                const bIsLembrete = b.status === 'Lembrete' ? 0 : 1;
+
+                if (aIsLembrete !== bIsLembrete) return aIsLembrete - bIsLembrete;
+
+                return new Date(a.entry_at).getTime() - new Date(b.entry_at).getTime();
+            });
+        }
+
+        const total = count || 0;
+        const hasMore = offset + services.length < total;
+
+        return { data: servicesWithRelations, total, hasMore };
+    }
+
     // ===================== WRITE OPERATIONS =====================
+
 
     async addClient(client: Omit<Client, 'id'>): Promise<Client | null> {
         const { data, error } = await supabase.from('clientes').insert({
