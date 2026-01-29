@@ -31,6 +31,8 @@ import StockByVehicle from './components/StockByVehicle';
 import StockDashboardMini from './components/StockDashboardMini';
 import TemplateManager from './components/TemplateManagement';
 import RatesSettings from './components/RatesSettings';
+import { notificationService } from './services/NotificationService';
+
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -56,6 +58,16 @@ const App: React.FC = () => {
       }
     }
   }, []);
+
+  // Inicializar serviço de notificações quando autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      notificationService.start();
+    }
+    return () => {
+      notificationService.stop();
+    };
+  }, [isAuthenticated]);
 
 
 
