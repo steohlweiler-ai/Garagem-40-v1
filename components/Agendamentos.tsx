@@ -218,7 +218,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       )}
 
       {/* Header & Sync */}
-      <div className="bg-white p-6 rounded-[2.5rem] border-2 border-slate-50 shadow-sm space-y-6">
+      <div className="bg-white p-4 sm:p-6 rounded-[2.5rem] border-2 border-slate-50 shadow-sm space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
@@ -271,7 +271,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
           ))}
         </div>
 
-        <div className="flex items-center justify-between px-6 bg-white py-4 rounded-[2rem] border-2 border-slate-50 shadow-sm">
+        <div className="flex items-center justify-between px-4 sm:px-6 bg-white py-4 rounded-[2rem] border-2 border-slate-50 shadow-sm">
           <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 bg-slate-50 rounded-full text-slate-300 active:bg-slate-100"><ChevronLeft size={20} /></button>
           <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">
             {currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
@@ -282,13 +282,13 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
 
       {/* Grid */}
       {view === 'month' && (
-        <div className="bg-white rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden p-4">
+        <div className="bg-white rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden p-2 sm:p-4">
           <div className="grid grid-cols-7 gap-1 mb-2">
             {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
               <div key={d} className="text-[10px] font-bold uppercase text-slate-400 text-center py-2">{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
             {calendarGrid.map((day, idx) => {
               if (day === null) return <div key={`empty-${idx}`} />;
               const dayStr = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
