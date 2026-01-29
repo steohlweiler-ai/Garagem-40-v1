@@ -568,16 +568,13 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
               {/* Título */}
               <div className="space-y-1">
                 <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Descrição *</label>
-                <div className="relative flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={reminderEditData.title}
-                    onChange={e => setReminderEditData({ ...reminderEditData, title: e.target.value })}
-                    className="flex-1 p-4 bg-amber-50 border-2 border-amber-200 focus:border-amber-400 rounded-2xl text-sm font-semibold outline-none"
-                    placeholder="Descrição do lembrete"
-                  />
-                  <VoiceInput onResult={(text) => setReminderEditData({ ...reminderEditData, title: text })} />
-                </div>
+                <VoiceInput
+                  multiline={false}
+                  value={reminderEditData.title}
+                  onTranscript={(text) => setReminderEditData({ ...reminderEditData, title: text })}
+                  placeholder="Descrição do lembrete"
+                  className="!bg-amber-50 !border-amber-200 focus:!border-amber-400 !text-slate-800"
+                />
               </div>
               {/* Data e Hora */}
               <div className="grid grid-cols-2 gap-4">
