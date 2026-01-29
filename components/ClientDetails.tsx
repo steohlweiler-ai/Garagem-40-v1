@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
     X, Phone, MapPin, Info, Car, Calendar, Printer, Filter, ChevronDown, AlignLeft,
-    CheckCircle2, Clock, PlayCircle, Package, AlertCircle, Edit2
+    CheckCircle2, Clock, PlayCircle, Package, AlertCircle, Edit2, Bell, FileWarning
 } from 'lucide-react';
-import { Client, Vehicle, ServiceStatus, WorkshopSettings } from '../types';
+import { Client, Vehicle, ServiceStatus, WorkshopSettings, DelayCriteria } from '../types';
 import { useClientStats, StatType } from '../hooks/useClientStats';
 import { dataProvider } from '../services/dataProvider';
 import { formatCurrency } from '../utils/helpers';
@@ -20,30 +20,52 @@ interface ClientDetailsProps {
 
 const STAT_CONFIG: Record<StatType, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
     all: { label: 'Todos', icon: <AlignLeft size={14} />, color: 'text-slate-600', bg: 'bg-slate-100' },
+    delayed: { label: 'Atrasado', icon: <AlertCircle size={14} />, color: 'text-red-600', bg: 'bg-red-100' },
     in_shop: { label: 'Na Oficina', icon: <Car size={14} />, color: 'text-blue-600', bg: 'bg-blue-100' },
-    done: { label: 'Prontos', icon: <CheckCircle2 size={14} />, color: 'text-green-600', bg: 'bg-green-100' },
-    pending: { label: 'Pendentes', icon: <Clock size={14} />, color: 'text-amber-600', bg: 'bg-amber-100' },
+    pending: { label: 'Pendente', icon: <Clock size={14} />, color: 'text-amber-600', bg: 'bg-amber-100' },
     in_progress: { label: 'Em Andamento', icon: <PlayCircle size={14} />, color: 'text-indigo-600', bg: 'bg-indigo-100' },
-    delivered: { label: 'Entregues', icon: <Package size={14} />, color: 'text-slate-400', bg: 'bg-slate-100' }
+    reminder: { label: 'Lembrete', icon: <Bell size={14} />, color: 'text-purple-600', bg: 'bg-purple-100' },
+    done: { label: 'Pronto', icon: <CheckCircle2 size={14} />, color: 'text-green-600', bg: 'bg-green-100' },
+    delivered: { label: 'Entregue', icon: <Package size={14} />, color: 'text-slate-400', bg: 'bg-slate-100' }
 };
 
 const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onClose, onEdit, vehicles, onSelectService }) => {
-    // Logic
-    const { stats, filteredServices, isLoading, filters } = useClientStats(client, vehicles);
+    // State
     const [showFilters, setShowFilters] = useState(false);
     const [workshop, setWorkshop] = useState<WorkshopSettings | null>(null);
+    const [delayCriteria, setDelayCriteria] = useState<DelayCriteria | null>(null);
+
+    // Hook with delayCriteria
+    const { stats, filteredServices, isLoading, filters } = useClientStats(client, vehicles, delayCriteria);
 
     // Report State
     const [showReportConfig, setShowReportConfig] = useState(false);
     const [reportConfig, setReportConfig] = useState<ReportConfig>({
         showValues: true,
         showNotes: false,
-        showTimes: false
+        showTimes: false,
+        technicalMode: false
     });
 
     useEffect(() => {
-        dataProvider.getWorkshopSettings().then(setWorkshop);
+        Promise.all([
+            dataProvider.getWorkshopSettings(),
+            dataProvider.getDelayCriteria()
+        ]).then(([ws, dc]) => {
+            setWorkshop(ws);
+            setDelayCriteria(dc);
+        });
     }, []);
+
+    // Technical Mode Toggle Logic
+    const handleTechnicalModeChange = (enabled: boolean) => {
+        setReportConfig(prev => ({
+            ...prev,
+            technicalMode: enabled,
+            showValues: enabled ? false : prev.showValues,
+            showNotes: enabled ? true : prev.showNotes
+        }));
+    };
 
     const handlePrint = () => {
         window.print();
@@ -96,8 +118,8 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onClose, onEdit, 
                                     key={key}
                                     onClick={() => filters.setActiveTab(key)}
                                     className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all shrink-0 ${isActive
-                                            ? `border-slate-800 bg-slate-800 text-white shadow-lg shadow-slate-200`
-                                            : `border-slate-50 bg-slate-50 text-slate-400 hover:bg-slate-100`
+                                        ? `border-slate-800 bg-slate-800 text-white shadow-lg shadow-slate-200`
+                                        : `border-slate-50 bg-slate-50 text-slate-400 hover:bg-slate-100`
                                         }`}
                                 >
                                     {React.cloneElement(conf.icon as React.ReactElement, { size: 14, className: isActive ? 'text-white' : conf.color })}
@@ -168,8 +190,8 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onClose, onEdit, 
                             >
                                 <div className="flex items-center gap-4">
                                     <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 ${service.status === ServiceStatus.ENTREGUE ? 'bg-slate-100 text-slate-400' :
-                                            service.status === ServiceStatus.PRONTO ? 'bg-green-100 text-green-600' :
-                                                'bg-blue-50 text-blue-600'
+                                        service.status === ServiceStatus.PRONTO ? 'bg-green-100 text-green-600' :
+                                            'bg-blue-50 text-blue-600'
                                         }`}>
                                         <span className="text-[10px] font-black uppercase">{new Date(service.entry_at).getDate()}</span>
                                         <span className="text-[8px] font-bold uppercase">{new Date(service.entry_at).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
@@ -181,9 +203,9 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onClose, onEdit, 
                                         </h4>
                                         <div className="flex items-center gap-2 mt-1">
                                             <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-md ${service.status === ServiceStatus.ENTREGUE ? 'bg-slate-100 text-slate-500' :
-                                                    service.status === ServiceStatus.PRONTO ? 'bg-green-100 text-green-700' :
-                                                        service.status === ServiceStatus.PENDENTE ? 'bg-amber-100 text-amber-700' :
-                                                            'bg-blue-100 text-blue-700'
+                                                service.status === ServiceStatus.PRONTO ? 'bg-green-100 text-green-700' :
+                                                    service.status === ServiceStatus.PENDENTE ? 'bg-amber-100 text-amber-700' :
+                                                        'bg-blue-100 text-blue-700'
                                                 }`}>{service.status}</span>
                                             <span className="text-[9px] font-mono font-bold text-slate-400">#{service.id.substring(0, 8).toUpperCase()}</span>
                                         </div>
@@ -217,32 +239,35 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({ client, onClose, onEdit, 
                         </div>
 
                         <div className="flex flex-wrap gap-4 mb-8">
-                            <label className="flex items-center gap-3 cursor-pointer group">
+                            {/* Modo Laudo Técnico - Prominent Toggle */}
+                            <label className="flex items-center gap-3 cursor-pointer group w-full pb-4 border-b border-slate-700 mb-2">
+                                <div className={`w-12 h-7 rounded-full p-1 transition-colors ${reportConfig.technicalMode ? 'bg-amber-500' : 'bg-slate-700'}`}>
+                                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${reportConfig.technicalMode ? 'translate-x-5' : ''}`} />
+                                </div>
+                                <input type="checkbox" className="hidden" checked={reportConfig.technicalMode} onChange={e => handleTechnicalModeChange(e.target.checked)} />
+                                <div>
+                                    <span className={`text-sm font-black uppercase transition-colors ${reportConfig.technicalMode ? 'text-amber-400' : 'text-slate-300 group-hover:text-white'}`}>Modo Laudo Técnico</span>
+                                    <p className="text-[9px] text-slate-500 font-bold uppercase mt-0.5">Oculta valores e exibe diagnóstico</p>
+                                </div>
+                            </label>
+
+                            <label className={`flex items-center gap-3 cursor-pointer group ${reportConfig.technicalMode ? 'opacity-50 pointer-events-none' : ''}`}>
                                 <div className={`w-10 h-6 rounded-full p-1 transition-colors ${reportConfig.showValues ? 'bg-green-500' : 'bg-slate-700'}`}>
                                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${reportConfig.showValues ? 'translate-x-4' : ''}`} />
                                 </div>
-                                <input type="checkbox" className="hidden" checked={reportConfig.showValues} onChange={e => setReportConfig(p => ({ ...p, showValues: e.target.checked }))} />
+                                <input type="checkbox" className="hidden" checked={reportConfig.showValues} onChange={e => setReportConfig(p => ({ ...p, showValues: e.target.checked }))} disabled={reportConfig.technicalMode} />
                                 <span className="text-xs font-bold uppercase text-slate-300 group-hover:text-white transition-colors">Exibir Valores (R$)</span>
                             </label>
 
-                            <label className="flex items-center gap-3 cursor-pointer group">
+                            <label className={`flex items-center gap-3 cursor-pointer group ${reportConfig.technicalMode ? 'opacity-50 pointer-events-none' : ''}`}>
                                 <div className={`w-10 h-6 rounded-full p-1 transition-colors ${reportConfig.showNotes ? 'bg-blue-500' : 'bg-slate-700'}`}>
                                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${reportConfig.showNotes ? 'translate-x-4' : ''}`} />
                                 </div>
-                                <input type="checkbox" className="hidden" checked={reportConfig.showNotes} onChange={e => setReportConfig(p => ({ ...p, showNotes: e.target.checked }))} />
+                                <input type="checkbox" className="hidden" checked={reportConfig.showNotes} onChange={e => setReportConfig(p => ({ ...p, showNotes: e.target.checked }))} disabled={reportConfig.technicalMode} />
                                 <span className="text-xs font-bold uppercase text-slate-300 group-hover:text-white transition-colors">Observações Técnicas</span>
                             </label>
-
-                            {/* 
-                // Disabled for now as we don't calculate duration yet in hook
-                <label className="flex items-center gap-3 cursor-pointer group opacity-50">
-                  <div className={`w-10 h-6 rounded-full p-1 transition-colors ${reportConfig.showTimes ? 'bg-amber-500' : 'bg-slate-700'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${reportConfig.showTimes ? 'translate-x-4' : ''}`} />
-                  </div>
-                  <input type="checkbox" className="hidden" checked={reportConfig.showTimes} onChange={e => setReportConfig(p => ({...p, showTimes: e.target.checked}))} />
-                  <span className="text-xs font-bold uppercase text-slate-300 group-hover:text-white transition-colors">Tempos de Execução</span>
-                </label> */}
                         </div>
+
 
                         <button
                             onClick={handlePrint}

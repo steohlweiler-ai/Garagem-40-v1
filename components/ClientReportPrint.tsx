@@ -8,6 +8,7 @@ export interface ReportConfig {
     showValues: boolean;
     showNotes: boolean;
     showTimes: boolean;
+    technicalMode: boolean;
 }
 
 interface ClientReportPrintProps {
@@ -45,23 +46,40 @@ const ClientReportPrint: React.FC<ClientReportPrintProps> = ({
               top: 0;
               left: 0;
               width: 100%;
-              height: 100%;
+              height: auto;
               background: white;
+            }
+            /* Avoid page break inside vehicle rows */
+            .print-row {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            /* Use borders instead of solid backgrounds for ink economy */
+            .print-badge {
+              background: transparent !important;
+              border: 1px solid currentColor !important;
             }
           }
         `}
             </style>
 
-            {/* Header */}
+            {/* Header with Logo */}
             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
-                <div>
-                    <h1 className="text-2xl font-black uppercase tracking-tighter text-slate-900">{workshop?.name || 'Oficina Mecânica'}</h1>
-                    <p className="text-xs font-bold text-slate-500 uppercase mt-1">
-                        {workshop?.address} {workshop?.phone ? `| Tel: ${workshop.phone}` : ''}
-                    </p>
+                <div className="flex items-center gap-4">
+                    {workshop?.logo_url && (
+                        <img src={workshop.logo_url} alt="Logo" className="h-14 w-14 object-contain rounded-lg" />
+                    )}
+                    <div>
+                        <h1 className="text-2xl font-black uppercase tracking-tighter text-slate-900">{workshop?.name || 'Oficina Mecânica'}</h1>
+                        <p className="text-xs font-bold text-slate-500 uppercase mt-1">
+                            {workshop?.address} {workshop?.phone ? `| Tel: ${workshop.phone}` : ''}
+                        </p>
+                    </div>
                 </div>
                 <div className="text-right">
-                    <h2 className="text-lg font-black uppercase text-slate-800">Relatório de Serviços</h2>
+                    <h2 className="text-lg font-black uppercase text-slate-800">
+                        {config.technicalMode ? 'Laudo Técnico' : 'Relatório de Serviços'}
+                    </h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase">Gerado em: {new Date().toLocaleDateString('pt-BR')}</p>
                 </div>
             </div>
@@ -101,7 +119,7 @@ const ClientReportPrint: React.FC<ClientReportPrintProps> = ({
                 <tbody>
                     {services.map(s => (
                         <React.Fragment key={s.id}>
-                            <tr className="border-b border-slate-200">
+                            <tr className="border-b border-slate-200 print-row">
                                 <td className="py-3 text-xs font-bold text-slate-700">{new Date(s.entry_at).toLocaleDateString('pt-BR')}</td>
                                 <td className="py-3 text-xs font-mono font-bold text-slate-500">#{s.id.substring(0, 8).toUpperCase()}</td>
                                 <td className="py-3">
@@ -109,14 +127,17 @@ const ClientReportPrint: React.FC<ClientReportPrintProps> = ({
                                     <div className="text-[10px] font-bold text-slate-500 uppercase">{s.vehicle_model}</div>
                                 </td>
                                 <td className="py-3">
-                                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${s.status === ServiceStatus.ENTREGUE ? 'bg-white border-slate-300 text-slate-600' : 'bg-slate-100 border-slate-200 text-slate-500'
+                                    <span className={`print-badge text-[9px] font-black uppercase px-2 py-0.5 rounded ${s.status === ServiceStatus.ENTREGUE ? 'text-slate-500 border-slate-400' :
+                                            s.status === ServiceStatus.PRONTO ? 'text-green-600 border-green-500' :
+                                                s.status === ServiceStatus.PENDENTE ? 'text-amber-600 border-amber-500' :
+                                                    s.status === ServiceStatus.EM_ANDAMENTO ? 'text-blue-600 border-blue-500' :
+                                                        'text-slate-600 border-slate-400'
                                         }`}>
                                         {s.status}
                                     </span>
                                 </td>
                                 {config.showTimes && (
                                     <td className="py-3 text-xs font-bold text-slate-600 text-right">
-                                        {/* Placeholder filtering for simplicity or calculate from start/end */}
                                         --:--
                                     </td>
                                 )}
@@ -127,9 +148,9 @@ const ClientReportPrint: React.FC<ClientReportPrintProps> = ({
                                 )}
                             </tr>
                             {config.showNotes && s.tasks && s.tasks.some(t => t.relato) && (
-                                <tr className="border-b border-slate-100 bg-slate-50/50">
+                                <tr className="border-b border-slate-100 bg-slate-50/50 print-row">
                                     <td colSpan={6} className="py-2 px-4">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Notas Técnicas:</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Diagnóstico / Observações:</p>
                                         <div className="space-y-1">
                                             {s.tasks.filter(t => t.relato).map(t => (
                                                 <div key={t.id} className="text-[10px] text-slate-600 leading-tight">

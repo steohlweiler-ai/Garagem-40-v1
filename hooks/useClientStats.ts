@@ -1,16 +1,19 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ServiceJob, Vehicle, Client, ServiceStatus } from '../types';
+import { ServiceJob, Vehicle, Client, ServiceStatus, DelayCriteria } from '../types';
 import { dataProvider } from '../services/dataProvider';
+import { calculateDelayStatus } from '../utils/helpers';
 
-export type StatType = 'all' | 'in_shop' | 'done' | 'pending' | 'in_progress' | 'delivered';
+export type StatType = 'all' | 'delayed' | 'in_shop' | 'done' | 'pending' | 'in_progress' | 'reminder' | 'delivered';
 export type SortOption = 'date_desc' | 'date_asc' | 'delivery_asc';
 
 export interface ClientStats {
     all: number;
+    delayed: number;
     in_shop: number;
     done: number;
     pending: number;
     in_progress: number;
+    reminder: number;
     delivered: number;
 }
 
@@ -20,7 +23,7 @@ export interface ServiceWithVehicle extends ServiceJob {
     vehicle_brand: string;
 }
 
-export function useClientStats(client: Client | null, vehicles: Vehicle[]) {
+export function useClientStats(client: Client | null, vehicles: Vehicle[], delayCriteria: DelayCriteria | null = null) {
     const [services, setServices] = useState<ServiceWithVehicle[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<StatType>('all');
@@ -67,17 +70,24 @@ export function useClientStats(client: Client | null, vehicles: Vehicle[]) {
             (acc, s) => {
                 acc.all++;
                 if (s.status === ServiceStatus.ENTREGUE) acc.delivered++;
-                else acc.in_shop++; // Any status not Delivered is "In Shop" contextually, or we refine
+                else acc.in_shop++;
 
                 if (s.status === ServiceStatus.PRONTO) acc.done++;
                 if (s.status === ServiceStatus.PENDENTE) acc.pending++;
                 if (s.status === ServiceStatus.EM_ANDAMENTO) acc.in_progress++;
+                if (s.status === ServiceStatus.LEMBRETE) acc.reminder++;
+
+                // Check if delayed
+                if (s.estimated_delivery && delayCriteria && s.status !== ServiceStatus.ENTREGUE) {
+                    const delayStatus = calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority);
+                    if (delayStatus.isDelayed) acc.delayed++;
+                }
 
                 return acc;
             },
-            { all: 0, in_shop: 0, done: 0, pending: 0, in_progress: 0, delivered: 0 } as ClientStats
+            { all: 0, delayed: 0, in_shop: 0, done: 0, pending: 0, in_progress: 0, reminder: 0, delivered: 0 } as ClientStats
         );
-    }, [services]);
+    }, [services, delayCriteria]);
 
     // Filter Services
     const filteredServices = useMemo(() => {
@@ -85,7 +95,12 @@ export function useClientStats(client: Client | null, vehicles: Vehicle[]) {
 
         // 1. Status Filter (Tabs)
         if (activeTab !== 'all') {
-            if (activeTab === 'in_shop') {
+            if (activeTab === 'delayed') {
+                result = result.filter(s => {
+                    if (!s.estimated_delivery || !delayCriteria || s.status === ServiceStatus.ENTREGUE) return false;
+                    return calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority).isDelayed;
+                });
+            } else if (activeTab === 'in_shop') {
                 result = result.filter(s => s.status !== ServiceStatus.ENTREGUE);
             } else if (activeTab === 'done') {
                 result = result.filter(s => s.status === ServiceStatus.PRONTO);
@@ -93,6 +108,8 @@ export function useClientStats(client: Client | null, vehicles: Vehicle[]) {
                 result = result.filter(s => s.status === ServiceStatus.PENDENTE);
             } else if (activeTab === 'in_progress') {
                 result = result.filter(s => s.status === ServiceStatus.EM_ANDAMENTO);
+            } else if (activeTab === 'reminder') {
+                result = result.filter(s => s.status === ServiceStatus.LEMBRETE);
             } else if (activeTab === 'delivered') {
                 result = result.filter(s => s.status === ServiceStatus.ENTREGUE);
             }
