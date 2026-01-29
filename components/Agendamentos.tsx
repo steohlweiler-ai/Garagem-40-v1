@@ -83,11 +83,36 @@ const Agendamentos: React.FC = () => {
     setIsAdding(false);
     setFormData({
       title: '', date: '', time: '', vehicle_plate: '',
-      description: '', notify_enabled: true, notify_before_minutes: 60
+      description: '', notify_enabled: true, notify_before_minutes: 15
     });
     const all = await dataProvider.getAppointments();
     setAppointments(all);
     showToast('Agendamento criado!');
+  };
+
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [editFormData, setEditFormData] = useState({ date: '', time: '', notify_before_minutes: 15 });
+
+  const handleEditAppointment = (app: Appointment) => {
+    setEditingAppointment(app);
+    setEditFormData({
+      date: app.date,
+      time: app.time,
+      notify_before_minutes: app.notify_before_minutes || 15
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingAppointment || !editFormData.date || !editFormData.time) return;
+    await dataProvider.updateAppointment(editingAppointment.id, {
+      date: editFormData.date,
+      time: editFormData.time,
+      notify_before_minutes: editFormData.notify_before_minutes
+    });
+    setEditingAppointment(null);
+    const all = await dataProvider.getAppointments();
+    setAppointments(all);
+    showToast('Agendamento atualizado!');
   };
 
   const handleDelete = async (id: string) => {
@@ -97,6 +122,7 @@ const Agendamentos: React.FC = () => {
     setAppointments(all);
     showToast('Agendamento removido');
   };
+
 
   const daysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -207,12 +233,12 @@ const Agendamentos: React.FC = () => {
                   key={idx}
                   onClick={() => setSelectedDay(isSelected ? null : dayStr)}
                   className={`aspect-square rounded-2xl flex flex-col items-center justify-center relative border-2 transition-all active:scale-95 ${isSelected
-                      ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-md ring-2 ring-indigo-200'
-                      : isToday
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg'
-                        : dayApps.length > 0
-                          ? 'bg-white border-slate-200 text-slate-700 shadow-sm hover:border-indigo-300'
-                          : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'
+                    ? 'bg-indigo-100 border-indigo-500 text-indigo-700 shadow-md ring-2 ring-indigo-200'
+                    : isToday
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg'
+                      : dayApps.length > 0
+                        ? 'bg-white border-slate-200 text-slate-700 shadow-sm hover:border-indigo-300'
+                        : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'
                     }`}
                 >
                   <span className="text-sm font-bold">{day}</span>
@@ -256,31 +282,58 @@ const Agendamentos: React.FC = () => {
           {filteredAppointments.length > 0 ? filteredAppointments.map(app => (
             <div
               key={app.id}
-              className={`p-5 rounded-[2.25rem] border-2 bg-white flex items-center justify-between transition-all active:scale-[0.98] ${app.type === 'service_delivery' ? 'border-green-100 bg-gradient-to-r from-green-50/50 to-white' : 'border-slate-50'
+              className={`p-5 rounded-[2.25rem] border-2 bg-white flex items-start justify-between transition-all ${app.type === 'service_delivery' ? 'border-green-100 bg-gradient-to-r from-green-50/50 to-white' : 'border-slate-50'
                 }`}
             >
-              <div className="flex gap-4 items-center flex-1">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner ${app.type === 'service_delivery' ? 'bg-green-100 text-green-600' : 'bg-slate-50 text-slate-300'
-                  }`}>
+              <div className="flex gap-4 items-start flex-1">
+                {/* Icon - Clickable for editing date/time */}
+                <button
+                  onClick={() => handleEditAppointment(app)}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${app.type === 'service_delivery' ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
+                    }`}
+                  title="Editar data/hora"
+                >
                   {app.type === 'service_delivery' ? <CheckCircle2 size={24} /> : <CalendarIcon size={24} />}
-                </div>
+                </button>
                 <div className="flex-1 min-w-0">
                   <p className="text-md font-semibold uppercase text-slate-800 tracking-tight truncate leading-none mb-1.5">{app.title}</p>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
                     <div className="flex items-center gap-1">
                       <Clock size={12} className="text-indigo-300" />
                       <span className="text-[10px] font-bold text-indigo-400 uppercase">{app.time}</span>
                     </div>
-                    {app.vehicle_plate && (
+                    {app.client_name && (
+                      <div className="flex items-center gap-1">
+                        <User size={12} className="text-amber-400" />
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">{app.client_name}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(app.vehicle_brand || app.vehicle_model) && (
                       <div className="flex items-center gap-1">
                         <Car size={12} className="text-slate-300" />
-                        <span className="text-[10px] font-bold text-slate-400 font-mono uppercase">{app.vehicle_plate}</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">
+                          {[app.vehicle_brand, app.vehicle_model].filter(Boolean).join(' ')}
+                        </span>
                       </div>
+                    )}
+                    {app.client_phone && (
+                      <a
+                        href={`https://wa.me/55${app.client_phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 bg-green-50 hover:bg-green-100 px-2 py-0.5 rounded-full transition-all active:scale-95"
+                      >
+                        <Smartphone size={12} className="text-green-500" />
+                        <span className="text-[10px] font-bold text-green-600">{app.client_phone}</span>
+                      </a>
                     )}
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-col items-end gap-2 ml-3">
                 <p className="text-[10px] font-bold text-slate-300 uppercase">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
                 {app.type === 'manual' && (
                   <button onClick={() => handleDelete(app.id)} className="p-3 text-slate-200 hover:text-red-500 active:scale-125 transition-all"><Trash2 size={16} /></button>
@@ -337,6 +390,53 @@ const Agendamentos: React.FC = () => {
               <div className="flex gap-4 pt-4 border-t">
                 <button onClick={() => setIsAdding(false)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Cancelar</button>
                 <button onClick={handleSave} className="flex-[2] py-5 bg-indigo-600 text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl">Salvar Agendamento</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Edição de Data/Hora */}
+      {editingAppointment && (
+        <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-in fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-t-[3.5rem] p-8 space-y-6 animate-in slide-in-from-bottom-20">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold uppercase text-slate-800 tracking-tight leading-none">Editar Agendamento</h3>
+                <p className="text-[10px] font-medium text-slate-400 uppercase mt-2 tracking-widest">{editingAppointment.title}</p>
+              </div>
+              <button onClick={() => setEditingAppointment(null)} className="p-4 bg-slate-100 rounded-full text-slate-300 active:scale-90 transition-all touch-target"><X size={24} /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Data *</label>
+                  <input type="date" value={editFormData.date} onChange={e => setEditFormData({ ...editFormData, date: e.target.value })} className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl text-sm font-semibold outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Horário *</label>
+                  <input type="time" value={editFormData.time} onChange={e => setEditFormData({ ...editFormData, time: e.target.value })} className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl text-sm font-semibold outline-none" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Avisar antes (minutos)</label>
+                <select
+                  value={editFormData.notify_before_minutes}
+                  onChange={e => setEditFormData({ ...editFormData, notify_before_minutes: parseInt(e.target.value) })}
+                  className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl text-sm font-semibold outline-none"
+                >
+                  <option value={5}>5 minutos antes</option>
+                  <option value={10}>10 minutos antes</option>
+                  <option value={15}>15 minutos antes</option>
+                  <option value={30}>30 minutos antes</option>
+                  <option value={60}>1 hora antes</option>
+                  <option value={120}>2 horas antes</option>
+                  <option value={1440}>1 dia antes</option>
+                </select>
+              </div>
+              <div className="flex gap-4 pt-4 border-t">
+                <button onClick={() => setEditingAppointment(null)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Cancelar</button>
+                <button onClick={handleSaveEdit} className="flex-[2] py-5 bg-indigo-600 text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl">Salvar Alterações</button>
               </div>
             </div>
           </div>

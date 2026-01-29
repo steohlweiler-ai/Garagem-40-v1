@@ -67,6 +67,10 @@ export interface Appointment {
   date: string;
   time: string;
   vehicle_plate?: string;
+  vehicle_brand?: string;
+  vehicle_model?: string;
+  client_name?: string;
+  client_phone?: string;
   notify_before_minutes: number;
   notify_enabled: boolean;
   type: 'manual' | 'service_delivery';

@@ -817,7 +817,10 @@ class SupabaseService {
 
     async getAppointments(): Promise<Appointment[]> {
         const { data, error } = await supabase.from('agendamentos').select('*').order('date', { ascending: true });
-        if (error) return [];
+        if (error) {
+            console.error('[Supabase] Error fetching appointments:', error);
+            return [];
+        }
         return data.map(a => ({
             id: a.id,
             organization_id: a.organization_id || 'org-default',
@@ -825,9 +828,13 @@ class SupabaseService {
             date: a.date,
             time: a.time,
             vehicle_plate: a.vehicle_plate,
+            vehicle_brand: a.vehicle_brand,
+            vehicle_model: a.vehicle_model,
+            client_name: a.client_name,
+            client_phone: a.client_phone,
             description: a.description,
-            notify_enabled: a.notify_enabled,
-            notify_before_minutes: a.notify_before_minutes,
+            notify_enabled: a.notify_enabled ?? true,
+            notify_before_minutes: a.notify_before_minutes ?? 15,
             type: a.type as 'manual' | 'service_delivery',
             service_id: a.service_id
         }));
@@ -876,6 +883,23 @@ class SupabaseService {
     async deleteAppointment(id: string): Promise<boolean> {
         const { error } = await supabase.from('agendamentos').delete().eq('id', id);
         return !error;
+    }
+
+    async updateAppointment(id: string, updates: Partial<Appointment>): Promise<boolean> {
+        const { error } = await supabase.from('agendamentos').update({
+            ...(updates.date && { date: updates.date }),
+            ...(updates.time && { time: updates.time }),
+            ...(updates.title && { title: updates.title }),
+            ...(updates.description !== undefined && { description: updates.description }),
+            ...(updates.notify_before_minutes !== undefined && { notify_before_minutes: updates.notify_before_minutes }),
+            ...(updates.notify_enabled !== undefined && { notify_enabled: updates.notify_enabled })
+        }).eq('id', id);
+
+        if (error) {
+            console.error('[Supabase] Error updating appointment:', error);
+            return false;
+        }
+        return true;
     }
 
     async addService(service: Partial<ServiceJob>): Promise<ServiceJob | null> {

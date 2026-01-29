@@ -262,6 +262,13 @@ class DataProvider {
         return true;
     }
 
+    async updateAppointment(id: string, updates: Partial<Appointment>): Promise<boolean> {
+        if (this.useSupabase) return await supabaseDB.updateAppointment(id, updates);
+        // Fallback mock não implementado
+        console.warn('[DataProvider] updateAppointment mock not implemented');
+        return false;
+    }
+
     async getIntegrations(): Promise<IntegrationState> {
         if (this.useSupabase) return await supabaseDB.getIntegrations();
         return mockDB.getIntegrations();
@@ -465,10 +472,28 @@ class DataProvider {
         const dateStr = dateObj.toISOString().split('T')[0];
         const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
+        // 4. Get vehicle and client data
         let plate = '???';
+        let vehicleBrand = '';
+        let vehicleModel = '';
+        let clientName = '';
+        let clientPhone = '';
+
         if (service.vehicle_id) {
             const v = await this.getVehicleById(service.vehicle_id);
-            if (v) plate = v.plate;
+            if (v) {
+                plate = v.plate;
+                vehicleBrand = v.brand || '';
+                vehicleModel = v.model || '';
+            }
+        }
+
+        if (service.client_id) {
+            const c = await this.getClientById(service.client_id);
+            if (c) {
+                clientName = c.name || '';
+                clientPhone = c.phone || '';
+            }
         }
 
         const appData: Partial<Appointment> = {
@@ -478,12 +503,16 @@ class DataProvider {
             date: dateStr,
             time: timeStr,
             vehicle_plate: plate,
+            vehicle_brand: vehicleBrand,
+            vehicle_model: vehicleModel,
+            client_name: clientName,
+            client_phone: clientPhone,
             type: 'service_delivery',
             notify_enabled: true,
-            notify_before_minutes: 60
+            notify_before_minutes: 15
         };
 
-        // 4. Use addAppointment which handles upsert for service_delivery type
+        // 5. Use addAppointment which handles upsert for service_delivery type
         await this.addAppointment(appData);
     }
 
