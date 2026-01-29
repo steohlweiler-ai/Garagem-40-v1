@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar as CalendarIcon, Clock, Plus, Search, ChevronLeft, ChevronRight,
   Car, User, Bell, Check, X, RefreshCw, Smartphone, Trash2, LayoutGrid,
-  CalendarDays, CalendarRange, Filter, CheckCircle2, BellRing, ExternalLink, CircleCheck, Circle
+  CalendarDays, CalendarRange, Filter, CheckCircle2, BellRing, ExternalLink, CircleCheck, Circle, Pencil
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { Appointment, ReminderWithService } from '../types';
@@ -333,38 +333,49 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
                   : 'border-slate-50'
                 }`}
             >
-              <div className="flex gap-4 items-start flex-1">
+              <div className="flex gap-3 items-start flex-1 min-w-0 overflow-hidden">
                 {/* Icon - different for reminders vs appointments */}
                 {item.itemType === 'reminder' ? (
-                  <button
-                    onClick={() => handleToggleReminder(item as ReminderWithService)}
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${item.status === 'done'
-                      ? 'bg-green-100 text-green-600 hover:bg-green-200'
-                      : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                      }`}
-                    title={item.status === 'done' ? 'Reativar lembrete' : 'Marcar como concluído'}
-                  >
-                    {item.status === 'done' ? <CircleCheck size={24} /> : <Circle size={24} />}
-                  </button>
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <button
+                      onClick={() => handleToggleReminder(item as ReminderWithService)}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${item.status === 'done'
+                        ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                        : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
+                        }`}
+                      title={item.status === 'done' ? 'Reativar lembrete' : 'Marcar como concluído'}
+                    >
+                      {item.status === 'done' ? <CircleCheck size={20} /> : <Circle size={20} />}
+                    </button>
+                    {onOpenService && (
+                      <button
+                        onClick={() => onOpenService(item.service_id)}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 transition-all active:scale-90"
+                        title="Editar lembrete"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <button
                     onClick={() => handleEditAppointment(item as Appointment)}
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${item.type === 'service_delivery' ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
+                    className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${item.type === 'service_delivery' ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-slate-50 text-slate-300 hover:bg-slate-100'
                       }`}
                     title="Editar data/hora"
                   >
-                    {item.type === 'service_delivery' ? <CheckCircle2 size={24} /> : <CalendarIcon size={24} />}
+                    {item.type === 'service_delivery' ? <CheckCircle2 size={20} /> : <CalendarIcon size={20} />}
                   </button>
                 )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <div className="flex items-center gap-2 mb-1.5 overflow-hidden">
                     {item.itemType === 'reminder' && (
-                      <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase ${item.status === 'done' ? 'text-green-600 bg-green-100' : 'text-amber-600 bg-amber-100'
+                      <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0 ${item.status === 'done' ? 'text-green-600 bg-green-100' : 'text-amber-600 bg-amber-100'
                         }`}>
                         {item.status === 'done' ? 'Concluído' : 'Lembrete'}
                       </span>
                     )}
-                    <p className={`text-md font-semibold uppercase tracking-tight truncate leading-none ${item.itemType === 'reminder' && item.status === 'done'
+                    <p className={`text-sm font-semibold uppercase tracking-tight truncate leading-none ${item.itemType === 'reminder' && item.status === 'done'
                       ? 'text-slate-400 line-through'
                       : 'text-slate-800'
                       }`}>{item.title}</p>
@@ -405,19 +416,10 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-2 ml-3">
+              <div className="flex flex-col items-end gap-1 ml-2 shrink-0">
                 <p className="text-[10px] font-bold text-slate-300 uppercase">{new Date(item.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
-                {item.itemType === 'reminder' && onOpenService && (
-                  <button
-                    onClick={() => onOpenService(item.service_id)}
-                    className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl active:scale-110 transition-all"
-                    title="Abrir ficha do veículo"
-                  >
-                    <ExternalLink size={16} />
-                  </button>
-                )}
                 {item.itemType === 'appointment' && item.type === 'manual' && (
-                  <button onClick={() => handleDelete(item.id)} className="p-3 text-slate-200 hover:text-red-500 active:scale-125 transition-all"><Trash2 size={16} /></button>
+                  <button onClick={() => handleDelete(item.id)} className="p-2 text-slate-200 hover:text-red-500 active:scale-125 transition-all"><Trash2 size={14} /></button>
                 )}
               </div>
             </div>
