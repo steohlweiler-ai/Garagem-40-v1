@@ -489,7 +489,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 flex text-slate-900 overflow-x-hidden relative">
       {/* SIDEBAR DESKTOP */}
-      <aside className="hidden lg:flex flex-col w-64 bg-slate-900 text-white fixed h-full z-30 shadow-2xl">
+      <aside className="hidden lg:flex flex-col w-64 bg-slate-900 text-white fixed h-full z-50 shadow-2xl">
         <div className="p-8">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
@@ -861,7 +861,7 @@ const App: React.FC = () => {
       )}
 
       {/* BOTTOM NAV (MOBILE ONLY) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t safe-bottom flex justify-around p-3 sm:p-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.03)] shrink-0">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t safe-bottom flex justify-around p-3 sm:p-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.03)] shrink-0">
         {navItems.map(item => (
           <button key={item.id} onClick={() => setTab(item.id)} className={`flex flex-col items-center gap-1 transition-all p-1 sm:p-2 rounded-2xl flex-1 ${activeTab === item.id ? 'text-green-600' : 'text-slate-300'}`}>
             <div className={`p-1.5 sm:p-2 rounded-xl transition-all ${activeTab === item.id ? 'bg-green-50' : 'bg-transparent'}`}>

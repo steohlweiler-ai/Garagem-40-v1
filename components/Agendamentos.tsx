@@ -209,7 +209,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   }, [currentDate]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300 pb-24 font-['Inter'] overflow-x-hidden max-w-full">
+    <div className="w-full max-w-[100vw] space-y-6 animate-in fade-in duration-300 pb-24 font-['Inter'] overflow-x-hidden">
 
       {toast && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] bg-slate-900 text-white px-6 py-4 rounded-[2rem] font-bold uppercase text-[10px] tracking-widest shadow-2xl flex items-center gap-3 animate-in slide-in-from-top-4">
@@ -282,13 +282,13 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
 
       {/* Grid */}
       {view === 'month' && (
-        <div className="bg-white rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden p-2 sm:p-4">
+        <div className="bg-white rounded-[2.5rem] border-2 border-slate-50 shadow-sm overflow-hidden p-1 sm:p-4">
           <div className="grid grid-cols-7 gap-1 mb-2">
             {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
               <div key={d} className="text-[10px] font-bold uppercase text-slate-400 text-center py-2">{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-2">
             {calendarGrid.map((day, idx) => {
               if (day === null) return <div key={`empty-${idx}`} />;
               const dayStr = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
@@ -309,11 +309,11 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
                         : 'bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100'
                     }`}
                 >
-                  <span className="text-sm font-bold">{day}</span>
+                  <span className="text-xs sm:text-sm font-bold">{day}</span>
                   {dayApps.length > 0 && (
                     <div className="absolute bottom-1 flex gap-0.5">
                       {dayApps.slice(0, 3).map((a, i) => (
-                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${a.type === 'service_delivery' ? 'bg-green-500' : 'bg-orange-400'}`} />
+                        <div key={i} className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${a.type === 'service_delivery' ? 'bg-green-500' : 'bg-orange-400'}`} />
                       ))}
                       {dayApps.length > 3 && <span className="text-[8px] text-slate-400">+{dayApps.length - 3}</span>}
                     </div>
