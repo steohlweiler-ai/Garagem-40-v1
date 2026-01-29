@@ -895,35 +895,38 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                         <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
                           <DollarSign size={20} className="text-green-400" strokeWidth={2.5} />
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-[8px] font-black uppercase text-green-300 tracking-[2px]">
-                            Valor Total
-                          </span>
-                          <span className="text-2xl font-black font-mono text-white leading-none whitespace-nowrap">
-                            {(() => {
-                              const val = formatCurrency(
-                                service.tasks.reduce((acc, task) => {
-                                  if (task.charge_type === 'Fixo') {
-                                    return acc + (task.fixed_value || 0);
-                                  } else {
-                                    const isTaskInProgress = task.status === 'in_progress';
-                                    const elapsed = isTaskInProgress && task.started_at
-                                      ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
-                                      : 0;
-                                    const totalSeconds = (task.time_spent_seconds || 0) + elapsed;
-                                    return acc + ((task.rate_per_hour || 0) * totalSeconds) / 3600;
-                                  }
-                                }, 0)
-                              );
-                              const isLong = val.length > 10;
-                              return (
-                                <span className={`${isLong ? 'text-lg sm:text-xl' : 'text-2xl'} font-black font-mono text-white leading-none whitespace-nowrap`}>
-                                  {val}
-                                </span>
-                              );
-                            })()}
-                          </span>
-                        </div>
+                        <span className="text-[8px] font-black uppercase text-green-300 tracking-[2px]">
+                          Valor Total
+                        </span>
+                      </div>
+                      <div className="w-full">
+                        {(() => {
+                          const val = formatCurrency(
+                            service.tasks.reduce((acc, task) => {
+                              if (task.charge_type === 'Fixo') {
+                                return acc + (task.fixed_value || 0);
+                              } else {
+                                const isTaskInProgress = task.status === 'in_progress';
+                                const elapsed = isTaskInProgress && task.started_at
+                                  ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
+                                  : 0;
+                                const totalSeconds = (task.time_spent_seconds || 0) + elapsed;
+                                return acc + ((task.rate_per_hour || 0) * totalSeconds) / 3600;
+                              }
+                            }, 0)
+                          );
+                          // Múltiplos níveis de redução baseado no comprimento
+                          let fontSize = 'text-2xl';
+                          if (val.length > 15) fontSize = 'text-base';
+                          else if (val.length > 12) fontSize = 'text-lg';
+                          else if (val.length > 10) fontSize = 'text-xl';
+
+                          return (
+                            <span className={`${fontSize} font-black font-mono text-white leading-none whitespace-nowrap block`}>
+                              {val}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <div className="text-[9px] font-bold text-green-300/70 uppercase tracking-wider">
                         Soma de todas as etapas
