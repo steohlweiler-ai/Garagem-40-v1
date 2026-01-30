@@ -123,8 +123,13 @@ const UserManagement: React.FC = () => {
     if (!formData.name || !formData.email) return;
 
     if (editingUser) {
-      await dataProvider.updateUser(editingUser.id, formData);
-      showToast('Usuário atualizado!');
+      const success = await dataProvider.updateUser(editingUser.id, formData);
+      if (success) {
+        showToast('Usuário atualizado!');
+      } else {
+        showToast('Erro ao salvar usuário');
+        return;
+      }
     } else {
       await dataProvider.createUser(formData);
       showToast('Novo usuário criado!');

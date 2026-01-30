@@ -36,7 +36,7 @@ export const profileService = {
             phone: data.phone || '',
             // Map 'papel' from DB to 'role' in App
             role: (data.papel || 'admin') as any,
-            active: data.active ?? true,
+            active: data.ativo ?? true,
             permissions: data.permissions || {},
             created_at: data.created_at
         };
@@ -109,7 +109,7 @@ export const profileService = {
             email: data.email,
             phone: data.phone || '',
             role: (data.papel || 'admin') as any,
-            active: data.active,
+            active: data.ativo ?? true,
             permissions: data.permissions || {},
             created_at: data.created_at
         };

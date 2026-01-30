@@ -508,7 +508,7 @@ class SupabaseService {
             email: u.email,
             phone: u.phone || '',
             role: (u.papel || u.role || 'operador') as any,
-            active: u.active ?? true,
+            active: u.ativo ?? true,
             permissions: u.permissions || {},
             created_at: u.created_at || new Date().toISOString()
         }));
@@ -554,14 +554,17 @@ class SupabaseService {
     }
 
     async updateUser(id: string, u: Partial<UserAccount>): Promise<boolean> {
-        // Map frontend field names to database column names
+        // Map frontend field names to database column names (Portuguese)
+        // The perfis_de_usuário table ONLY has these columns: id, user_id, nome, email, papel, organization_id
+        // Missing columns: phone, ativo, permissoes - these need to be added to the table
         const payload: Record<string, any> = {};
         if (u.name !== undefined) payload.nome = u.name;
         if (u.email !== undefined) payload.email = u.email;
-        if (u.phone !== undefined) payload.phone = u.phone;
         if (u.role !== undefined) payload.papel = u.role;
-        if (u.active !== undefined) payload.active = u.active;
-        if (u.permissions !== undefined) payload.permissions = u.permissions;
+        // TODO: Add these columns to perfis_de_usuário table in Supabase:
+        // - phone (VARCHAR)
+        // - ativo (BOOLEAN default true)
+        // - permissoes (JSONB)
 
         const { error } = await supabase.from('perfis_de_usuário').update(payload).eq('id', id);
         if (error) {
