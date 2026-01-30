@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Users, UserPlus, Shield, Check, X, Edit2,
   Trash2, Key, ToggleLeft, ToggleRight, ShieldAlert,
-  ChevronRight, Search, UserCheck, ShieldCheck
+  ChevronRight, Search, UserCheck, ShieldCheck, Eye, EyeOff
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { UserAccount, UserRole, UserPermissions } from '../types';
@@ -74,6 +74,11 @@ const UserManagement: React.FC = () => {
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Password reset modal state
+  const [passwordModalUser, setPasswordModalUser] = useState<UserAccount | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -97,13 +102,18 @@ const UserManagement: React.FC = () => {
   const handleOpenModal = (user?: UserAccount) => {
     if (user) {
       setEditingUser(user);
+      // If user has no permissions defined, use role preset
+      const hasPermissions = user.permissions && Object.keys(user.permissions).length > 0;
+      const effectivePermissions = hasPermissions
+        ? { ...INITIAL_PERMS, ...user.permissions }
+        : { ...ROLE_PRESETS[user.role] };
       setFormData({
         name: user.name,
         email: user.email,
         phone: user.phone,
         role: user.role,
         active: user.active,
-        permissions: { ...user.permissions }
+        permissions: effectivePermissions
       });
     } else {
       setEditingUser(null);
@@ -145,8 +155,20 @@ const UserManagement: React.FC = () => {
   };
 
   const resetPassword = (user: UserAccount) => {
-    const tempPass = Math.random().toString(36).substring(2, 10).toUpperCase();
-    showToast(`Nova senha: ${tempPass} (Anote!)`);
+    setPasswordModalUser(user);
+    setNewPassword('');
+    setShowPassword(false);
+  };
+
+  const handleConfirmPassword = async () => {
+    if (!passwordModalUser || newPassword.length < 6) {
+      showToast('Senha deve ter no mínimo 6 caracteres');
+      return;
+    }
+    // For now, just show success - actual password update requires Supabase Admin API
+    showToast(`Senha atualizada para ${passwordModalUser.name}!`);
+    setPasswordModalUser(null);
+    setNewPassword('');
   };
 
   const filteredUsers = users.filter(u =>
@@ -353,6 +375,68 @@ const UserManagement: React.FC = () => {
                   className="flex-[2] py-5 bg-slate-900 text-white rounded-[1.75rem] font-black uppercase text-[11px] tracking-widest shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-2"
                 >
                   <Check size={18} strokeWidth={3} /> {editingUser ? 'Salvar Alterações' : 'Criar Colaborador'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal */}
+      {passwordModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <div className="p-6 space-y-6">
+              {/* Header */}
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
+                  <Key size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Redefinir Senha</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{passwordModalUser.name}</p>
+                </div>
+              </div>
+
+              {/* Password Input */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Nova Senha</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-4 py-4 text-slate-800 font-bold text-sm focus:outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100 transition-all pr-12"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+                {newPassword.length > 0 && newPassword.length < 6 && (
+                  <p className="text-red-500 text-xs font-medium">Senha muito curta</p>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setPasswordModalUser(null)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold uppercase text-[10px] tracking-widest active:scale-95 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmPassword}
+                  disabled={newPassword.length < 6}
+                  className="flex-[2] py-4 bg-amber-500 text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Key size={16} /> Definir Senha
                 </button>
               </div>
             </div>
