@@ -775,8 +775,8 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                                   {formatDuration(displaySeconds)}
                                 </span>
 
-                                {/* BADGE EXECUTOR */}
-                                {isTaskInProgress && task.last_executor_name && (
+                                {/* BADGE EXECUTOR - SAFE MODE */}
+                                {isTaskInProgress && typeof task.last_executor_name === 'string' && task.last_executor_name.length > 0 && (
                                   <div className="flex items-center gap-1.5 px-2 py-0.5 bg-purple-100/50 rounded-full border border-purple-200 animate-in fade-in slide-in-from-left-2">
                                     <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
                                     <span className="text-[8px] font-bold uppercase text-purple-700 tracking-wide max-w-[80px] truncate">
