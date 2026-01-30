@@ -126,9 +126,11 @@ const App: React.FC = () => {
 
   // ===================== ACTION-FIRST VIEW LOADING =====================
   // Load stats (counts) separately - fast query for chips
+  // Load stats (counts) separately - fast query for chips
   const loadStats = async () => {
     try {
-      const counts = await dataProvider.getServiceCounts();
+      // Passa os critérios carregados para garantir sincronia com a lista
+      const counts = await dataProvider.getServiceCounts(delayCriteria);
       setStatsCounts(counts);
     } catch (err) {
       console.error('Failed to load stats:', err);
@@ -229,22 +231,21 @@ const App: React.FC = () => {
     await Promise.all([loadStats(), loadServices(true)]);
   };
 
-  // Reload when filter changes
+  // Reload when filter changes or authentication/criteria updates
   useEffect(() => {
     if (isAuthenticated) {
+      // Carrega serviços quando filtros mudam
       loadServices(true);
-    }
-  }, [dashboardFilter, dashboardAdvancedFilters]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
+      // Carrega estatísticas quando critérios ou auth mudam
       loadStats();
-      const interval = setInterval(loadStats, 15000); // Stats refresh every 15s
+
+      // Configura poll de atualização
+      const interval = setInterval(loadStats, 15000);
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, dashboardFilter, dashboardAdvancedFilters, delayCriteria]);
 
-  // Persiste filtros no localStorage
   useEffect(() => {
     localStorage.setItem('g40_dashboard_filters', JSON.stringify(dashboardAdvancedFilters));
   }, [dashboardAdvancedFilters]);
@@ -386,6 +387,16 @@ const App: React.FC = () => {
     };
     if (isAuthenticated) loadSupportData();
   }, [isAuthenticated]);
+
+  // Reload when filter changes or criteria updates (MOVED HERE to fix scope)
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadServices(true);
+      loadStats(); // Uses delayCriteria
+      const interval = setInterval(loadStats, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, dashboardFilter, dashboardAdvancedFilters, delayCriteria]);
 
   // Stats now come from fast count API query
   const stats = useMemo(() => {

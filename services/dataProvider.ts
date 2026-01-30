@@ -77,10 +77,10 @@ class DataProvider {
 
     // ===================== PERFORMANCE OPTIMIZED QUERIES =====================
 
-    async getServiceCounts(): Promise<Record<string, number>> {
+    async getServiceCounts(criteria?: DelayCriteria | null): Promise<Record<string, number>> {
         if (this.useSupabase) {
             try {
-                return await supabaseDB.getServiceCounts();
+                return await supabaseDB.getServiceCounts(criteria);
             } catch (e) {
                 console.warn('Supabase getServiceCounts failed, using fallback.', e);
             }

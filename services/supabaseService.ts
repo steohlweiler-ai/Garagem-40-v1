@@ -787,17 +787,26 @@ class SupabaseService {
      * Fast count query - returns service counts grouped by status
      * Used for KPI chips without loading full service data
      */
-    async getServiceCounts(): Promise<Record<string, number>> {
-        // Obter critérios de atraso para cálculo preciso
-        let criteria = await this.getDelayCriteria();
+    /**
+     * Get counts for dashboard chips (Optimized)
+     * Calculates 'Delayed' status server-side (data layer) to be independent of view filters.
+     * Can optionally receive criteria to ensure consistency with client-side.
+     */
+    async getServiceCounts(injectedCriteria?: DelayCriteria | null): Promise<Record<string, number>> {
+        // Usar critérios injetados (do frontend) ou buscar do banco
+        let criteria = injectedCriteria;
 
-        // Fallback robusto se não houver critérios no banco
+        if (!criteria) {
+            criteria = await this.getDelayCriteria();
+        }
+
+        // Fallback robusto se não houver critérios (nem injetados nem no banco)
         if (!criteria) {
             console.warn('Dashboard: Delay criteria not found in DB. Using defaults (2 days).');
             criteria = {
                 active: true,
                 scope: 'global',
-                thresholdDays: 2,
+                thresholdDays: 2, // Default safe value
                 thresholdHours: 0,
                 considerWorkdays: true,
                 considerBusinessHours: false,
