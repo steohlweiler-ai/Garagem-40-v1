@@ -37,7 +37,15 @@ export const profileService = {
             // Map 'papel' from DB to 'role' in App
             role: (data.papel || 'admin') as any,
             active: data.ativo ?? true,
-            permissions: data.permissions || {},
+            permissions: data.permissions || {
+                manage_team: false,
+                manage_clients: false,
+                manage_inventory: false,
+                config_rates: false,
+                config_vehicles: false,
+                config_system: false,
+                view_financials: false
+            },
             created_at: data.created_at
         };
     },
@@ -83,11 +91,13 @@ export const profileService = {
             active: true,
             organization_id: organizationId,
             permissions: {
-                access_clients: true,
-                view_values_execution: true,
-                view_values_reports: true,
-                create_templates: true,
-                manage_reminders: true
+                manage_team: true,
+                manage_clients: true,
+                manage_inventory: true,
+                config_rates: true,
+                config_vehicles: true,
+                config_system: true,
+                view_financials: true
             }
         };
 
@@ -110,7 +120,15 @@ export const profileService = {
             phone: data.phone || '',
             role: (data.papel || 'admin') as any,
             active: data.ativo ?? true,
-            permissions: data.permissions || {},
+            permissions: data.permissions || {
+                manage_team: false,
+                manage_clients: false,
+                manage_inventory: false,
+                config_rates: false,
+                config_vehicles: false,
+                config_system: false,
+                view_financials: false
+            },
             created_at: data.created_at
         };
     }
