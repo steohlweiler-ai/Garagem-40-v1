@@ -933,11 +933,22 @@ class SupabaseService {
         // Fetch relations for the paginated services (batched)
         const serviceIds = services.map(s => s.id);
 
-        const [tasksRes, remindersRes, historyRes] = await Promise.all([
+        // Safety: Timeout after 10s to prevent infinite loading
+        const timeoutPromise = new Promise<{ data: any[], error: any }>((_, reject) =>
+            setTimeout(() => reject(new Error('Query timeout')), 10000)
+        );
+
+        // Fetch relations for the paginated services (batched)
+        const fetchPromise = Promise.all([
             supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order'),
             supabase.from('lembretes').select('*').in('service_id', serviceIds),
             supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp')
         ]);
+
+        const [tasksRes, remindersRes, historyRes] = await Promise.race([
+            fetchPromise,
+            timeoutPromise.then(() => Promise.reject(new Error('Timeout fetching relations')))
+        ]) as any;
 
         // Map relations to services
         const servicesWithRelations = services.map(s => ({
