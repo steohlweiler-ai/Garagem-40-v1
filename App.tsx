@@ -131,13 +131,16 @@ const App: React.FC = () => {
   // Load stats (counts) separately - fast query for chips
   // Load stats (counts) separately - fast query for chips
   const loadStats = async () => {
-    // Rescue Plan: Prevent race condition
+    // Rescue Plan: Prevent race condition & Stale Data
     if (!delayCriteria) return;
 
     try {
       // Passa os critérios carregados para garantir sincronia com a lista
       const counts = await dataProvider.getServiceCounts(delayCriteria);
-      setStatsCounts(counts);
+      setStatsCounts(counts || {
+        'Lembrete': 0, 'Pronto': 0, 'total': 0,
+        'Pendente': 0, 'Em Andamento': 0, 'Entregue': 0
+      }); // Defensive fallback
     } catch (err) {
       console.error('Failed to load stats:', err);
     }
@@ -191,7 +194,12 @@ const App: React.FC = () => {
       setIsInitialLoad(false);
       setIsLoadingMore(false);
     } catch (err) {
-      console.error('Failed to load services:', err);
+      console.error('Failed to load services (Possible Hydration/Cache Error):', err);
+      // Force reset if page 0 failed - avoiding infinite stuck state
+      if (reset) {
+        setServices([]);
+        setHasMoreServices(false);
+      }
       setIsLoadingMore(false);
       setIsInitialLoad(false);
     }

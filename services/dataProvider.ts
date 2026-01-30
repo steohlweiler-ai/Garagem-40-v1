@@ -631,6 +631,32 @@ class DataProvider {
         return true;
     }
 
+    async startTaskExecution(taskId: string, user: { id: string; name: string }): Promise<boolean> {
+        if (this.useSupabase) {
+            try {
+                // @ts-ignore
+                return await supabaseDB.startTaskExecution(taskId, user);
+            } catch (e) {
+                console.warn('Supabase startTaskExecution failed.', e);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    async stopTaskExecution(taskId: string, currentSessionDuration: number, totalTimeSpent: number, user: { id: string; name: string }, startedAt: string): Promise<boolean> {
+        if (this.useSupabase) {
+            try {
+                // @ts-ignore
+                return await supabaseDB.stopTaskExecution(taskId, currentSessionDuration, totalTimeSpent, user, startedAt);
+            } catch (e) {
+                console.warn('Supabase stopTaskExecution failed.', e);
+                return false;
+            }
+        }
+        return true;
+    }
+
     // ===================== ESCRITA - REMINDERS =====================
 
     async addReminder(serviceId: string, reminder: Partial<Reminder>): Promise<Reminder | null> {

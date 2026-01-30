@@ -41,7 +41,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick }) => {
   }, [service.estimated_delivery, service.priority, delayCriteria, service.status]);
 
   useEffect(() => {
-    const activeTask = service.tasks.find(t => t.status === 'in_progress');
+    const activeTask = service.tasks?.find(t => t.status === 'in_progress');
     if (!activeTask || !activeTask.started_at) {
       setActiveDuration(null);
       return;

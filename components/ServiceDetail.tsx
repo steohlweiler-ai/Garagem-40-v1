@@ -133,7 +133,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   }, [service, delayCriteria]);
 
   const progress = useMemo(() => {
-    if (!service || service.tasks.length === 0) return 0;
+    if (!service || !service.tasks || service.tasks.length === 0) return 0;
     return Math.round(
       (service.tasks.filter(t => t.status === 'done').length /
         service.tasks.length) * 100
@@ -670,7 +670,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
               {/* LISTA DE TASKS — CONTINUA NA PARTE 3/3 */}
               <div className="flex flex-col gap-5">
-                {[...service.tasks].sort((a, b) => (a.order || 0) - (b.order || 0)).map(task => {
+                {(service.tasks || []).sort((a, b) => (a.order || 0) - (b.order || 0)).map(task => {
                   const isTaskInProgress = task.status === 'in_progress';
                   const elapsed =
                     isTaskInProgress && task.started_at
