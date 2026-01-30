@@ -901,6 +901,8 @@ class SupabaseService {
             sortBy = 'priority'
         } = options;
 
+        console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, limit, offset });
+
         // Build base query
         let query = supabase.from('serviços').select('*', { count: 'exact' });
 
@@ -920,6 +922,7 @@ class SupabaseService {
         query = query.range(offset, offset + limit - 1);
 
         const { data: services, error, count } = await query;
+        console.log('[DEBUG] getServicesFiltered MAIN QUERY RES', { count, error, servicesLength: services?.length });
 
         if (error) {
             console.error('Supabase Error (getServicesFiltered):', error);
@@ -933,29 +936,45 @@ class SupabaseService {
         // Fetch relations for the paginated services (batched)
         const serviceIds = services.map(s => s.id);
 
-        // Safety: Timeout after 10s to prevent infinite loading
-        const timeoutPromise = new Promise<{ data: any[], error: any }>((_, reject) =>
+        let tasksData: any[] = [];
+        let remindersData: any[] = [];
+        let historyData: any[] = [];
+
+        try {
+            // Sub-query 1: Tasks
+            const { data: t, error: te } = await supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order');
+            if (te) console.error('[DEBUG] Tasks Fetch Error:', te);
+            tasksData = t || [];
+        } catch (e) { console.error('[DEBUG] Tasks Crash:', e); }
+
+        try {
+            // Sub-query 2: Reminders
+            const { data: r, error: re } = await supabase.from('lembretes').select('*').in('service_id', serviceIds);
+            if (re) console.error('[DEBUG] Reminders Fetch Error:', re);
+            remindersData = r || [];
+        } catch (e) { console.error('[DEBUG] Reminders Crash:', e); }
+
+        try {
+            // Sub-query 3: History (NEW TABLE - Suspector number 1)
+            const { data: h, error: he } = await supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp');
+            if (he) console.error('[DEBUG] History Fetch Error:', he);
+            historyData = h || [];
+        } catch (e) { console.error('[DEBUG] History Crash:', e); }
+
+        /*
+        // OLD BLOCK - DISABLED FOR DEBUGGING
+        const timeoutPromise = new Promise<{ data: any[], error: any }>((_, reject) => 
             setTimeout(() => reject(new Error('Query timeout')), 10000)
         );
-
-        // Fetch relations for the paginated services (batched)
-        const fetchPromise = Promise.all([
-            supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order'),
-            supabase.from('lembretes').select('*').in('service_id', serviceIds),
-            supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp')
-        ]);
-
-        const [tasksRes, remindersRes, historyRes] = await Promise.race([
-            fetchPromise,
-            timeoutPromise.then(() => Promise.reject(new Error('Timeout fetching relations')))
-        ]) as any;
+        const fetchPromise = Promise.all([...]);
+        */
 
         // Map relations to services
         const servicesWithRelations = services.map(s => ({
             ...s,
-            tasks: (tasksRes.data || []).filter(t => t.service_id === s.id).map(this.mapTask),
-            reminders: (remindersRes.data || []).filter(r => r.service_id === s.id).map(this.mapReminder),
-            status_history: (historyRes.data || []).filter(h => h.service_id === s.id).map(this.mapStatusLog),
+            tasks: tasksData.filter(t => t.service_id === s.id).map(this.mapTask),
+            reminders: remindersData.filter(r => r.service_id === s.id).map(this.mapReminder),
+            status_history: historyData.filter(h => h.service_id === s.id).map(this.mapStatusLog),
             entry_at: s.entry_at || new Date().toISOString(),
             archived: s.archived,
             created_by: s.created_by,
