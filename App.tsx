@@ -56,6 +56,9 @@ const App: React.FC = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const PAGE_SIZE = 20;
 
+  // State moved up to be accessible by loadStats
+  const [delayCriteria, setDelayCriteria] = useState<any>(null);
+
   // Restaurar sessão
   useEffect(() => {
     const savedUser = localStorage.getItem('g40_user_session');
@@ -128,6 +131,9 @@ const App: React.FC = () => {
   // Load stats (counts) separately - fast query for chips
   // Load stats (counts) separately - fast query for chips
   const loadStats = async () => {
+    // Rescue Plan: Prevent race condition
+    if (!delayCriteria) return;
+
     try {
       // Passa os critérios carregados para garantir sincronia com a lista
       const counts = await dataProvider.getServiceCounts(delayCriteria);
@@ -373,7 +379,7 @@ const App: React.FC = () => {
     localStorage.removeItem('g40_user_session');
   };
 
-  const [delayCriteria, setDelayCriteria] = useState<any>(null);
+  // State for delay criteria (Moved up for scope access)
   const [allTemplates, setAllTemplates] = useState<EvaluationTemplate[]>([]);
 
   useEffect(() => {

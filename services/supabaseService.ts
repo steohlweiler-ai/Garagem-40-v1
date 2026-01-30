@@ -800,13 +800,17 @@ class SupabaseService {
             criteria = await this.getDelayCriteria();
         }
 
-        // Fallback robusto se não houver critérios (nem injetados nem no banco)
         if (!criteria) {
-            console.warn('Dashboard: Delay criteria not found in DB. Using defaults (2 days).');
+            criteria = await this.getDelayCriteria();
+        }
+
+        // Rescue Plan: Hard Fallback to prevent crash
+        if (!criteria) {
+            console.warn('Dashboard: Delay criteria not found in DB. Using defaults.');
             criteria = {
                 active: true,
                 scope: 'global',
-                thresholdDays: 2, // Default safe value
+                thresholdDays: 1,
                 thresholdHours: 0,
                 considerWorkdays: true,
                 considerBusinessHours: false,
