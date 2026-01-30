@@ -244,7 +244,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   };
 
   const handleToggleTaskTimer = async (task: ServiceTask) => {
-    if (task.status === 'done') return;
+    if (task.status === 'done' || !user) return;
 
     let updatedService = { ...service! };
 
@@ -255,11 +255,14 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
       const total = (task.time_spent_seconds || 0) + sessionSeconds;
 
-      await dataProvider.updateTask(serviceId, task.id, {
-        status: 'todo',
-        started_at: undefined,
-        time_spent_seconds: total
-      });
+      // New Logic: Stop Execution (Updates DB + History)
+      await dataProvider.stopTaskExecution(
+        task.id,
+        sessionSeconds,
+        total,
+        { id: user.id, name: user.name },
+        task.started_at!
+      );
 
       // Update local state for immediate check
       const updatedTasks = updatedService.tasks.map(t => t.id === task.id ? { ...t, status: 'todo' as const, started_at: undefined, time_spent_seconds: total } : t);
@@ -269,32 +272,39 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
       // Pause other running tasks first
       const updatedTasks = updatedService.tasks.map(t => {
         if (t.status === 'in_progress' && t.id !== task.id) {
-          // ... logic to pause others ...
-          // doing this via DB call too
-          return { ...t, status: 'todo' as const }; // simplifying local update for status check
+          // Need to stop others properly too for history, but for now simplifying to generic update 
+          // or we would need to call stopTaskExecution for each. 
+          // Better to just force pause them via generic update to avoid complex recursion/loops here
+          // or just assume single task execution policy.
+          return { ...t, status: 'todo' as const };
         }
         return t;
       });
 
-      // Actually perform DB updates for others
+      // Actually perform DB updates for others (Simplified Stop)
       for (const t of service!.tasks) {
         if (t.status === 'in_progress' && t.id !== task.id) {
-          // ... (persist logic)
           const sSec = t.started_at
             ? Math.floor((Date.now() - new Date(t.started_at).getTime()) / 1000)
             : 0;
-          await dataProvider.updateTask(serviceId, t.id, { status: 'todo', started_at: undefined, time_spent_seconds: (t.time_spent_seconds || 0) + sSec });
+          // Using proper stop for others too
+          await dataProvider.stopTaskExecution(
+            t.id,
+            sSec,
+            (t.time_spent_seconds || 0) + sSec,
+            { id: user.id, name: user.name }, // Assuming current user is stopping them implies they "take over" or just system stop
+            t.started_at!
+          );
         }
       }
 
-      await dataProvider.updateTask(serviceId, task.id, {
-        status: 'in_progress',
-        started_at: new Date().toISOString()
-      });
+      // Start Logic
+      await dataProvider.startTaskExecution(task.id, { id: user.id, name: user.name });
 
       // Local update for status logic
       updatedTasks.find(t => t.id === task.id)!.status = 'in_progress';
       updatedTasks.find(t => t.id === task.id)!.started_at = new Date().toISOString();
+      updatedTasks.find(t => t.id === task.id)!.last_executor_name = user.name; // Optimistic update
       updatedService.tasks = updatedTasks;
     }
 
@@ -754,15 +764,29 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                             </button>
 
                             <div className="flex flex-col">
-                              <span
-                                className={`text-[12px] font-black font-mono tracking-tight ${isTaskInProgress
-                                  ? 'text-purple-600'
-                                  : 'text-slate-800'
-                                  }`}
-                              >
-                                {formatDuration(displaySeconds)}
-                              </span>
-                              <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">
+                              {/* STATUS DO TIMER */}
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-[12px] font-black font-mono tracking-tight ${isTaskInProgress
+                                    ? 'text-purple-600'
+                                    : 'text-slate-800'
+                                    }`}
+                                >
+                                  {formatDuration(displaySeconds)}
+                                </span>
+
+                                {/* BADGE EXECUTOR */}
+                                {isTaskInProgress && task.last_executor_name && (
+                                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-purple-100/50 rounded-full border border-purple-200 animate-in fade-in slide-in-from-left-2">
+                                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
+                                    <span className="text-[8px] font-bold uppercase text-purple-700 tracking-wide max-w-[80px] truncate">
+                                      {task.last_executor_name.split(' ')[0]}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
                                 Execução
                               </span>
                             </div>

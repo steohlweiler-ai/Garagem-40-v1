@@ -1219,6 +1219,50 @@ class SupabaseService {
         return true;
     }
 
+    async startTaskExecution(taskId: string, user: { id: string, name: string }): Promise<boolean> {
+        const now = new Date().toISOString();
+        const { error } = await supabase.from('tarefas').update({
+            status: 'in_progress',
+            started_at: now,
+            last_executor_id: user.id,
+            last_executor_name: user.name,
+            updated_at: now
+        }).eq('id', taskId);
+
+        return !error;
+    }
+
+    async stopTaskExecution(taskId: string, currentSessionDuration: number, totalTimeSpent: number, user: { id: string, name: string }, startedAt: string): Promise<boolean> {
+        const now = new Date().toISOString();
+
+        // 1. Update Task (Snapshot)
+        const { error: taskError } = await supabase.from('tarefas').update({
+            status: 'todo',
+            started_at: null, // Clear active session
+            time_spent_seconds: totalTimeSpent,
+            updated_at: now
+        }).eq('id', taskId);
+
+        if (taskError) return false;
+
+        // 2. Insert into History (Audit Trail)
+        const { error: historyError } = await supabase.from('historico_tarefas').insert({
+            task_id: taskId,
+            user_id: user.id,
+            user_name: user.name,
+            started_at: startedAt, // When this session started
+            ended_at: now,
+            duration_seconds: currentSessionDuration,
+            organization_id: 'org-default'
+        });
+
+        if (historyError) {
+            console.error('Error logging task history:', historyError);
+        }
+
+        return true;
+    }
+
     // ===================== TASK OPERATIONS =====================
 
     async addTask(serviceId: string, task: Partial<ServiceTask>): Promise<ServiceTask | null> {
@@ -1636,7 +1680,9 @@ class SupabaseService {
             ended_at: t.ended_at,
             duration_seconds: t.duration_seconds,
             time_spent_seconds: t.time_spent_seconds,
-            responsible_user_id: t.responsible_user_id
+            responsible_user_id: t.responsible_user_id,
+            last_executor_id: t.last_executor_id,
+            last_executor_name: t.last_executor_name
         };
     }
 

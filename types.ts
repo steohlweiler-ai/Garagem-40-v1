@@ -181,6 +181,8 @@ export interface ServiceTask {
   manual_override_value: number | null;
   from_template_id: string | null;
   order: number;
+  last_executor_id?: string;
+  last_executor_name?: string;
 }
 
 export interface InspectionTemplateItem {
