@@ -5,7 +5,7 @@ import {
     StatusLogEntry, ServiceStatus, WorkshopSettings,
     DelayCriteria, EvaluationTemplate, StatusConfig, VehicleColor,
     Appointment, CatalogItem, IntegrationState, UserAccount,
-    Product, Invoice, StockMovement, Supplier, StockAllocation, ChargeType, DelayCriteria
+    Product, Invoice, StockMovement, Supplier, StockAllocation, ChargeType
 } from '../types';
 import { calculateDelayStatus } from '../utils/helpers';
 
@@ -572,7 +572,15 @@ class SupabaseService {
                 phone: u.phone || '',
                 role: (u.role || 'operador') as any,
                 active: true,
-                permissions: u.permissions || {},
+                permissions: u.permissions || {
+                    manage_team: false,
+                    manage_clients: false,
+                    manage_inventory: false,
+                    config_rates: false,
+                    config_vehicles: false,
+                    config_system: false,
+                    view_financials: false
+                },
                 created_at: new Date().toISOString()
             };
         } catch (err) {
@@ -831,8 +839,7 @@ class SupabaseService {
         return counts;
     }
 
-        return counts;
-    }
+
 
     /**
      * Filtered and paginated service query
@@ -844,14 +851,14 @@ class SupabaseService {
         limit?: number;
         offset?: number;
         sortBy?: 'priority' | 'entry_recent' | 'entry_oldest' | 'delivery';
-    }): Promise < {
+    }): Promise<{
         data: ServiceJob[];
         total: number;
         hasMore: boolean;
-    } > {
+    }> {
         const {
-            excludeStatuses =[],
-            statuses =[],
+            excludeStatuses = [],
+            statuses = [],
             limit = 20,
             offset = 0,
             sortBy = 'priority'
@@ -861,762 +868,762 @@ class SupabaseService {
         let query = supabase.from('serviços').select('*', { count: 'exact' });
 
         // Apply status filters
-        if(statuses.length > 0) {
-    query = query.in('status', statuses);
-} else if (excludeStatuses.length > 0) {
-    for (const status of excludeStatuses) {
-        query = query.not('status', 'eq', status);
-    }
-}
+        if (statuses.length > 0) {
+            query = query.in('status', statuses);
+        } else if (excludeStatuses.length > 0) {
+            for (const status of excludeStatuses) {
+                query = query.not('status', 'eq', status);
+            }
+        }
 
-// Apply base sorting (will be refined client-side for priority)
-query = query.order('entry_at', { ascending: true });
+        // Apply base sorting (will be refined client-side for priority)
+        query = query.order('entry_at', { ascending: true });
 
-// Apply pagination
-query = query.range(offset, offset + limit - 1);
+        // Apply pagination
+        query = query.range(offset, offset + limit - 1);
 
-const { data: services, error, count } = await query;
+        const { data: services, error, count } = await query;
 
-if (error) {
-    console.error('Supabase Error (getServicesFiltered):', error);
-    throw error;
-}
+        if (error) {
+            console.error('Supabase Error (getServicesFiltered):', error);
+            throw error;
+        }
 
-if (!services || services.length === 0) {
-    return { data: [], total: count || 0, hasMore: false };
-}
+        if (!services || services.length === 0) {
+            return { data: [], total: count || 0, hasMore: false };
+        }
 
-// Fetch relations for the paginated services (batched)
-const serviceIds = services.map(s => s.id);
+        // Fetch relations for the paginated services (batched)
+        const serviceIds = services.map(s => s.id);
 
-const [tasksRes, remindersRes, historyRes] = await Promise.all([
-    supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order'),
-    supabase.from('lembretes').select('*').in('service_id', serviceIds),
-    supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp')
-]);
+        const [tasksRes, remindersRes, historyRes] = await Promise.all([
+            supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order'),
+            supabase.from('lembretes').select('*').in('service_id', serviceIds),
+            supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp')
+        ]);
 
-// Map relations to services
-const servicesWithRelations = services.map(s => ({
-    ...s,
-    tasks: (tasksRes.data || []).filter(t => t.service_id === s.id).map(this.mapTask),
-    reminders: (remindersRes.data || []).filter(r => r.service_id === s.id).map(this.mapReminder),
-    status_history: (historyRes.data || []).filter(h => h.service_id === s.id).map(this.mapStatusLog),
-    entry_at: s.entry_at || new Date().toISOString(),
-    archived: s.archived,
-    created_by: s.created_by,
-    created_by_name: s.created_by_name,
-    inspection: s.inspection
-}));
+        // Map relations to services
+        const servicesWithRelations = services.map(s => ({
+            ...s,
+            tasks: (tasksRes.data || []).filter(t => t.service_id === s.id).map(this.mapTask),
+            reminders: (remindersRes.data || []).filter(r => r.service_id === s.id).map(this.mapReminder),
+            status_history: (historyRes.data || []).filter(h => h.service_id === s.id).map(this.mapStatusLog),
+            entry_at: s.entry_at || new Date().toISOString(),
+            archived: s.archived,
+            created_by: s.created_by,
+            created_by_name: s.created_by_name,
+            inspection: s.inspection
+        }));
 
-// Client-side sort: Lembrete first, then by entry_at ascending (oldest first)
-if (sortBy === 'priority') {
-    servicesWithRelations.sort((a, b) => {
-        const aIsLembrete = a.status === 'Lembrete' ? 0 : 1;
-        const bIsLembrete = b.status === 'Lembrete' ? 0 : 1;
+        // Client-side sort: Lembrete first, then by entry_at ascending (oldest first)
+        if (sortBy === 'priority') {
+            servicesWithRelations.sort((a, b) => {
+                const aIsLembrete = a.status === 'Lembrete' ? 0 : 1;
+                const bIsLembrete = b.status === 'Lembrete' ? 0 : 1;
 
-        if (aIsLembrete !== bIsLembrete) return aIsLembrete - bIsLembrete;
+                if (aIsLembrete !== bIsLembrete) return aIsLembrete - bIsLembrete;
 
-        return new Date(a.entry_at).getTime() - new Date(b.entry_at).getTime();
-    });
-}
+                return new Date(a.entry_at).getTime() - new Date(b.entry_at).getTime();
+            });
+        }
 
-const total = count || 0;
-const hasMore = offset + services.length < total;
+        const total = count || 0;
+        const hasMore = offset + services.length < total;
 
-return { data: servicesWithRelations, total, hasMore };
+        return { data: servicesWithRelations, total, hasMore };
     }
 
     // ===================== WRITE OPERATIONS =====================
 
 
-    async addClient(client: Omit<Client, 'id'>): Promise < Client | null > {
-    const { data, error } = await supabase.from('clientes').insert({
-        name: client.name,
-        phone: client.phone || null,
-        notes: client.notes || null,
-        cpf_cnpj: client.cpfCnpj || null,
-        address: client.address || null,
-        organization_id: client.organization_id || 'org-default'
-    }).select().single();
+    async addClient(client: Omit<Client, 'id'>): Promise<Client | null> {
+        const { data, error } = await supabase.from('clientes').insert({
+            name: client.name,
+            phone: client.phone || null,
+            notes: client.notes || null,
+            cpf_cnpj: client.cpfCnpj || null,
+            address: client.address || null,
+            organization_id: client.organization_id || 'org-default'
+        }).select().single();
 
-    if(error) {
-        console.error('Supabase Error (addClient):', error);
-        return null;
-    }
+        if (error) {
+            console.error('Supabase Error (addClient):', error);
+            return null;
+        }
         return this.mapClient(data);
-}
-
-    async updateClient(id: string, updates: Partial<Client>): Promise < boolean > {
-    const { error } = await supabase.from('clientes').update({
-        name: updates.name,
-        phone: updates.phone,
-        cpf_cnpj: updates.cpfCnpj,
-        address: updates.address,
-        notes: updates.notes,
-        updated_at: new Date().toISOString()
-    }).eq('id', id);
-
-    if(error) {
-        console.error('Supabase Error (updateClient):', error);
-        return false;
     }
+
+    async updateClient(id: string, updates: Partial<Client>): Promise<boolean> {
+        const { error } = await supabase.from('clientes').update({
+            name: updates.name,
+            phone: updates.phone,
+            cpf_cnpj: updates.cpfCnpj,
+            address: updates.address,
+            notes: updates.notes,
+            updated_at: new Date().toISOString()
+        }).eq('id', id);
+
+        if (error) {
+            console.error('Supabase Error (updateClient):', error);
+            return false;
+        }
         return true;
-}
-
-    async addVehicle(vehicle: Omit<Vehicle, 'id'>): Promise < Vehicle | null > {
-    const { data, error } = await supabase.from('veículos').insert({
-        client_id: vehicle.client_id,
-        plate: vehicle.plate,
-        brand: vehicle.brand,
-        model: vehicle.model,
-        color: vehicle.color || null,
-        year_model: vehicle.yearModel || null,
-        chassis: vehicle.chassis || null,
-        mileage: vehicle.mileage || null,
-        observations: vehicle.observations || null,
-        organization_id: vehicle.organization_id || 'org-default'
-    }).select().single();
-
-    if(error) {
-        console.error('Supabase Error (addVehicle):', error);
-        return null;
     }
+
+    async addVehicle(vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle | null> {
+        const { data, error } = await supabase.from('veículos').insert({
+            client_id: vehicle.client_id,
+            plate: vehicle.plate,
+            brand: vehicle.brand,
+            model: vehicle.model,
+            color: vehicle.color || null,
+            year_model: vehicle.yearModel || null,
+            chassis: vehicle.chassis || null,
+            mileage: vehicle.mileage || null,
+            observations: vehicle.observations || null,
+            organization_id: vehicle.organization_id || 'org-default'
+        }).select().single();
+
+        if (error) {
+            console.error('Supabase Error (addVehicle):', error);
+            return null;
+        }
         return this.mapVehicle(data);
-}
-
-    async updateVehicle(id: string, updates: Partial<Vehicle>): Promise < boolean > {
-    const { error } = await supabase.from('veículos').update({
-        organization_id: updates.organization_id,
-        client_id: updates.client_id,
-        plate: updates.plate,
-        brand: updates.brand,
-        model: updates.model,
-        color: updates.color,
-        year_model: updates.yearModel,
-        chassis: updates.chassis,
-        mileage: updates.mileage,
-        observations: updates.observations,
-        updated_at: new Date().toISOString()
-    }).eq('id', id);
-
-    if(error) {
-        console.error('Supabase Error (updateVehicle):', error);
-        return false;
     }
+
+    async updateVehicle(id: string, updates: Partial<Vehicle>): Promise<boolean> {
+        const { error } = await supabase.from('veículos').update({
+            organization_id: updates.organization_id,
+            client_id: updates.client_id,
+            plate: updates.plate,
+            brand: updates.brand,
+            model: updates.model,
+            color: updates.color,
+            year_model: updates.yearModel,
+            chassis: updates.chassis,
+            mileage: updates.mileage,
+            observations: updates.observations,
+            updated_at: new Date().toISOString()
+        }).eq('id', id);
+
+        if (error) {
+            console.error('Supabase Error (updateVehicle):', error);
+            return false;
+        }
         return true;
-}
+    }
 
     // ===================== APPOINTMENT OPERATIONS =====================
 
-    async getAppointments(): Promise < Appointment[] > {
-    const { data, error } = await supabase.from('agendamentos').select('*').order('date', { ascending: true });
-    if(error) {
-        console.error('[Supabase] Error fetching appointments:', error);
-        return [];
-    }
+    async getAppointments(): Promise<Appointment[]> {
+        const { data, error } = await supabase.from('agendamentos').select('*').order('date', { ascending: true });
+        if (error) {
+            console.error('[Supabase] Error fetching appointments:', error);
+            return [];
+        }
         return data.map(a => ({
-        id: a.id,
-        organization_id: a.organization_id || 'org-default',
-        title: a.title,
-        date: a.date,
-        time: a.time,
-        vehicle_plate: a.vehicle_plate,
-        vehicle_brand: a.vehicle_brand,
-        vehicle_model: a.vehicle_model,
-        client_name: a.client_name,
-        client_phone: a.client_phone,
-        description: a.description,
-        notify_enabled: a.notify_enabled ?? true,
-        notify_before_minutes: a.notify_before_minutes ?? 15,
-        type: a.type as 'manual' | 'service_delivery',
-        service_id: a.service_id
-    }));
-}
+            id: a.id,
+            organization_id: a.organization_id || 'org-default',
+            title: a.title,
+            date: a.date,
+            time: a.time,
+            vehicle_plate: a.vehicle_plate,
+            vehicle_brand: a.vehicle_brand,
+            vehicle_model: a.vehicle_model,
+            client_name: a.client_name,
+            client_phone: a.client_phone,
+            description: a.description,
+            notify_enabled: a.notify_enabled ?? true,
+            notify_before_minutes: a.notify_before_minutes ?? 15,
+            type: a.type as 'manual' | 'service_delivery',
+            service_id: a.service_id
+        }));
+    }
 
-    async addAppointment(a: Partial<Appointment>): Promise < Appointment | null > {
-    console.log('[Supabase] addAppointment called with:', JSON.stringify(a, null, 2));
+    async addAppointment(a: Partial<Appointment>): Promise<Appointment | null> {
+        console.log('[Supabase] addAppointment called with:', JSON.stringify(a, null, 2));
 
-    // Remove custom ID if present (Supabase auto-generates UUIDs)
-    const { id, ...appointmentData } = a;
+        // Remove custom ID if present (Supabase auto-generates UUIDs)
+        const { id, ...appointmentData } = a;
 
-    // If this is a service_delivery appointment, use upsert based on service_id
-    if(a.type === 'service_delivery' && a.service_id) {
-    console.log('[Supabase] Using upsert for service_delivery appointment');
-    const { data, error } = await supabase.from('agendamentos')
-        .upsert({
+        // If this is a service_delivery appointment, use upsert based on service_id
+        if (a.type === 'service_delivery' && a.service_id) {
+            console.log('[Supabase] Using upsert for service_delivery appointment');
+            const { data, error } = await supabase.from('agendamentos')
+                .upsert({
+                    organization_id: 'org-default',
+                    ...appointmentData
+                }, { onConflict: 'service_id' })
+                .select()
+                .single();
+
+            if (error) {
+                console.error('[Supabase] Error (addAppointment upsert):', error);
+                return null;
+            }
+            console.log('[Supabase] Appointment upserted successfully:', data);
+            return data;
+        }
+
+        // Regular appointment insert
+        console.log('[Supabase] Using regular insert for manual appointment');
+        const { data, error } = await supabase.from('agendamentos').insert({
             organization_id: 'org-default',
             ...appointmentData
-        }, { onConflict: 'service_id' })
-        .select()
-        .single();
+        }).select().single();
 
-    if (error) {
-        console.error('[Supabase] Error (addAppointment upsert):', error);
-        return null;
-    }
-    console.log('[Supabase] Appointment upserted successfully:', data);
-    return data;
-}
-
-// Regular appointment insert
-console.log('[Supabase] Using regular insert for manual appointment');
-const { data, error } = await supabase.from('agendamentos').insert({
-    organization_id: 'org-default',
-    ...appointmentData
-}).select().single();
-
-if (error) {
-    console.error('[Supabase] Error (addAppointment insert):', error);
-    return null;
-}
-console.log('[Supabase] Appointment inserted successfully:', data);
-return data;
+        if (error) {
+            console.error('[Supabase] Error (addAppointment insert):', error);
+            return null;
+        }
+        console.log('[Supabase] Appointment inserted successfully:', data);
+        return data;
     }
 
-    async deleteAppointment(id: string): Promise < boolean > {
-    const { error } = await supabase.from('agendamentos').delete().eq('id', id);
-    return !error;
-}
-
-    async updateAppointment(id: string, updates: Partial<Appointment>): Promise < boolean > {
-    const { error } = await supabase.from('agendamentos').update({
-        ...(updates.date && { date: updates.date }),
-        ...(updates.time && { time: updates.time }),
-        ...(updates.title && { title: updates.title }),
-        ...(updates.description !== undefined && { description: updates.description }),
-        ...(updates.notify_before_minutes !== undefined && { notify_before_minutes: updates.notify_before_minutes }),
-        ...(updates.notify_enabled !== undefined && { notify_enabled: updates.notify_enabled })
-    }).eq('id', id);
-
-    if(error) {
-        console.error('[Supabase] Error updating appointment:', error);
-        return false;
+    async deleteAppointment(id: string): Promise<boolean> {
+        const { error } = await supabase.from('agendamentos').delete().eq('id', id);
+        return !error;
     }
+
+    async updateAppointment(id: string, updates: Partial<Appointment>): Promise<boolean> {
+        const { error } = await supabase.from('agendamentos').update({
+            ...(updates.date && { date: updates.date }),
+            ...(updates.time && { time: updates.time }),
+            ...(updates.title && { title: updates.title }),
+            ...(updates.description !== undefined && { description: updates.description }),
+            ...(updates.notify_before_minutes !== undefined && { notify_before_minutes: updates.notify_before_minutes }),
+            ...(updates.notify_enabled !== undefined && { notify_enabled: updates.notify_enabled })
+        }).eq('id', id);
+
+        if (error) {
+            console.error('[Supabase] Error updating appointment:', error);
+            return false;
+        }
         return true;
-}
-
-    async addService(service: Partial<ServiceJob>): Promise < ServiceJob | null > {
-    // 1. Inserir serviço
-    const { data: newService, error } = await supabase.from('serviços').insert({
-        vehicle_id: service.vehicle_id,
-        client_id: service.client_id,
-        status: service.status || 'Pendente',
-        priority: service.priority || 'media',
-        total_value: service.total_value || 0,
-        estimated_delivery: service.estimated_delivery || null,
-        service_type: service.service_type || 'novo',
-        archived: service.archived || false,
-        created_by: service.created_by,
-        created_by_name: service.created_by_name,
-        inspection: service.inspection,
-        organization_id: service.organization_id || 'org-default'
-    }).select().single();
-
-    if(error || !newService) {
-    console.error('Supabase Error (addService):', error);
-    return null;
-}
-
-// 2. Inserir status_history inicial
-await supabase.from('historico_status').insert({
-    service_id: newService.id,
-    status: 'Pendente',
-    user_name: 'Sistema',
-    action_source: 'Criação'
-});
-
-return {
-    ...newService,
-    tasks: [],
-    reminders: [],
-    status_history: [{
-        id: 'temp',
-        status: ServiceStatus.PENDENTE,
-        timestamp: new Date().toISOString(),
-        user_name: 'Sistema',
-        action_source: 'Criação'
-    }],
-    entry_at: newService.entry_at || new Date().toISOString(),
-    estimated_delivery: newService.estimated_delivery,
-    archived: newService.archived,
-    created_by: newService.created_by,
-    created_by_name: newService.created_by_name,
-    inspection: newService.inspection
-};
     }
 
-    async updateService(id: string, updates: Partial<ServiceJob>): Promise < boolean > {
-    const { status, priority, total_value, estimated_delivery, archived, inspection } = updates;
+    async addService(service: Partial<ServiceJob>): Promise<ServiceJob | null> {
+        // 1. Inserir serviço
+        const { data: newService, error } = await supabase.from('serviços').insert({
+            vehicle_id: service.vehicle_id,
+            client_id: service.client_id,
+            status: service.status || 'Pendente',
+            priority: service.priority || 'media',
+            total_value: service.total_value || 0,
+            estimated_delivery: service.estimated_delivery || null,
+            service_type: service.service_type || 'novo',
+            archived: service.archived || false,
+            created_by: service.created_by,
+            created_by_name: service.created_by_name,
+            inspection: service.inspection,
+            organization_id: service.organization_id || 'org-default'
+        }).select().single();
 
-    const { error } = await supabase.from('serviços').update({
-        ...(status && { status }),
-        ...(priority && { priority }),
-        ...(total_value !== undefined && { total_value }),
-        ...(estimated_delivery && { estimated_delivery }),
-        ...(archived !== undefined && { archived }),
-        ...(inspection && { inspection })
-    }).eq('id', id);
+        if (error || !newService) {
+            console.error('Supabase Error (addService):', error);
+            return null;
+        }
 
-    if(error) {
-        console.error('Supabase Error (updateService):', error);
-        return false;
+        // 2. Inserir status_history inicial
+        await supabase.from('historico_status').insert({
+            service_id: newService.id,
+            status: 'Pendente',
+            user_name: 'Sistema',
+            action_source: 'Criação'
+        });
+
+        return {
+            ...newService,
+            tasks: [],
+            reminders: [],
+            status_history: [{
+                id: 'temp',
+                status: ServiceStatus.PENDENTE,
+                timestamp: new Date().toISOString(),
+                user_name: 'Sistema',
+                action_source: 'Criação'
+            }],
+            entry_at: newService.entry_at || new Date().toISOString(),
+            estimated_delivery: newService.estimated_delivery,
+            archived: newService.archived,
+            created_by: newService.created_by,
+            created_by_name: newService.created_by_name,
+            inspection: newService.inspection
+        };
     }
+
+    async updateService(id: string, updates: Partial<ServiceJob>): Promise<boolean> {
+        const { status, priority, total_value, estimated_delivery, archived, inspection } = updates;
+
+        const { error } = await supabase.from('serviços').update({
+            ...(status && { status }),
+            ...(priority && { priority }),
+            ...(total_value !== undefined && { total_value }),
+            ...(estimated_delivery && { estimated_delivery }),
+            ...(archived !== undefined && { archived }),
+            ...(inspection && { inspection })
+        }).eq('id', id);
+
+        if (error) {
+            console.error('Supabase Error (updateService):', error);
+            return false;
+        }
 
         // Se houver mudança de status, registrar no histórico
-        if(status) {
-        await supabase.from('historico_status').insert({
-            service_id: id,
-            status,
-            user_name: 'Sistema',
-            action_source: 'Atualização'
-        });
-    }
+        if (status) {
+            await supabase.from('historico_status').insert({
+                service_id: id,
+                status,
+                user_name: 'Sistema',
+                action_source: 'Atualização'
+            });
+        }
 
         return true;
-}
+    }
 
     // ===================== TASK OPERATIONS =====================
 
-    async addTask(serviceId: string, task: Partial<ServiceTask>): Promise < ServiceTask | null > {
-    const { data, error } = await supabase.from('tarefas').insert({
-        service_id: serviceId,
-        title: task.title,
-        status: task.status || 'todo',
-        type: task.type || null,
-        charge_type: task.charge_type || 'Fixo',
-        rate_per_hour: task.rate_per_hour || 120,
-        fixed_value: task.fixed_value || 0,
-        order: task.order || 0,
-        from_template_id: task.from_template_id || null,
-        relato: task.relato || null,
-        diagnostico: task.diagnostico || null,
-        media: task.media || null
-    }).select().single();
+    async addTask(serviceId: string, task: Partial<ServiceTask>): Promise<ServiceTask | null> {
+        const { data, error } = await supabase.from('tarefas').insert({
+            service_id: serviceId,
+            title: task.title,
+            status: task.status || 'todo',
+            type: task.type || null,
+            charge_type: task.charge_type || 'Fixo',
+            rate_per_hour: task.rate_per_hour || 120,
+            fixed_value: task.fixed_value || 0,
+            order: task.order || 0,
+            from_template_id: task.from_template_id || null,
+            relato: task.relato || null,
+            diagnostico: task.diagnostico || null,
+            media: task.media || null
+        }).select().single();
 
-    if(error) {
-        console.error('Supabase Error (addTask):', error);
-        return null;
-    }
+        if (error) {
+            console.error('Supabase Error (addTask):', error);
+            return null;
+        }
         return this.mapTask(data);
-}
-
-    async updateTask(taskId: string, updates: Partial<ServiceTask>): Promise < boolean > {
-    const { error } = await supabase.from('tarefas').update({
-        ...updates,
-        ...((updates as any).media && { media: (updates as any).media }),
-        updated_at: new Date().toISOString()
-    }).eq('id', taskId);
-
-    if(error) {
-        console.error('Supabase Error (updateTask):', error);
-        return false;
     }
+
+    async updateTask(taskId: string, updates: Partial<ServiceTask>): Promise<boolean> {
+        const { error } = await supabase.from('tarefas').update({
+            ...updates,
+            ...((updates as any).media && { media: (updates as any).media }),
+            updated_at: new Date().toISOString()
+        }).eq('id', taskId);
+
+        if (error) {
+            console.error('Supabase Error (updateTask):', error);
+            return false;
+        }
         return true;
-}
+    }
 
     // ===================== REMINDER OPERATIONS =====================
 
-    async addReminder(serviceId: string, reminder: Partial<Reminder>): Promise < Reminder | null > {
-    const { data, error } = await supabase.from('lembretes').insert({
-        service_id: serviceId,
-        title: reminder.title,
-        message: reminder.message || null,
-        date: reminder.date,
-        time: reminder.time,
-        status: 'active'
-    }).select().single();
+    async addReminder(serviceId: string, reminder: Partial<Reminder>): Promise<Reminder | null> {
+        const { data, error } = await supabase.from('lembretes').insert({
+            service_id: serviceId,
+            title: reminder.title,
+            message: reminder.message || null,
+            date: reminder.date,
+            time: reminder.time,
+            status: 'active'
+        }).select().single();
 
-    if(error) {
-        console.error('Supabase Error (addReminder):', error);
-        return null;
-    }
+        if (error) {
+            console.error('Supabase Error (addReminder):', error);
+            return null;
+        }
         return this.mapReminder(data);
-}
-
-    async updateReminder(reminderId: string, updates: Partial<Reminder>): Promise < boolean > {
-    const { error } = await supabase.from('lembretes').update(updates).eq('id', reminderId);
-    if(error) {
-        console.error('Supabase Error (updateReminder):', error);
-        return false;
     }
-        return true;
-}
 
-    async deleteReminder(reminderId: string): Promise < boolean > {
-    const { error } = await supabase.from('lembretes').delete().eq('id', reminderId);
-    if(error) {
-        console.error('Supabase Error (deleteReminder):', error);
-        return false;
-    }
+    async updateReminder(reminderId: string, updates: Partial<Reminder>): Promise<boolean> {
+        const { error } = await supabase.from('lembretes').update(updates).eq('id', reminderId);
+        if (error) {
+            console.error('Supabase Error (updateReminder):', error);
+            return false;
+        }
         return true;
-}
+    }
+
+    async deleteReminder(reminderId: string): Promise<boolean> {
+        const { error } = await supabase.from('lembretes').delete().eq('id', reminderId);
+        if (error) {
+            console.error('Supabase Error (deleteReminder):', error);
+            return false;
+        }
+        return true;
+    }
 
     /**
      * Busca lembretes com dados do serviço e veículo associados
      * @param includeCompleted - se true, inclui lembretes concluídos (padrão: false)
      */
-    async getAllReminders(includeCompleted = false): Promise < ReminderWithService[] > {
-    // Buscar lembretes
-    let query = supabase
-        .from('lembretes')
-        .select('*')
-        .order('date', { ascending: true })
-        .order('time', { ascending: true });
+    async getAllReminders(includeCompleted = false): Promise<ReminderWithService[]> {
+        // Buscar lembretes
+        let query = supabase
+            .from('lembretes')
+            .select('*')
+            .order('date', { ascending: true })
+            .order('time', { ascending: true });
 
-    if(!includeCompleted) {
-        query = query.eq('status', 'active');
-    }
+        if (!includeCompleted) {
+            query = query.eq('status', 'active');
+        }
 
         const { data: reminders, error } = await query;
 
-    if(error || !reminders) {
-    console.error('Supabase Error (getAllReminders):', error);
-    return [];
-}
+        if (error || !reminders) {
+            console.error('Supabase Error (getAllReminders):', error);
+            return [];
+        }
 
-// Buscar dados complementares dos serviços
-const serviceIds = [...new Set(reminders.map((r: any) => r.service_id).filter(Boolean))];
+        // Buscar dados complementares dos serviços
+        const serviceIds = [...new Set(reminders.map((r: any) => r.service_id).filter(Boolean))];
 
-if (serviceIds.length === 0) {
-    return reminders.map((r: any) => ({
-        id: r.id,
-        title: r.title,
-        message: r.message,
-        date: r.date,
-        time: r.time,
-        status: r.status,
-        service_id: r.service_id,
-        vehicle_plate: '',
-        vehicle_brand: '',
-        vehicle_model: '',
-        client_name: '',
-        client_phone: ''
-    }));
-}
+        if (serviceIds.length === 0) {
+            return reminders.map((r: any) => ({
+                id: r.id,
+                title: r.title,
+                message: r.message,
+                date: r.date,
+                time: r.time,
+                status: r.status,
+                service_id: r.service_id,
+                vehicle_plate: '',
+                vehicle_brand: '',
+                vehicle_model: '',
+                client_name: '',
+                client_phone: ''
+            }));
+        }
 
-// Buscar serviços com veículos e clientes
-const { data: services } = await supabase
-    .from('serviços')
-    .select(`
+        // Buscar serviços com veículos e clientes
+        const { data: services } = await supabase
+            .from('serviços')
+            .select(`
                 id,
                 veículos (plate, brand, model),
                 clientes (name, phone)
             `)
-    .in('id', serviceIds);
+            .in('id', serviceIds);
 
-const serviceMap = new Map<string, any>();
-(services || []).forEach((s: any) => {
-    serviceMap.set(s.id, s);
-});
+        const serviceMap = new Map<string, any>();
+        (services || []).forEach((s: any) => {
+            serviceMap.set(s.id, s);
+        });
 
-return reminders.map((r: any) => {
-    const svc = serviceMap.get(r.service_id);
-    return {
-        id: r.id,
-        title: r.title,
-        message: r.message,
-        date: r.date,
-        time: r.time,
-        status: r.status,
-        service_id: r.service_id,
-        vehicle_plate: svc?.veículos?.plate || '',
-        vehicle_brand: svc?.veículos?.brand || '',
-        vehicle_model: svc?.veículos?.model || '',
-        client_name: svc?.clientes?.name || '',
-        client_phone: svc?.clientes?.phone || ''
-    };
-});
+        return reminders.map((r: any) => {
+            const svc = serviceMap.get(r.service_id);
+            return {
+                id: r.id,
+                title: r.title,
+                message: r.message,
+                date: r.date,
+                time: r.time,
+                status: r.status,
+                service_id: r.service_id,
+                vehicle_plate: svc?.veículos?.plate || '',
+                vehicle_brand: svc?.veículos?.brand || '',
+                vehicle_model: svc?.veículos?.model || '',
+                client_name: svc?.clientes?.name || '',
+                client_phone: svc?.clientes?.phone || ''
+            };
+        });
     }
 
     // ===================== SETTINGS & TEMPLATES = : =====================
 
 
 
-    async updateWorkshopSettings(settings: Partial<WorkshopSettings>): Promise < boolean > {
-    // Build payload with only the rate fields that we know exist
-    const payload: any = {};
+    async updateWorkshopSettings(settings: Partial<WorkshopSettings>): Promise<boolean> {
+        // Build payload with only the rate fields that we know exist
+        const payload: any = {};
 
-    if(settings.valor_hora_chapeacao !== undefined) {
-    payload.valor_hora_chapeacao = settings.valor_hora_chapeacao;
-}
-if (settings.valor_hora_pintura !== undefined) {
-    payload.valor_hora_pintura = settings.valor_hora_pintura;
-}
-if (settings.valor_hora_mecanica !== undefined) {
-    payload.valor_hora_mecanica = settings.valor_hora_mecanica;
-}
-if (settings.name !== undefined) {
-    payload.name = settings.name;
-}
-if (settings.address !== undefined) {
-    payload.address = settings.address;
-}
-if (settings.phone !== undefined) {
-    payload.phone = settings.phone;
-}
-if (settings.cnpj !== undefined) {
-    payload.cnpj = settings.cnpj;
-}
-if (settings.media_retention_days !== undefined) {
-    payload.media_retention_days = settings.media_retention_days;
-}
+        if (settings.valor_hora_chapeacao !== undefined) {
+            payload.valor_hora_chapeacao = settings.valor_hora_chapeacao;
+        }
+        if (settings.valor_hora_pintura !== undefined) {
+            payload.valor_hora_pintura = settings.valor_hora_pintura;
+        }
+        if (settings.valor_hora_mecanica !== undefined) {
+            payload.valor_hora_mecanica = settings.valor_hora_mecanica;
+        }
+        if (settings.name !== undefined) {
+            payload.name = settings.name;
+        }
+        if (settings.address !== undefined) {
+            payload.address = settings.address;
+        }
+        if (settings.phone !== undefined) {
+            payload.phone = settings.phone;
+        }
+        if (settings.cnpj !== undefined) {
+            payload.cnpj = settings.cnpj;
+        }
+        if (settings.media_retention_days !== undefined) {
+            payload.media_retention_days = settings.media_retention_days;
+        }
 
-console.log('[updateWorkshopSettings] Settings ID:', settings.id);
-console.log('[updateWorkshopSettings] Payload:', payload);
+        console.log('[updateWorkshopSettings] Settings ID:', settings.id);
+        console.log('[updateWorkshopSettings] Payload:', payload);
 
-let query;
-let error;
+        let query;
+        let error;
 
-if (settings.id) {
-    const result = await supabase
-        .from('configuracoes_oficina')
-        .update(payload)
-        .eq('id', settings.id);
-    error = result.error;
-    console.log('[updateWorkshopSettings] Update result:', result);
-} else {
-    // Fallback: update all rows (should be only one)
-    const result = await supabase
-        .from('configuracoes_oficina')
-        .update(payload)
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Match all rows
-    error = result.error;
-    console.log('[updateWorkshopSettings] Update all result:', result);
-}
+        if (settings.id) {
+            const result = await supabase
+                .from('configuracoes_oficina')
+                .update(payload)
+                .eq('id', settings.id);
+            error = result.error;
+            console.log('[updateWorkshopSettings] Update result:', result);
+        } else {
+            // Fallback: update all rows (should be only one)
+            const result = await supabase
+                .from('configuracoes_oficina')
+                .update(payload)
+                .neq('id', '00000000-0000-0000-0000-000000000000'); // Match all rows
+            error = result.error;
+            console.log('[updateWorkshopSettings] Update all result:', result);
+        }
 
-if (error) {
-    console.error('[updateWorkshopSettings] Error:', error);
-    return false;
-}
-return true;
+        if (error) {
+            console.error('[updateWorkshopSettings] Error:', error);
+            return false;
+        }
+        return true;
     }
 
 
-    async updateDelayCriteria(criteria: Partial<DelayCriteria>): Promise < boolean > {
-    const { error } = await supabase.from('critérios_de_atraso').upsert({
-        id: 'global-criteria', // ID fixo para critério global
-        active: criteria.active,
-        threshold_days: criteria.thresholdDays,
-        threshold_hours: criteria.thresholdHours,
-        consider_workdays: criteria.considerWorkdays,
-        consider_business_hours: criteria.considerBusinessHours,
-        business_start: criteria.businessStart,
-        business_end: criteria.businessEnd,
-        priority_overrides: criteria.priorityOverrides,
-        auto_mark_delayed: criteria.autoMarkDelayed,
-        auto_notify: criteria.autoNotify,
-        organization_id: 'org-default'
-    });
-    return !error;
-}
+    async updateDelayCriteria(criteria: Partial<DelayCriteria>): Promise<boolean> {
+        const { error } = await supabase.from('critérios_de_atraso').upsert({
+            id: 'global-criteria', // ID fixo para critério global
+            active: criteria.active,
+            threshold_days: criteria.thresholdDays,
+            threshold_hours: criteria.thresholdHours,
+            consider_workdays: criteria.considerWorkdays,
+            consider_business_hours: criteria.considerBusinessHours,
+            business_start: criteria.businessStart,
+            business_end: criteria.businessEnd,
+            priority_overrides: criteria.priorityOverrides,
+            auto_mark_delayed: criteria.autoMarkDelayed,
+            auto_notify: criteria.autoNotify,
+            organization_id: 'org-default'
+        });
+        return !error;
+    }
 
-    async saveTemplate(template: Partial<EvaluationTemplate>): Promise < boolean > {
-    const { error } = await supabase.from('modelos_de_avaliação').upsert({
-        id: template.id || undefined,
-        name: template.name,
-        sections: template.sections,
-        is_default: template.is_default,
-        organization_id: template.organization_id || 'org-default'
-    });
-    return !error;
-}
+    async saveTemplate(template: Partial<EvaluationTemplate>): Promise<boolean> {
+        const { error } = await supabase.from('modelos_de_avaliação').upsert({
+            id: template.id || undefined,
+            name: template.name,
+            sections: template.sections,
+            is_default: template.is_default,
+            organization_id: template.organization_id || 'org-default'
+        });
+        return !error;
+    }
 
     // ===================== MEDIA RETENTION =====================
 
-    async analyzeOldMedia(): Promise < number > {
-    const settings = await this.getWorkshopSettings();
-    if(!settings || !settings.media_retention_days) {
-    return 0; // "Nunca excluir" ou não configurado
-}
+    async analyzeOldMedia(): Promise<number> {
+        const settings = await this.getWorkshopSettings();
+        if (!settings || !settings.media_retention_days) {
+            return 0; // "Nunca excluir" ou não configurado
+        }
 
-const days = settings.media_retention_days;
-const cutoffDate = new Date();
-cutoffDate.setDate(cutoffDate.getDate() - days);
-const cutoffStr = cutoffDate.toISOString();
+        const days = settings.media_retention_days;
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        const cutoffStr = cutoffDate.toISOString();
 
-// 1. Buscar serviços antigos
-const { data: oldServices } = await supabase
-    .from('serviços')
-    .select('id')
-    .lt('entry_at', cutoffStr);
+        // 1. Buscar serviços antigos
+        const { data: oldServices } = await supabase
+            .from('serviços')
+            .select('id')
+            .lt('entry_at', cutoffStr);
 
-if (!oldServices || oldServices.length === 0) return 0;
+        if (!oldServices || oldServices.length === 0) return 0;
 
-const serviceIds = oldServices.map(s => s.id);
+        const serviceIds = oldServices.map(s => s.id);
 
-// 2. Buscar tarefas desses serviços com media
-// Como 'media' é jsonb, filtramos onde não é null ou vazio se possível via postgrest, 
-// mas verificação local é mais garantida para arrays vazios "[]" vs null.
-const { data: tasks } = await supabase
-    .from('tarefas')
-    .select('media')
-    .in('service_id', serviceIds)
-    .not('media', 'is', null);
+        // 2. Buscar tarefas desses serviços com media
+        // Como 'media' é jsonb, filtramos onde não é null ou vazio se possível via postgrest, 
+        // mas verificação local é mais garantida para arrays vazios "[]" vs null.
+        const { data: tasks } = await supabase
+            .from('tarefas')
+            .select('media')
+            .in('service_id', serviceIds)
+            .not('media', 'is', null);
 
-if (!tasks) return 0;
+        if (!tasks) return 0;
 
-let count = 0;
-tasks.forEach((t: any) => {
-    if (Array.isArray(t.media)) {
-        count += t.media.length;
-    }
-});
-
-return count;
-    }
-
-    async cleanupOldMedia(): Promise < { success: boolean; count: number } > {
-    const settings = await this.getWorkshopSettings();
-    if(!settings || !settings.media_retention_days) {
-    return { success: false, count: 0 };
-}
-
-const days = settings.media_retention_days;
-const cutoffDate = new Date();
-cutoffDate.setDate(cutoffDate.getDate() - days);
-const cutoffStr = cutoffDate.toISOString();
-
-// 1. Buscar serviços antigos
-const { data: oldServices } = await supabase
-    .from('serviços')
-    .select('id')
-    .lt('entry_at', cutoffStr);
-
-if (!oldServices || oldServices.length === 0) return { success: true, count: 0 };
-
-const serviceIds = oldServices.map(s => s.id);
-
-// 2. Buscar tarefas com media
-// Precisamos do ID da tarefa para atualizar depois
-const { data: tasks } = await supabase
-    .from('tarefas')
-    .select('id, media')
-    .in('service_id', serviceIds)
-    .not('media', 'is', null);
-
-if (!tasks || tasks.length === 0) return { success: true, count: 0 };
-
-let totalDeleted = 0;
-const taskIdsToClear: string[] = [];
-
-for (const t of tasks) {
-    if (Array.isArray(t.media) && t.media.length > 0) {
-        // Deletar arquivos do storage
-        const pathsToDelete: string[] = [];
-
-        t.media.forEach((m: any) => {
-            if (m.url) {
-                try {
-                    // Extrair path da URL. Ex: .../storage/v1/object/public/evidencias/folder/file.jpg
-                    // O bucket é 'evidencias'.
-                    // Se a URL for completa, pegamos o que vem depois de /evidencias/
-                    const urlObj = new URL(m.url);
-                    const pathParts = urlObj.pathname.split('/evidencias/');
-                    if (pathParts.length > 1) {
-                        pathsToDelete.push(pathParts[1]); // O caminho relativo dentro do bucket
-                    }
-                } catch (e) {
-                    console.warn("Invalid URL in media cleanup:", m.url);
-                }
+        let count = 0;
+        tasks.forEach((t: any) => {
+            if (Array.isArray(t.media)) {
+                count += t.media.length;
             }
         });
 
-        if (pathsToDelete.length > 0) {
-            await supabase.storage.from('evidencias').remove(pathsToDelete);
-            totalDeleted += pathsToDelete.length;
+        return count;
+    }
+
+    async cleanupOldMedia(): Promise<{ success: boolean; count: number }> {
+        const settings = await this.getWorkshopSettings();
+        if (!settings || !settings.media_retention_days) {
+            return { success: false, count: 0 };
         }
 
-        taskIdsToClear.push(t.id);
-    }
-}
+        const days = settings.media_retention_days;
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        const cutoffStr = cutoffDate.toISOString();
 
-// 3. Limpar registros do banco
-if (taskIdsToClear.length > 0) {
-    await supabase
-        .from('tarefas')
-        .update({ media: [] })
-        .in('id', taskIdsToClear);
-}
+        // 1. Buscar serviços antigos
+        const { data: oldServices } = await supabase
+            .from('serviços')
+            .select('id')
+            .lt('entry_at', cutoffStr);
 
-return { success: true, count: totalDeleted };
+        if (!oldServices || oldServices.length === 0) return { success: true, count: 0 };
+
+        const serviceIds = oldServices.map(s => s.id);
+
+        // 2. Buscar tarefas com media
+        // Precisamos do ID da tarefa para atualizar depois
+        const { data: tasks } = await supabase
+            .from('tarefas')
+            .select('id, media')
+            .in('service_id', serviceIds)
+            .not('media', 'is', null);
+
+        if (!tasks || tasks.length === 0) return { success: true, count: 0 };
+
+        let totalDeleted = 0;
+        const taskIdsToClear: string[] = [];
+
+        for (const t of tasks) {
+            if (Array.isArray(t.media) && t.media.length > 0) {
+                // Deletar arquivos do storage
+                const pathsToDelete: string[] = [];
+
+                t.media.forEach((m: any) => {
+                    if (m.url) {
+                        try {
+                            // Extrair path da URL. Ex: .../storage/v1/object/public/evidencias/folder/file.jpg
+                            // O bucket é 'evidencias'.
+                            // Se a URL for completa, pegamos o que vem depois de /evidencias/
+                            const urlObj = new URL(m.url);
+                            const pathParts = urlObj.pathname.split('/evidencias/');
+                            if (pathParts.length > 1) {
+                                pathsToDelete.push(pathParts[1]); // O caminho relativo dentro do bucket
+                            }
+                        } catch (e) {
+                            console.warn("Invalid URL in media cleanup:", m.url);
+                        }
+                    }
+                });
+
+                if (pathsToDelete.length > 0) {
+                    await supabase.storage.from('evidencias').remove(pathsToDelete);
+                    totalDeleted += pathsToDelete.length;
+                }
+
+                taskIdsToClear.push(t.id);
+            }
+        }
+
+        // 3. Limpar registros do banco
+        if (taskIdsToClear.length > 0) {
+            await supabase
+                .from('tarefas')
+                .update({ media: [] })
+                .in('id', taskIdsToClear);
+        }
+
+        return { success: true, count: totalDeleted };
     }
 
     // ===================== MAPPERS =====================
 
     private mapVehicle(v: any): Vehicle {
-    return {
-        id: v.id,
-        organization_id: v.organization_id || 'org-default',
-        plate: v.plate,
-        brand: v.brand,
-        model: v.model,
-        client_id: v.client_id,
-        yearModel: v.year_model,
-        color: v.color,
-        chassis: v.chassis,
-        mileage: v.mileage,
-        observations: v.observations
-    };
-}
+        return {
+            id: v.id,
+            organization_id: v.organization_id || 'org-default',
+            plate: v.plate,
+            brand: v.brand,
+            model: v.model,
+            client_id: v.client_id,
+            yearModel: v.year_model,
+            color: v.color,
+            chassis: v.chassis,
+            mileage: v.mileage,
+            observations: v.observations
+        };
+    }
 
     private mapClient(c: any): Client {
-    return {
-        id: c.id,
-        organization_id: c.organization_id || 'org-default',
-        name: c.name,
-        phone: c.phone || '',
-        notes: c.notes,
-        cpfCnpj: c.cpf_cnpj,
-        address: c.address
-    };
-}
+        return {
+            id: c.id,
+            organization_id: c.organization_id || 'org-default',
+            name: c.name,
+            phone: c.phone || '',
+            notes: c.notes,
+            cpfCnpj: c.cpf_cnpj,
+            address: c.address
+        };
+    }
 
     private mapTask(t: any): ServiceTask {
-    return {
-        id: t.id,
-        service_id: t.service_id,
-        title: t.title,
-        status: t.status || 'todo',
-        type: t.type,
-        charge_type: t.charge_type || 'Fixo',
-        rate_per_hour: t.rate_per_hour || 120,
-        fixed_value: t.fixed_value || 0,
-        manual_override_value: t.manual_override_value,
-        from_template_id: t.from_template_id,
-        order: t.order || 0,
-        observation: t.observation,
-        relato: t.relato,
-        diagnostico: t.diagnostico,
-        media: t.media || [],
-        started_at: t.started_at,
-        ended_at: t.ended_at,
-        duration_seconds: t.duration_seconds,
-        time_spent_seconds: t.time_spent_seconds,
-        responsible_user_id: t.responsible_user_id
-    };
-}
+        return {
+            id: t.id,
+            service_id: t.service_id,
+            title: t.title,
+            status: t.status || 'todo',
+            type: t.type,
+            charge_type: t.charge_type || 'Fixo',
+            rate_per_hour: t.rate_per_hour || 120,
+            fixed_value: t.fixed_value || 0,
+            manual_override_value: t.manual_override_value,
+            from_template_id: t.from_template_id,
+            order: t.order || 0,
+            observation: t.observation,
+            relato: t.relato,
+            diagnostico: t.diagnostico,
+            media: t.media || [],
+            started_at: t.started_at,
+            ended_at: t.ended_at,
+            duration_seconds: t.duration_seconds,
+            time_spent_seconds: t.time_spent_seconds,
+            responsible_user_id: t.responsible_user_id
+        };
+    }
 
     private mapReminder(r: any): Reminder {
-    return {
-        id: r.id,
-        title: r.title,
-        message: r.message,
-        date: r.date,
-        time: r.time,
-        status: r.status || 'active'
-    };
-}
+        return {
+            id: r.id,
+            title: r.title,
+            message: r.message,
+            date: r.date,
+            time: r.time,
+            status: r.status || 'active'
+        };
+    }
 
     private mapStatusLog(h: any): StatusLogEntry {
-    return {
-        id: h.id,
-        status: h.status as ServiceStatus,
-        timestamp: h.timestamp,
-        user_id: h.user_id,
-        user_name: h.user_name,
-        action_source: h.action_source
-    };
-}
+        return {
+            id: h.id,
+            status: h.status as ServiceStatus,
+            timestamp: h.timestamp,
+            user_id: h.user_id,
+            user_name: h.user_name,
+            action_source: h.action_source
+        };
+    }
 }
 
 export const supabaseDB = new SupabaseService();

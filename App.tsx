@@ -72,9 +72,41 @@ const App: React.FC = () => {
 
   // Listen for PASSWORD_RECOVERY event from Supabase Auth
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
+      } else if (event === 'SIGNED_IN' && session) {
+        // Recuperar perfil do usuário ao entrar via Magic Link
+        const { data: profile } = await supabase
+          .from('perfis_de_usuario')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (profile) {
+          const loggedUser: UserAccount = {
+            id: session.user.id,
+            name: profile.name,
+            email: session.user.email || '',
+            role: profile.papel,
+            active: true,
+            permissions: {
+              manage_team: false,
+              manage_clients: false,
+              manage_inventory: false,
+              config_rates: false,
+              config_vehicles: false,
+              config_system: false,
+              view_financials: false
+            },
+            organization_id: profile.organization_id || 'org_1',
+            phone: profile.phone || '',
+            created_at: profile.created_at || new Date().toISOString()
+          };
+          setUser(loggedUser);
+          setIsAuthenticated(true);
+          localStorage.setItem('g40_user_session', JSON.stringify(loggedUser));
+        }
       }
     });
     return () => subscription.unsubscribe();
