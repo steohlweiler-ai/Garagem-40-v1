@@ -247,6 +247,16 @@ class DataProvider {
         return true;
     }
 
+    async analyzeOldMedia(): Promise<number> {
+        if (this.useSupabase) return await supabaseDB.analyzeOldMedia();
+        return 0; // Mock support pending
+    }
+
+    async cleanupOldMedia(): Promise<{ success: boolean; count: number }> {
+        if (this.useSupabase) return await supabaseDB.cleanupOldMedia();
+        return { success: true, count: 0 };
+    }
+
     async updateDelayCriteria(criteria: any) {
         if (this.useSupabase) return await supabaseDB.updateDelayCriteria(criteria);
         mockDB.updateDelayCriteria(criteria, 'system', 'Admin');

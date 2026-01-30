@@ -175,7 +175,7 @@ class SupabaseService {
     async getWorkshopSettings(): Promise<WorkshopSettings | null> {
         const { data, error } = await supabase
             .from('configuracoes_oficina')
-            .select('id, name, address, phone, cnpj, valor_hora_chapeacao, valor_hora_pintura, valor_hora_mecanica')
+            .select('id, name, address, phone, cnpj, valor_hora_chapeacao, valor_hora_pintura, valor_hora_mecanica, media_retention_days')
             .limit(1)
             .single();
 
@@ -188,7 +188,8 @@ class SupabaseService {
                 cnpj: data.cnpj,
                 valor_hora_chapeacao: data.valor_hora_chapeacao,
                 valor_hora_pintura: data.valor_hora_pintura,
-                valor_hora_mecanica: data.valor_hora_mecanica
+                valor_hora_mecanica: data.valor_hora_mecanica,
+                media_retention_days: data.media_retention_days
             };
         }
 
@@ -223,7 +224,8 @@ class SupabaseService {
             cnpj: newData.cnpj,
             valor_hora_chapeacao: newData.valor_hora_chapeacao,
             valor_hora_pintura: newData.valor_hora_pintura,
-            valor_hora_mecanica: newData.valor_hora_mecanica
+            valor_hora_mecanica: newData.valor_hora_mecanica,
+            media_retention_days: newData.media_retention_days
         };
     }
 
@@ -1332,6 +1334,9 @@ class SupabaseService {
         if (settings.cnpj !== undefined) {
             payload.cnpj = settings.cnpj;
         }
+        if (settings.media_retention_days !== undefined) {
+            payload.media_retention_days = settings.media_retention_days;
+        }
 
         console.log('[updateWorkshopSettings] Settings ID:', settings.id);
         console.log('[updateWorkshopSettings] Payload:', payload);
@@ -1391,6 +1396,126 @@ class SupabaseService {
             organization_id: template.organization_id || 'org-default'
         });
         return !error;
+    }
+
+    // ===================== MEDIA RETENTION =====================
+
+    async analyzeOldMedia(): Promise<number> {
+        const settings = await this.getWorkshopSettings();
+        if (!settings || !settings.media_retention_days) {
+            return 0; // "Nunca excluir" ou não configurado
+        }
+
+        const days = settings.media_retention_days;
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        const cutoffStr = cutoffDate.toISOString();
+
+        // 1. Buscar serviços antigos
+        const { data: oldServices } = await supabase
+            .from('serviços')
+            .select('id')
+            .lt('entry_at', cutoffStr);
+
+        if (!oldServices || oldServices.length === 0) return 0;
+
+        const serviceIds = oldServices.map(s => s.id);
+
+        // 2. Buscar tarefas desses serviços com media
+        // Como 'media' é jsonb, filtramos onde não é null ou vazio se possível via postgrest, 
+        // mas verificação local é mais garantida para arrays vazios "[]" vs null.
+        const { data: tasks } = await supabase
+            .from('tarefas')
+            .select('media')
+            .in('service_id', serviceIds)
+            .not('media', 'is', null);
+
+        if (!tasks) return 0;
+
+        let count = 0;
+        tasks.forEach((t: any) => {
+            if (Array.isArray(t.media)) {
+                count += t.media.length;
+            }
+        });
+
+        return count;
+    }
+
+    async cleanupOldMedia(): Promise<{ success: boolean; count: number }> {
+        const settings = await this.getWorkshopSettings();
+        if (!settings || !settings.media_retention_days) {
+            return { success: false, count: 0 };
+        }
+
+        const days = settings.media_retention_days;
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+        const cutoffStr = cutoffDate.toISOString();
+
+        // 1. Buscar serviços antigos
+        const { data: oldServices } = await supabase
+            .from('serviços')
+            .select('id')
+            .lt('entry_at', cutoffStr);
+
+        if (!oldServices || oldServices.length === 0) return { success: true, count: 0 };
+
+        const serviceIds = oldServices.map(s => s.id);
+
+        // 2. Buscar tarefas com media
+        // Precisamos do ID da tarefa para atualizar depois
+        const { data: tasks } = await supabase
+            .from('tarefas')
+            .select('id, media')
+            .in('service_id', serviceIds)
+            .not('media', 'is', null);
+
+        if (!tasks || tasks.length === 0) return { success: true, count: 0 };
+
+        let totalDeleted = 0;
+        const taskIdsToClear: string[] = [];
+
+        for (const t of tasks) {
+            if (Array.isArray(t.media) && t.media.length > 0) {
+                // Deletar arquivos do storage
+                const pathsToDelete: string[] = [];
+
+                t.media.forEach((m: any) => {
+                    if (m.url) {
+                        try {
+                            // Extrair path da URL. Ex: .../storage/v1/object/public/evidencias/folder/file.jpg
+                            // O bucket é 'evidencias'.
+                            // Se a URL for completa, pegamos o que vem depois de /evidencias/
+                            const urlObj = new URL(m.url);
+                            const pathParts = urlObj.pathname.split('/evidencias/');
+                            if (pathParts.length > 1) {
+                                pathsToDelete.push(pathParts[1]); // O caminho relativo dentro do bucket
+                            }
+                        } catch (e) {
+                            console.warn("Invalid URL in media cleanup:", m.url);
+                        }
+                    }
+                });
+
+                if (pathsToDelete.length > 0) {
+                    await supabase.storage.from('evidencias').remove(pathsToDelete);
+                    totalDeleted += pathsToDelete.length;
+                }
+
+                taskIdsToClear.push(t.id);
+            }
+        }
+
+        // 3. Limpar registros do banco
+        if (taskIdsToClear.length > 0) {
+            await supabase
+                .from('tarefas')
+                .update({ media: [] })
+                .in('id', taskIdsToClear);
+        }
+
+        return { success: true, count: totalDeleted };
     }
 
     // ===================== MAPPERS =====================

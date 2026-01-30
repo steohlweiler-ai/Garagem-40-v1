@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Store, Save, Check, MapPin, Phone, Hash, Info, Smartphone } from 'lucide-react';
+import { Store, Save, Check, MapPin, Phone, Hash, Info, Smartphone, HardDrive, Trash2, Calendar, AlertTriangle, Loader2 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { WorkshopSettings } from '../types';
 import VoiceInput from './VoiceInput';
@@ -11,9 +11,13 @@ const WorkshopSettingsComp: React.FC = () => {
     address: '',
     phone: '',
     cnpj: '',
-    organization_id: 'org_1'
+    organization_id: 'org_1',
+    media_retention_days: null
   });
   const [isSaved, setIsSaved] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [cleanupStats, setCleanupStats] = useState<{ count: number } | null>(null);
+  const [cleaning, setCleaning] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -28,6 +32,34 @@ const WorkshopSettingsComp: React.FC = () => {
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    try {
+      const count = await dataProvider.analyzeOldMedia();
+      setCleanupStats({ count });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const handleCleanup = async () => {
+    setCleaning(true);
+    try {
+      const res = await dataProvider.cleanupOldMedia();
+      if (res.success) {
+        setCleanupStats(null);
+        setIsSaved(true); // Re-use saved toast or custom one
+        setTimeout(() => setIsSaved(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCleaning(false);
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
@@ -106,6 +138,89 @@ const WorkshopSettingsComp: React.FC = () => {
           <p className="text-[10px] text-blue-700 font-bold uppercase leading-tight tracking-tight">
             Estas informações serão exibidas no cabeçalho de todas as Ordens de Serviço impressas e nos relatórios de faturamento.
           </p>
+        </div>
+      </div>
+
+      {/* Gestão de Armazenamento - Section */}
+      <div className="bg-white p-8 rounded-[3rem] border-2 border-slate-100 shadow-sm space-y-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center">
+            <HardDrive size={20} strokeWidth={2.5} />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Gestão de Armazenamento</h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Controle de Mídias e Fotos</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Tempo de Retenção de Mídias</label>
+          <div className="relative">
+            <select
+              value={settings.media_retention_days === null ? 'null' : settings.media_retention_days}
+              onChange={(e) => {
+                const val = e.target.value === 'null' ? null : Number(e.target.value);
+                setSettings({ ...settings, media_retention_days: val });
+              }}
+              className="w-full pl-12 pr-10 py-4 bg-slate-50 border-2 border-transparent focus:border-green-500 focus:bg-white rounded-2xl text-sm font-black transition-all outline-none appearance-none uppercase text-slate-700"
+            >
+              <option value="null">Nunca excluir (Padrão)</option>
+              <option value="90">3 Meses (90 dias)</option>
+              <option value="180">6 Meses (180 dias)</option>
+              <option value="365">1 Ano (365 dias)</option>
+            </select>
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={20} />
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none">▼</div>
+          </div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide ml-1">
+            Define por quanto tempo as fotos e vídeos das OSs serão mantidas no sistema.
+          </p>
+        </div>
+
+        {/* Cleanup Card */}
+        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={18} />
+            <div>
+              <h4 className="text-sm font-black text-slate-700 uppercase">Limpeza Manual</h4>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1">
+                Você pode liberar espaço removendo mídias antigas com base na regra acima de {settings.media_retention_days ? `${settings.media_retention_days} dias` : '"Nunca excluir"'}.
+              </p>
+            </div>
+          </div>
+
+          {cleanupStats ? (
+            <div className="bg-white border-2 border-amber-100 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2">
+              <p className="text-sm font-bold text-slate-700 text-center mb-3">
+                Encontramos <span className="text-amber-600 font-black text-lg mx-1">{cleanupStats.count}</span> arquivos antigos.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setCleanupStats(null)}
+                  className="flex-1 py-3 rounded-xl font-bold text-xs uppercase bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={cleanupStats.count === 0 || cleaning}
+                  onClick={handleCleanup}
+                  className="flex-1 py-3 rounded-xl font-black text-xs uppercase bg-amber-500 text-white shadow-lg shadow-amber-200 hover:bg-amber-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {cleaning ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                  {cleaning ? 'Limpando...' : 'Excluir Arquivos'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              className="w-full py-4 rounded-xl font-black text-xs uppercase bg-white border-2 border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+            >
+              {analyzing ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+              {analyzing ? 'Analisando...' : 'Analisar Mídias Antigas'}
+            </button>
+          )}
         </div>
       </div>
 

@@ -148,6 +148,7 @@ export interface WorkshopSettings {
   valor_hora_chapeacao?: number;
   valor_hora_pintura?: number;
   valor_hora_mecanica?: number;
+  media_retention_days?: number | null;
 }
 
 export interface DelayAuditLog {
