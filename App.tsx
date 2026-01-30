@@ -31,7 +31,9 @@ import StockByVehicle from './components/StockByVehicle';
 import StockDashboardMini from './components/StockDashboardMini';
 import TemplateManager from './components/TemplateManagement';
 import RatesSettings from './components/RatesSettings';
+import UpdatePassword from './components/UpdatePassword';
 import { notificationService } from './services/NotificationService';
+import { supabase } from './services/supabaseService';
 
 
 const App: React.FC = () => {
@@ -44,6 +46,7 @@ const App: React.FC = () => {
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   // ===================== PERFORMANCE OPTIMIZATION STATES =====================
   const [statsCounts, setStatsCounts] = useState<Record<string, number>>({});
@@ -65,6 +68,16 @@ const App: React.FC = () => {
         localStorage.removeItem('g40_user_session');
       }
     }
+  }, []);
+
+  // Listen for PASSWORD_RECOVERY event from Supabase Auth
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   // Inicializar serviço de notificações quando autenticado
@@ -487,6 +500,19 @@ const App: React.FC = () => {
       opt.perm === null || isAdmin || (user.permissions as any)?.[opt.perm]
     );
   }, [user]);
+
+  // Show password recovery screen if PASSWORD_RECOVERY event was received
+  if (isPasswordRecovery) {
+    return (
+      <UpdatePassword
+        onComplete={() => {
+          setIsPasswordRecovery(false);
+          setShowToast('Senha atualizada com sucesso!');
+        }}
+        onBack={() => setIsPasswordRecovery(false)}
+      />
+    );
+  }
 
   if (!isAuthenticated || !user) return <Auth onLogin={handleLogin} />;
 
