@@ -789,7 +789,25 @@ class SupabaseService {
      */
     async getServiceCounts(): Promise<Record<string, number>> {
         // Obter critérios de atraso para cálculo preciso
-        const criteria = await this.getDelayCriteria();
+        let criteria = await this.getDelayCriteria();
+
+        // Fallback robusto se não houver critérios no banco
+        if (!criteria) {
+            console.warn('Dashboard: Delay criteria not found in DB. Using defaults (2 days).');
+            criteria = {
+                active: true,
+                scope: 'global',
+                thresholdDays: 2,
+                thresholdHours: 0,
+                considerWorkdays: true,
+                considerBusinessHours: false,
+                businessStart: '08:00',
+                businessEnd: '18:00',
+                priorityOverrides: [],
+                autoMarkDelayed: false,
+                autoNotify: false
+            };
+        }
 
         // Buscar serviços ativos com colunas mínimas para cálculo
         // "Lightweight Query" conforme solicitado
@@ -802,6 +820,12 @@ class SupabaseService {
             console.error('Error fetching service counts', error);
             return {};
         }
+
+        // Debug Log para verificar dados reais que chegam do banco
+        if (activeServices.length > 0) {
+            console.log('Dashboard Debug - First Service:', activeServices[0]);
+        }
+        console.log('Dashboard Debug - Criteria:', criteria);
 
         const counts: Record<string, number> = {
             'Atrasado': 0,
