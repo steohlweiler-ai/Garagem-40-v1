@@ -154,9 +154,19 @@ const UserManagement: React.FC = () => {
   };
 
   const toggleStatus = async (user: UserAccount) => {
-    await dataProvider.updateUser(user.id, { active: !user.active });
+    const newStatus = !user.active;
+    await dataProvider.updateUser(user.id, { active: newStatus });
     loadUsers();
-    showToast(user.active ? 'Usuário desativado' : 'Usuário ativado');
+    showToast(newStatus ? 'Usuário ativado' : 'Usuário desativado');
+  };
+
+  const softDeleteUser = async (user: UserAccount) => {
+    if (!window.confirm(`Tem certeza que deseja remover "${user.name}"?\nO usuário será desativado permanentemente.`)) {
+      return;
+    }
+    await dataProvider.updateUser(user.id, { active: false, role: 'suspenso' as any });
+    loadUsers();
+    showToast('Usuário removido');
   };
 
   const resetPassword = (user: UserAccount) => {
@@ -224,29 +234,39 @@ const UserManagement: React.FC = () => {
       {/* Lista de Usuários */}
       <div className="space-y-4">
         {filteredUsers.map(user => (
-          <div key={user.id} className={`bg-white p-5 rounded-[2.25rem] border-2 border-slate-50 shadow-sm flex items-center justify-between transition-all ${!user.active ? 'opacity-50' : ''}`}>
+          <div key={user.id} className={`bg-white p-5 rounded-[2.25rem] border-2 shadow-sm flex items-center justify-between transition-all ${!user.active ? 'opacity-60 border-red-100 bg-red-50/30' : 'border-slate-50'}`}>
             <div className="flex gap-4 items-center">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-inner ${user.role?.toLowerCase() === 'admin' ? 'bg-slate-900' : 'bg-slate-200'}`}>
-                {user.role?.toLowerCase() === 'admin' ? <Shield size={22} /> : <Users size={22} />}
+              {/* Avatar com indicador de status */}
+              <div className="relative">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-inner ${user.role?.toLowerCase() === 'admin' ? 'bg-slate-900' : 'bg-slate-200'}`}>
+                  {user.role?.toLowerCase() === 'admin' ? <Shield size={22} /> : <Users size={22} />}
+                </div>
+                {/* Indicador verde/vermelho */}
+                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${user.active ? 'bg-green-500' : 'bg-red-500'}`} />
               </div>
               <div className="text-left">
-                <p className="text-sm font-black uppercase text-slate-800 tracking-tight leading-none">{user.name}</p>
+                <p className={`text-sm font-black uppercase tracking-tight leading-none ${!user.active ? 'text-slate-500' : 'text-slate-800'}`}>{user.name}</p>
                 <p className="text-[10px] font-bold text-slate-400 mt-1">{user.email}</p>
                 <div className="flex gap-2 mt-2">
-                  <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-slate-50 border rounded text-slate-400">{user.role}</span>
+                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 border rounded ${user.role === 'suspenso' ? 'bg-red-50 border-red-100 text-red-500' : 'bg-slate-50 text-slate-400'}`}>{user.role}</span>
                   {user.active ? (
-                    <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-green-50 border border-green-100 rounded text-green-600">Ativo</span>
+                    <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-green-50 border border-green-200 rounded text-green-600 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full" /> Ativo
+                    </span>
                   ) : (
-                    <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-red-50 border border-red-100 rounded text-red-600">Bloqueado</span>
+                    <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-red-50 border border-red-200 rounded text-red-600 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full" /> Inativo
+                    </span>
                   )}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-1">
-              <button onClick={() => resetPassword(user)} className="p-3 touch-target text-slate-300 hover:text-blue-500 transition-colors"><Key size={18} /></button>
-              <button onClick={() => handleOpenModal(user)} className="p-3 touch-target text-slate-300 hover:text-green-600 transition-colors"><Edit2 size={18} /></button>
-              <button onClick={() => toggleStatus(user)} className={`p-3 touch-target transition-colors ${user.active ? 'text-slate-300' : 'text-red-500'}`}>
+              <button onClick={() => resetPassword(user)} className="p-3 touch-target text-slate-300 hover:text-blue-500 transition-colors" title="Redefinir Senha"><Key size={18} /></button>
+              <button onClick={() => handleOpenModal(user)} className="p-3 touch-target text-slate-300 hover:text-green-600 transition-colors" title="Editar"><Edit2 size={18} /></button>
+              <button onClick={() => softDeleteUser(user)} className="p-3 touch-target text-slate-300 hover:text-red-500 transition-colors" title="Remover"><Trash2 size={18} /></button>
+              <button onClick={() => toggleStatus(user)} className={`p-3 touch-target transition-colors ${user.active ? 'text-green-500 hover:text-red-400' : 'text-red-400 hover:text-green-500'}`} title={user.active ? 'Desativar' : 'Ativar'}>
                 {user.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
               </button>
             </div>
