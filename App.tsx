@@ -357,16 +357,8 @@ const App: React.FC = () => {
 
   // Stats now come from fast count API query
   const stats = useMemo(() => {
-    // Calculate delayed count client-side from loaded services (approximation)
-    // For accurate count, we'd need a server-side calculation
-    const atrasadoLocal = services.filter(s =>
-      s.estimated_delivery && delayCriteria &&
-      calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority).isDelayed &&
-      s.status !== ServiceStatus.ENTREGUE
-    ).length;
-
     return {
-      atrasado: atrasadoLocal, // Calculated from loaded services
+      atrasado: statsCounts['Atrasado'] || 0,
       pendente: statsCounts['Pendente'] || 0,
       andamento: statsCounts['Em Andamento'] || 0,
       lembrete: statsCounts['Lembrete'] || 0,
@@ -374,7 +366,7 @@ const App: React.FC = () => {
       entregue: statsCounts['Entregue'] || 0,
       total: statsCounts['total'] || 0
     };
-  }, [statsCounts, services, delayCriteria]);
+  }, [statsCounts]);
 
   // State for vehicles and clients (cached for filtering)
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
