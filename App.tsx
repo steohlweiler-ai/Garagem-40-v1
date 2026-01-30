@@ -260,6 +260,22 @@ const App: React.FC = () => {
     }
   }, [isAuthenticated, dashboardFilter, dashboardAdvancedFilters, delayCriteria]);
 
+  // NUCLEAR CACHE BUSTER - VERSION 1.1
+  useEffect(() => {
+    const APP_VERSION = '1.1-fix-crash';
+    const storedVersion = localStorage.getItem('g40_app_version');
+    if (storedVersion !== APP_VERSION) {
+      console.warn('App Version mismatch. Clearing cache...');
+      localStorage.removeItem('g40_user_session');
+      localStorage.removeItem('g40_dashboard_filters');
+      // Keep essential if needed, or clear all
+      // localStorage.clear(); 
+      localStorage.setItem('g40_app_version', APP_VERSION);
+      // Force reload to ensure fresh state
+      window.location.reload();
+    }
+  }, []);
+
   useEffect(() => {
     localStorage.setItem('g40_dashboard_filters', JSON.stringify(dashboardAdvancedFilters));
   }, [dashboardAdvancedFilters]);

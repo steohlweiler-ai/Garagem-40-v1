@@ -55,7 +55,7 @@ export const calculateDelayStatus = (
   let hoursToAdd = criteria.thresholdHours;
 
   // Aplica overrides de prioridade se existirem
-  if (priority) {
+  if (priority && criteria.priorityOverrides) {
     const override = criteria.priorityOverrides.find(o => o.priority === priority);
     if (override) {
       daysToAdd = override.days;
