@@ -78,7 +78,7 @@ const App: React.FC = () => {
       } else if (event === 'SIGNED_IN' && session) {
         // Recuperar perfil do usuário ao entrar via Magic Link
         const { data: profile } = await supabase
-          .from('perfis_de_usuario')
+          .from('perfis_de_usuário')
           .select('*')
           .eq('user_id', session.user.id)
           .single();
