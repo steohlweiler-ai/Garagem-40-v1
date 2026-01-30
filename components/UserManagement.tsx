@@ -141,8 +141,13 @@ const UserManagement: React.FC = () => {
         return;
       }
     } else {
-      await dataProvider.createUser(formData);
-      showToast('Novo usuário criado!');
+      const newUser = await dataProvider.createUser(formData);
+      if (newUser) {
+        showToast('Convite enviado! Usuário criado.');
+      } else {
+        showToast('Erro ao criar usuário');
+        return;
+      }
     }
     setIsModalOpen(false);
     loadUsers();
