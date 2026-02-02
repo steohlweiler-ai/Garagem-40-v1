@@ -138,31 +138,37 @@ const App: React.FC = () => {
     // Load stats (counts) separately - fast query for chips
     // Load stats (counts) separately - fast query for chips
     const loadStats = async () => {
+        console.log('📈 [DEBUG] loadStats called');
         // Rescue Plan: Prevent race condition & Stale Data
         const criteria = delayCriteriaRef.current;
-        if (!criteria) return;
+
+        // ✅ FIX: Removed early return - allow loading stats even without criteria
+        // The dataProvider.getServiceCounts accepts null/undefined criteria
 
         try {
-            // Passa os critérios carregados para garantir sincronia com a lista
-            const counts = await dataProvider.getServiceCounts(criteria);
+            console.log('📊 [DEBUG] Fetching service counts...', criteria ? 'with criteria' : 'without criteria');
+            const counts = await dataProvider.getServiceCounts(criteria || null);
+            console.log('✅ [DEBUG] Stats received:', counts);
             setStatsCounts(counts || {
                 'Lembrete': 0, 'Pronto': 0, 'total': 0,
                 'Pendente': 0, 'Em Andamento': 0, 'Entregue': 0
             }); // Defensive fallback
         } catch (err) {
-            console.error('Failed to load stats:', err);
+            console.error('❌ [ERROR] Failed to load stats:', err);
         }
     };
 
     // Load services with Action-First filtering and pagination
     const loadServices = async (reset: boolean = false) => {
+        console.log('🔍 [DEBUG] loadServices called - reset:', reset);
         const controller = new AbortController();
         const timeout = setTimeout(() => {
-            console.warn('⏱️ Timeout ao buscar serviços — abortando');
+            console.error('⏱️ [ERROR] Timeout ao buscar serviços — abortando');
             controller.abort();
         }, 5000); // 5s fail-safe (optimized from 15s)
 
         try {
+            console.log('📊 [DEBUG] Setting loading states...');
             if (reset) {
                 setIsInitialLoad(true);
                 setCurrentPage(0);
@@ -171,6 +177,12 @@ const App: React.FC = () => {
             }
 
             const offset = reset ? 0 : currentPage * PAGE_SIZE;
+
+            console.log('🎯 [DEBUG] Filter configuration:', {
+                dashboardFilter,
+                offset,
+                pageSize: PAGE_SIZE
+            });
 
             // Action-First Logic: Determine which statuses to filter
             let excludeStatuses: string[] = [];
@@ -189,6 +201,13 @@ const App: React.FC = () => {
                 filterStatuses = [dashboardFilter];
             }
 
+            console.log('🔎 [DEBUG] Calling dataProvider.getServicesFiltered with:', {
+                excludeStatuses,
+                filterStatuses,
+                limit: PAGE_SIZE,
+                offset
+            });
+
             const result = await dataProvider.getServicesFiltered({
                 excludeStatuses,
                 statuses: filterStatuses,
@@ -196,6 +215,11 @@ const App: React.FC = () => {
                 offset,
                 sortBy: 'priority',
                 signal: controller.signal
+            });
+
+            console.log('✅ [DEBUG] Received data:', {
+                count: result.data.length,
+                hasMore: result.hasMore
             });
 
             if (reset) {
@@ -207,17 +231,24 @@ const App: React.FC = () => {
             setHasMoreServices(result.hasMore);
             setCurrentPage(prev => reset ? 1 : prev + 1);
         } catch (err: any) {
+            console.error('❌ [ERROR] Failed to load services:', err);
             if (err.name === 'AbortError') {
-                console.warn('Fetch aborted due to timeout');
+                console.warn('⏹️ [WARN] Fetch aborted due to timeout');
             } else {
-                console.error('Failed to load services:', err?.message || err);
+                console.error('💥 [ERROR] Error details:', {
+                    name: err.name,
+                    message: err?.message || err,
+                    stack: err?.stack
+                });
             }
             // Force reset if page 0 failed - avoiding infinite stuck state
             if (reset) {
+                console.log('🔄 [DEBUG] Resetting services to empty array');
                 setServices([]);
                 setHasMoreServices(false);
             }
         } finally {
+            console.log('🏁 [DEBUG] Cleaning up loadServices');
             clearTimeout(timeout);
             setIsLoadingMore(false);
             setIsInitialLoad(false);
