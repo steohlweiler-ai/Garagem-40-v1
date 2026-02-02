@@ -159,6 +159,15 @@ class DataProvider {
         return mockDB.addInvoice(i);
     }
 
+    async processInvoiceAtomic(invoice: Invoice, items: any[]) {
+        if (this.useSupabase) {
+            return await supabaseDB.processInvoiceAtomic(invoice, items);
+        }
+        // Mock fallback: Simulate success or use the old unsafe way
+        console.warn("Using Mock fallback for processInvoiceAtomic");
+        return { success: true };
+    }
+
     async addStockMovement(m: Partial<StockMovement>) {
         if (this.useSupabase) return await supabaseDB.addStockMovement(m);
         return (mockDB as any).addStockMovement(m);
@@ -180,7 +189,12 @@ class DataProvider {
     }
 
     async allocateProduct(p: { product_id: string, vehicle_id: string, qty: number }) {
-        if (this.useSupabase) return await supabaseDB.allocateProduct(p);
+        if (this.useSupabase) {
+            // Prefer atomic if using supabase
+            const result = await supabaseDB.reserveStockAtomic(p.product_id, p.vehicle_id, p.qty);
+            if (result.success) return { id: 'generated-by-rpc', ...p, status: 'reserved' };
+            return null; // or throw
+        }
         return mockDB.allocateProduct(p);
     }
 

@@ -15,11 +15,16 @@ export class AutomationService {
    */
   async processInvoiceOCR(base64Image: string): Promise<InvoiceItemReview[]> {
     console.log("[AUTOMATION] Iniciando processamento OCR via serviço externo...");
-    
+
     // TODO: Implementar chamada para n8n Webhook ou Gemini API diretamente aqui.
     // Exemplo:
     // const response = await fetch(process.env.N8N_OCR_WEBHOOK_URL, { method: 'POST', body: JSON.stringify({ image: base64Image }) });
     // return response.json();
+
+    // TODO: Replace this mock with Gemini Flash API call
+    // const apiKey = import.meta.env.VITE_GEMINI_KEY;
+    // const result = await GeminiService.extractInvoiceData(base64Image, apiKey);
+    // return result;
 
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -37,7 +42,7 @@ export class AutomationService {
    */
   async sendStockEntryToN8n(invoice: Partial<Invoice>, items: InvoiceItemReview[]): Promise<boolean> {
     console.log("[AUTOMATION] Enviando entrada de estoque para o n8n...");
-    
+
     const payload = {
       event: 'stock_entry',
       timestamp: new Date().toISOString(),

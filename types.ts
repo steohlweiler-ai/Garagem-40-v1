@@ -297,8 +297,10 @@ export interface Product {
   sku: string;
   unit: 'un' | 'lt' | 'kg' | 'par' | 'cj';
   cost: number;
+  price?: number; // Selling Price (Added for clarity)
   current_stock: number;
   min_stock?: number;
+  supplier?: string;
 }
 
 export interface Supplier {

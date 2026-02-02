@@ -610,24 +610,90 @@ class SupabaseService {
     }
 
     async getProducts(): Promise<Product[]> {
-        const { data, error } = await supabase.from('produtos').select('*');
+        // Fetch including new columns
+        const { data, error } = await supabase.from('produtos').select('*, min_stock, cost, sku, supplier');
         if (error) return [];
         return data.map(p => ({
             id: p.id,
             name: p.name,
             sku: p.sku,
             unit: 'un',
-            cost: Number(p.price),
+            cost: Number(p.cost) || 0, // Buying Cost
+            price: Number(p.price) || 0, // Selling Price
             current_stock: p.stock_quantity,
-            min_stock: p.min_stock
+            min_stock: p.min_stock,
+            supplier: p.supplier
         }));
     }
 
+    /**
+     * ATOMIC INVOICE ENTRY
+     * Calls the RPC 'update_stock_atomic' to ensure stock and movements are saved together.
+     */
+    async processInvoiceAtomic(invoice: Invoice, items: any[]): Promise<{ success: boolean; error?: string }> {
+        const payload_invoice = {
+            number: invoice.number,
+            date: invoice.date,
+            total: invoice.total,
+            supplier_id: invoice.supplier_id,
+            imageBase64: invoice.imageBase64
+        };
+
+        const payload_items = items.map(i => ({
+            product_id: i.product_id,
+            qty: i.qty,
+            unit_price: i.unit_price
+        }));
+
+        const { data, error } = await supabase.rpc('update_stock_atomic', {
+            p_invoice_data: payload_invoice,
+            p_items_data: payload_items
+        });
+
+        if (error) {
+            console.error("RPC update_stock_atomic error:", error);
+            return { success: false, error: error.message };
+        }
+
+        // @ts-ignore
+        if (data && data.success === false) {
+            // @ts-ignore
+            return { success: false, error: data.error };
+        }
+
+        return { success: true };
+    }
+
+    /**
+     * ATOMIC STOCK RESERVATION
+     * Calls 'reserve_stock_atomic' to safely allocate items avoiding race conditions.
+     */
+    async reserveStockAtomic(productId: string, vehicleId: string, qty: number): Promise<{ success: boolean; message?: string }> {
+        const { data, error } = await supabase.rpc('reserve_stock_atomic', {
+            p_product_id: productId,
+            p_vehicle_id: vehicleId,
+            p_qty: qty
+        });
+
+        if (error) {
+            console.error("RPC reserve_stock_atomic error:", error);
+            return { success: false, message: error.message };
+        }
+
+        // @ts-ignore
+        if (data && !data.success) {
+            // @ts-ignore
+            return { success: false, message: data.message };
+        }
+
+        return { success: true };
+    }
     async updateProduct(id: string, u: Partial<Product>): Promise<boolean> {
         const { error } = await supabase.from('produtos').update({
             name: u.name,
             sku: u.sku,
-            price: u.cost,
+            price: u.price, // Selling Price
+            cost: u.cost,   // Buying Cost
             stock_quantity: u.current_stock,
             min_stock: u.min_stock
         }).eq('id', id);

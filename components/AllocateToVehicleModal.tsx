@@ -60,7 +60,11 @@ const AllocateToVehicleModal: React.FC<AllocateToVehicleModalProps> = ({ onClose
     if (res) {
       onSuccess();
     } else {
-      alert("Erro: Estoque insuficiente no depósito.");
+      // The atomic RPC returns null if failed, but ideally we'd get the message. 
+      // Since we updated allocateProduct to return null on failure, we default to generic error.
+      // Improvement: We can check stock locally before calling to give better UI feedback,
+      // but the RPC is the final source of truth.
+      alert("Erro: Não foi possível realizar a reserva. Verifique o estoque disponível.");
     }
   };
 
@@ -151,7 +155,13 @@ const AllocateToVehicleModal: React.FC<AllocateToVehicleModalProps> = ({ onClose
                         <p className="text-xs font-black uppercase">{p.name}</p>
                         <div className="flex gap-2 mt-1">
                           <span className="text-[7px] font-black bg-slate-100 px-1 rounded uppercase">SKU: {p.sku}</span>
-                          <span className="text-[7px] font-black text-green-600 uppercase">Disp: {p.current_stock}</span>
+                          {p.current_stock <= (p.min_stock || 5) ? (
+                            <span className="text-[7px] font-black text-red-500 uppercase flex items-center gap-1">
+                              <AlertCircle size={8} /> Disp: {p.current_stock}
+                            </span>
+                          ) : (
+                            <span className="text-[7px] font-black text-green-600 uppercase">Disp: {p.current_stock}</span>
+                          )}
                         </div>
                       </div>
                     </div>
