@@ -155,6 +155,12 @@ const App: React.FC = () => {
 
   // Load services with Action-First filtering and pagination
   const loadServices = async (reset: boolean = false) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      console.warn('⏱️ Timeout ao buscar serviços — abortando');
+      controller.abort();
+    }, 15000); // 15s fail-safe
+
     try {
       if (reset) {
         setIsInitialLoad(true);
@@ -187,7 +193,8 @@ const App: React.FC = () => {
         statuses: filterStatuses,
         limit: PAGE_SIZE,
         offset,
-        sortBy: 'priority'
+        sortBy: 'priority',
+        signal: controller.signal
       });
 
       if (reset) {
@@ -198,15 +205,19 @@ const App: React.FC = () => {
 
       setHasMoreServices(result.hasMore);
       setCurrentPage(prev => reset ? 1 : prev + 1);
-      setIsInitialLoad(false);
-      setIsLoadingMore(false);
-    } catch (err) {
-      console.error('Failed to load services (Possible Hydration/Cache Error):', err);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.warn('Fetch aborted due to timeout');
+      } else {
+        console.error('Failed to load services:', err?.message || err);
+      }
       // Force reset if page 0 failed - avoiding infinite stuck state
       if (reset) {
         setServices([]);
         setHasMoreServices(false);
       }
+    } finally {
+      clearTimeout(timeout);
       setIsLoadingMore(false);
       setIsInitialLoad(false);
     }
@@ -218,12 +229,6 @@ const App: React.FC = () => {
       loadServices(false);
     }
   };
-
-  // Initial load on mount
-  useEffect(() => {
-    loadStats();
-    loadServices(true);
-  }, []); // Run once on mount
 
   const [dashboardFilter, setDashboardFilter] = useState<string>('total');
 
@@ -252,32 +257,40 @@ const App: React.FC = () => {
     await Promise.all([loadStats(), loadServices(true)]);
   };
 
-  // Reload when filter changes or authentication/criteria updates
-  // Reload when filter changes or authentication/criteria updates
+  // COMBINED SECURE LOAD EFFECT
   useEffect(() => {
     if (isAuthenticated) {
-      // Carrega serviços quando filtros mudam
+      console.log('🚀 Authenticated data sync trigger');
+      loadStats();
       loadServices(true);
 
-      // Carrega estatísticas quando critérios ou auth mudam
-      loadStats();
-
-      // Configura poll de atualização
-      const interval = setInterval(loadStats, 15000);
+      // Configura poll de atualização para stats (não para lista, para evitar piscadas)
+      const interval = setInterval(loadStats, 30000);
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated]); // FIXED: Removed volatile dependencies to prevent infinite loop
+  }, [isAuthenticated, dashboardFilter, dashboardAdvancedFilters]); // Depend on filters but NOT criteria directly to avoid ref loop
 
   // NUCLEAR CACHE BUSTER - VERSION 1.1
   useEffect(() => {
-    const APP_VERSION = '1.1-fix-crash';
+    const APP_VERSION = '1.2-robust-boot';
     const storedVersion = localStorage.getItem('g40_app_version');
     if (storedVersion !== APP_VERSION) {
-      console.warn('App Version mismatch. Clearing cache...');
+      console.warn('App Version mismatch. Clearing cache and Service Workers...');
+
+      // Clear data
       localStorage.removeItem('g40_user_session');
       localStorage.removeItem('g40_dashboard_filters');
-      // Keep essential if needed, or clear all
-      // localStorage.clear(); 
+
+      // UNREGISTER SERVICE WORKERS (Classic PWA cache issue fix)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (const registration of registrations) {
+            registration.unregister();
+            console.log('Service Worker unregistered');
+          }
+        });
+      }
+
       localStorage.setItem('g40_app_version', APP_VERSION);
       // Force reload to ensure fresh state
       window.location.reload();

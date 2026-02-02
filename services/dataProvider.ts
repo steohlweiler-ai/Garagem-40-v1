@@ -101,6 +101,7 @@ class DataProvider {
         limit?: number;
         offset?: number;
         sortBy?: 'priority' | 'entry_recent' | 'entry_oldest' | 'delivery';
+        signal?: AbortSignal;
     }): Promise<{
         data: ServiceJob[];
         total: number;

@@ -18,7 +18,11 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 export { SUPABASE_URL, SUPABASE_KEY };
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    global: {
+        fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' })
+    }
+});
 
 class SupabaseService {
     // ===================== STORAGE OPERATIONS =====================
@@ -888,6 +892,7 @@ class SupabaseService {
         limit?: number;
         offset?: number;
         sortBy?: 'priority' | 'entry_recent' | 'entry_oldest' | 'delivery';
+        signal?: AbortSignal;
     }): Promise<{
         data: ServiceJob[];
         total: number;
@@ -898,13 +903,21 @@ class SupabaseService {
             statuses = [],
             limit = 20,
             offset = 0,
-            sortBy = 'priority'
+            sortBy = 'priority',
+            signal
         } = options;
 
         console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, limit, offset });
 
         // Build base query
-        let query = supabase.from('serviços').select('*', { count: 'exact' });
+        let queryArray = supabase.from('serviços').select('*', { count: 'exact' });
+
+        // Apply AbortSignal if provided
+        if (signal) {
+            queryArray = queryArray.abortSignal(signal);
+        }
+
+        let query: any = queryArray;
 
         // Apply status filters
         if (statuses.length > 0) {
