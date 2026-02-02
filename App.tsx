@@ -889,9 +889,6 @@ const App: React.FC = () => {
                 )}
 
 
-
-              // ... (in component body)
-
                 {settingsTab !== 'hub' && (
                   <div className="space-y-6">
                     {settingsTab !== 'templates' && settingsTab !== 'rates' && (
