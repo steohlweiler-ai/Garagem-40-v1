@@ -436,6 +436,11 @@ class SupabaseService {
         return !error;
     }
 
+    async deleteTemplateItem(id: string): Promise<boolean> {
+        const { error } = await supabase.from('template_items').delete().eq('id', id);
+        return !error;
+    }
+
     async getStatusConfigs(): Promise<StatusConfig[]> {
         const { data, error } = await supabase.from('configurações_de_status').select('*').order('priority');
         if (error) return [];
@@ -607,12 +612,24 @@ class SupabaseService {
         if (u.name !== undefined) payload.nome = u.name;
         if (u.email !== undefined) payload.email = u.email;
         if (u.role !== undefined) payload.papel = u.role;
+        if (u.role !== undefined) payload.papel = u.role;
         if (u.permissions !== undefined) payload.permissoes = u.permissions;
-        // Note: 'phone' and 'ativo' columns may not exist yet
+        if (u.active !== undefined) payload.ativo = u.active;
+        if (u.phone !== undefined) payload.phone = u.phone;
 
         const { error } = await supabase.from('perfis_de_usuário').update(payload).eq('id', id);
         if (error) {
             console.error('Supabase Error (updateUser):', error);
+        }
+        return !error;
+    }
+
+    async deleteUser(id: string): Promise<boolean> {
+        // Exclusão física do perfil (o usuário Auth permanece mas perde acesso ao sistema)
+        // Isso resolve o problema de usuários "zumbis" na listagem
+        const { error } = await supabase.from('perfis_de_usuário').delete().eq('id', id);
+        if (error) {
+            console.error('Supabase Error (deleteUser):', error);
         }
         return !error;
     }

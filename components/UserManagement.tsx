@@ -170,24 +170,48 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
 
   const toggleStatus = async (user: UserAccount) => {
     if (!canManageTeam) return;
-    const newStatus = !user.active;
-    await dataProvider.updateUser(user.id, { active: newStatus });
-    loadUsers();
-    showToast(newStatus ? 'Usuário ativado' : 'Usuário desativado');
+
+    // Optimistic Update
+    const oldStatus = user.active;
+    const newStatus = !oldStatus;
+
+    // Update local state immediately
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: newStatus } : u));
+
+    const success = await dataProvider.updateUser(user.id, { active: newStatus });
+
+    if (success) {
+      showToast(newStatus ? 'Usuário ativado' : 'Usuário desativado');
+    } else {
+      // Revert on failure
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, active: oldStatus } : u));
+      showToast('Erro ao atualizar status');
+    }
   };
 
-  const softDeleteUser = async (user: UserAccount) => {
+  const handleDeleteUser = async (user: UserAccount) => {
     if (!canManageTeam) return;
     if (currentUser?.id === user.id) {
       showToast('Você não pode se excluir.');
       return;
     }
-    if (!window.confirm(`Tem certeza que deseja remover "${user.name}"?\nO usuário será desativado permanentemente.`)) {
+    if (!window.confirm(`Tem certeza que deseja EXCLUIR DEFINITIVAMENTE "${user.name}"?\nEsta ação não pode ser desfeita.`)) {
       return;
     }
-    await dataProvider.updateUser(user.id, { active: false, role: 'suspenso' as any });
-    loadUsers();
-    showToast('Usuário removido');
+
+    // Optimistic Remove
+    const previousUsers = [...users];
+    setUsers(prev => prev.filter(u => u.id !== user.id));
+
+    const success = await dataProvider.deleteUser(user.id);
+
+    if (success) {
+      showToast('Usuário removido do sistema');
+    } else {
+      // Revert
+      setUsers(previousUsers);
+      showToast('Erro ao remover usuário');
+    }
   };
 
   const resetPassword = (user: UserAccount) => {
@@ -289,7 +313,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
             <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto mt-2 sm:mt-0 border-t sm:border-0 pt-4 sm:pt-0 border-slate-100">
               <button onClick={() => resetPassword(user)} className="p-3 touch-target text-slate-300 hover:text-blue-500 transition-colors" title="Redefinir Senha"><Key size={18} /></button>
               <button onClick={() => handleOpenModal(user)} className="p-3 touch-target text-slate-300 hover:text-green-600 transition-colors" title="Editar"><Edit2 size={18} /></button>
-              <button onClick={() => softDeleteUser(user)} className="p-3 touch-target text-slate-300 hover:text-red-500 transition-colors" title="Remover"><Trash2 size={18} /></button>
+              <button onClick={() => handleDeleteUser(user)} className="p-3 touch-target text-slate-300 hover:text-red-500 transition-colors" title="Excluir Definitivamente"><Trash2 size={18} /></button>
               <button onClick={() => toggleStatus(user)} className={`p-3 touch-target transition-colors ${user.active ? 'text-green-500 hover:text-red-400' : 'text-red-400 hover:text-green-500'}`} title={user.active ? 'Desativar' : 'Ativar'}>
                 {user.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
               </button>
