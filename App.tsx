@@ -307,18 +307,61 @@ const App: React.FC = () => {
         loadServices(true).catch(() => {
             console.warn('⚠️ Standard retry failed. Initiating NUCLEAR CLEANUP...');
 
-            // If it fails immediately or we are in a persistent error state:
-            // NUCLEAR CLEANUP REPLICATION
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(registrations => {
-                    for (const registration of registrations) registration.unregister();
-                });
-            }
-            localStorage.removeItem('g40_user_session');
-            localStorage.removeItem('g40_dashboard_filters');
+            // NUCLEAR CLEANUP REPLICATION (DEEP CLEAN) WITH ASYNC HANDLING
+            const performCleanup = async () => {
+                console.log('☢️ INITIATING DEEP BROWSER CLEANUP...');
 
-            alert("A conexão com o servidor parece instável. O sistema irá reiniciar para corrigir.");
-            window.location.reload();
+                // 1. Unregister Service Workers
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        try {
+                            await registration.unregister();
+                            console.log('✅ Service Worker unregistered');
+                        } catch (e) {
+                            console.error('Failed to unregister SW:', e);
+                        }
+                    }
+                }
+
+                // 2. Clear Local Storage
+                localStorage.removeItem('g40_user_session');
+                localStorage.removeItem('g40_dashboard_filters');
+
+                // 3. Clear Cache Storage API (Crucial for Chrome)
+                if ('caches' in window) {
+                    try {
+                        const keys = await caches.keys();
+                        await Promise.all(keys.map(key => caches.delete(key)));
+                        console.log('✅ Cache Storage cleared');
+                    } catch (e) {
+                        console.error('Failed to clear Cache API:', e);
+                    }
+                }
+
+                // 4. Clear IndexedDB (Used by Supabase/Firebase)
+                if ('indexedDB' in window && window.indexedDB.databases) {
+                    try {
+                        const dbs = await window.indexedDB.databases();
+                        await Promise.all(dbs.map(db => {
+                            if (db.name) return new Promise((resolve) => {
+                                const req = window.indexedDB.deleteDatabase(db.name!);
+                                req.onsuccess = () => resolve(true);
+                                req.onerror = () => resolve(false);
+                            });
+                            return Promise.resolve();
+                        }));
+                        console.log('✅ IndexedDB cleared');
+                    } catch (e) {
+                        console.error('Failed to clear IndexedDB:', e);
+                    }
+                }
+
+                alert("Limpeza profunda concluída (Cache + Banco Local). O sistema será reiniciado.");
+                window.location.reload();
+            };
+
+            performCleanup();
         });
     };
 
