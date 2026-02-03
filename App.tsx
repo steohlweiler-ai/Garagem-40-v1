@@ -4,7 +4,8 @@ import {
     Plus, Search, Settings, Bell, Wrench, ChevronRight, Users, X, Clock, LayoutGrid, Car as CarIcon,
     AlertCircle, LogOut, Truck, CheckCircle2, StickyNote, ShieldAlert, Info, FileCode, Store, SlidersHorizontal,
     Calendar, ArrowRight, Printer, FileText, ChevronDown, Check, RotateCcw, User, Tag, UserCheck, ShieldCheck,
-    CalendarDays, Trash2, Edit3, DollarSign, Palette, Briefcase, Share2, ArrowLeft, Package, Boxes, Filter
+    CalendarDays, Trash2, Edit3, DollarSign, Palette, Briefcase, Share2, ArrowLeft, Package, Boxes, Filter,
+    WifiOff, RefreshCw
 } from 'lucide-react';
 import { dataProvider } from './services/dataProvider';
 import { ServiceJob, ServiceStatus, FilterConfig, SortOption, Vehicle, Client, UserAccount, EvaluationTemplate, InspectionTemplateItem, ChargeType } from './types';
@@ -162,6 +163,10 @@ const App: React.FC = () => {
     // Load services with Action-First filtering and pagination
     const loadServices = async (reset: boolean = false) => {
         console.log('🔍 [DEBUG] loadServices called - reset:', reset);
+
+        // Reset error state on new fetch attempt
+        if (reset) setError(null);
+
         const controller = new AbortController();
         const timeout = setTimeout(() => {
             console.error('⏱️ [ERROR] Timeout ao buscar serviços — abortando');
@@ -231,22 +236,29 @@ const App: React.FC = () => {
 
             setHasMoreServices(result.hasMore);
             setCurrentPage(prev => reset ? 1 : prev + 1);
+            setHasMoreServices(result.hasMore);
+            setCurrentPage(prev => reset ? 1 : prev + 1);
         } catch (err: any) {
             console.error('❌ [ERROR] Failed to load services:', err);
+
+            let errorType: 'network' | 'timeout' | 'unknown' = 'unknown';
+            let errorMessage = 'Falha desconhecida. Tente novamente.';
+
             if (err.name === 'AbortError') {
                 console.warn('⏹️ [WARN] Fetch aborted due to timeout');
-            } else {
-                console.error('💥 [ERROR] Error details:', {
-                    name: err.name,
-                    message: err?.message || err,
-                    stack: err?.stack
-                });
+                errorType = 'timeout';
+                errorMessage = 'O servidor demorou muito para responder.';
+            } else if (err.message && (err.message.includes('fetch') || err.message.includes('network'))) {
+                errorType = 'network';
+                errorMessage = 'Falha na conexão com a internet.';
             }
-            // Force reset if page 0 failed - avoiding infinite stuck state
+
+            // Only set blocking error if we have NO data to show
             if (reset) {
-                console.log('🔄 [DEBUG] Resetting services to empty array');
+                console.log('🔄 [DEBUG] Resetting services to empty array and setting ERROR state');
                 setServices([]);
                 setHasMoreServices(false);
+                setError({ type: errorType, message: errorMessage });
             }
         } finally {
             console.log('🏁 [DEBUG] Cleaning up loadServices');
@@ -284,6 +296,31 @@ const App: React.FC = () => {
     const [isStockByVehicleOpen, setIsStockByVehicleOpen] = useState(false);
 
     const [showToast, setShowToast] = useState<string | null>(null);
+    const [error, setError] = useState<{ type: 'network' | 'timeout' | 'unknown', message: string } | null>(null);
+
+    const handleSmartRetry = () => {
+        console.log('🔄 STARTING SMART RETRY...');
+        setError(null);
+        setIsInitialLoad(true);
+
+        // Attempt normal retry first
+        loadServices(true).catch(() => {
+            console.warn('⚠️ Standard retry failed. Initiating NUCLEAR CLEANUP...');
+
+            // If it fails immediately or we are in a persistent error state:
+            // NUCLEAR CLEANUP REPLICATION
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    for (const registration of registrations) registration.unregister();
+                });
+            }
+            localStorage.removeItem('g40_user_session');
+            localStorage.removeItem('g40_dashboard_filters');
+
+            alert("A conexão com o servidor parece instável. O sistema irá reiniciar para corrigir.");
+            window.location.reload();
+        });
+    };
 
 
     const refreshServices = async () => {
@@ -830,21 +867,45 @@ const App: React.FC = () => {
                                         />
                                     ))}
 
-                                    {/* Empty State - Improved Visual hierarchy */}
-                                    {processedServices.length === 0 && (
-                                        <div className="col-span-full py-20 sm:py-32 text-center bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-100/80 mx-2 animate-in fade-in duration-700">
-                                            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
-                                                <Info size={32} className="text-slate-200" />
-                                            </div>
-                                            <p className="text-slate-400 text-[10px] font-black px-12 uppercase tracking-[2px] leading-relaxed max-w-xs mx-auto">
-                                                Nenhuma ordem de serviço encontrada para os filtros atuais.
-                                            </p>
-                                            <button
-                                                onClick={() => { setDashboardFilter('total'); setDashboardAdvancedFilters(defaultFilters); setSearchQuery(''); }}
-                                                className="mt-8 text-[10px] font-black uppercase tracking-[3px] text-green-600 hover:text-green-700 transition-colors"
-                                            >
-                                                Limpar Filtros
-                                            </button>
+                                    {/* Empty State / Error State */}
+                                    {(!isInitialLoad && processedServices.length === 0) && (
+                                        <div className="col-span-full flex flex-col items-center justify-center py-16 px-4 text-center animate-in fade-in zoom-in duration-500">
+
+                                            {error ? (
+                                                // ERROR STATE UI
+                                                <>
+                                                    <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                                                        <WifiOff size={32} className="text-red-500" />
+                                                    </div>
+                                                    <h3 className="text-lg font-bold text-slate-800 mb-2">Conexão Instável</h3>
+                                                    <p className="text-slate-500 text-xs max-w-[250px] mb-6">
+                                                        {error.message || 'Não foi possível carregar os dados. Verifique sua internet.'}
+                                                    </p>
+                                                    <button
+                                                        onClick={handleSmartRetry}
+                                                        className="px-6 py-3 bg-red-600 active:bg-red-700 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center gap-2"
+                                                    >
+                                                        <RefreshCw size={14} />
+                                                        Tentar Novamente
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                // EMPTY STATE UI
+                                                <>
+                                                    <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 rotate-3 shadow-inner">
+                                                        <Info size={40} className="text-slate-300" />
+                                                    </div>
+                                                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[3px] max-w-[200px] leading-relaxed">
+                                                        Nenhuma ordem de serviço encontrada para os filtros atuais.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => { setDashboardFilter('total'); setDashboardAdvancedFilters(defaultFilters); setSearchQuery(''); }}
+                                                        className="mt-8 text-[10px] font-black uppercase tracking-[3px] text-green-600 hover:text-green-700 transition-colors"
+                                                    >
+                                                        Limpar Filtros
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     )}
 
