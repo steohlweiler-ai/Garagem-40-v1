@@ -314,7 +314,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
               <button onClick={() => resetPassword(user)} className="p-3 touch-target text-slate-300 hover:text-blue-500 transition-colors" title="Redefinir Senha"><Key size={18} /></button>
               <button onClick={() => handleOpenModal(user)} className="p-3 touch-target text-slate-300 hover:text-green-600 transition-colors" title="Editar"><Edit2 size={18} /></button>
 
-              {currentUser?.id === user.id || (user.user_id && user.user_id === currentUser?.user_id) ? (
+              {currentUser?.email === user.email ? (
                 <button disabled className="p-3 text-slate-200 cursor-not-allowed" title="Você não pode excluir seu próprio usuário"><Shield size={18} /></button>
               ) : (
                 <button onClick={() => handleDeleteUser(user)} className="p-3 touch-target text-slate-300 hover:text-red-500 transition-colors" title="Excluir Definitivamente"><Trash2 size={18} /></button>
