@@ -534,12 +534,13 @@ class SupabaseService {
 
         try {
             // Step 1: Create auth user with signUp (won't affect main session)
-            // Generate a temporary password - user will set their own via email link
-            const tempPassword = crypto.randomUUID();
+            // Generate a temporary password if not provided
+            // Allow admin to set initial password
+            const initialPassword = (u as any).password || crypto.randomUUID();
 
             const { data: signUpData, error: signUpError } = await isolatedClient.auth.signUp({
                 email: u.email!,
-                password: tempPassword,
+                password: initialPassword,
                 options: {
                     data: { name: u.name, role: u.role }
                 }

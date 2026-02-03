@@ -85,7 +85,8 @@ const UserManagement: React.FC = () => {
     phone: '',
     role: 'operador' as UserRole,
     active: true,
-    permissions: { ...INITIAL_PERMS }
+    permissions: { ...INITIAL_PERMS },
+    password: '' // New field for initial password
   });
 
   const loadUsers = async () => {
@@ -113,7 +114,8 @@ const UserManagement: React.FC = () => {
         phone: user.phone,
         role: user.role,
         active: user.active,
-        permissions: effectivePermissions
+        permissions: effectivePermissions,
+        password: '' // Don't show password when editing
       });
     } else {
       setEditingUser(null);
@@ -123,7 +125,8 @@ const UserManagement: React.FC = () => {
         phone: '',
         role: 'operador',
         active: true,
-        permissions: { ...INITIAL_PERMS }
+        permissions: { ...INITIAL_PERMS },
+        password: ''
       });
     }
     setIsModalOpen(true);
@@ -309,6 +312,36 @@ const UserManagement: React.FC = () => {
                   />
                 </div>
               </div>
+
+              {/* Senha Inicial (Apenas para novos usuários) */}
+              {!editingUser && (
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Senha Inicial</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={e => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Mínimo 6 caracteres"
+                      className={`w-full p-4 bg-slate-50 border-2 ${formData.password && formData.password.length < 6
+                        ? 'border-red-200 focus:border-red-400'
+                        : 'border-transparent focus:border-green-500'
+                        } rounded-2xl text-sm font-bold outline-none pr-12 transition-all`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                  {formData.password && formData.password.length < 6 && (
+                    <p className="text-red-500 text-[9px] font-bold ml-1">Mínimo 6 caracteres</p>
+                  )}
+                </div>
+              )}
 
               {/* Papel e Status */}
               <div className="grid grid-cols-2 gap-4">
