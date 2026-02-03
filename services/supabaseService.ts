@@ -613,25 +613,40 @@ class SupabaseService {
         if (u.email !== undefined) payload.email = u.email;
         if (u.role !== undefined) payload.papel = u.role;
         if (u.role !== undefined) payload.papel = u.role;
-        if (u.permissions !== undefined) payload.permissoes = u.permissions;
         if (u.active !== undefined) payload.ativo = u.active;
         if (u.phone !== undefined) payload.phone = u.phone;
 
-        const { error } = await supabase.from('perfis_de_usuário').update(payload).eq('id', id);
+        const { data, error } = await supabase.from('perfis_de_usuário').update(payload).eq('id', id).select();
+
         if (error) {
             console.error('Supabase Error (updateUser):', error);
+            return false;
         }
-        return !error;
+
+        // If RLS blocked the update, data will be empty
+        const success = data && data.length > 0;
+        if (!success) {
+            console.warn('UpdateUser failed: No rows updated. Check permissions/RLS or ID.');
+        }
+        return success;
     }
 
     async deleteUser(id: string): Promise<boolean> {
         // Exclusão física do perfil (o usuário Auth permanece mas perde acesso ao sistema)
         // Isso resolve o problema de usuários "zumbis" na listagem
-        const { error } = await supabase.from('perfis_de_usuário').delete().eq('id', id);
+        const { data, error } = await supabase.from('perfis_de_usuário').delete().eq('id', id).select();
+
         if (error) {
             console.error('Supabase Error (deleteUser):', error);
+            return false;
         }
-        return !error;
+
+        // If RLS blocked the delete, data will be empty
+        const success = data && data.length > 0;
+        if (!success) {
+            console.warn('DeleteUser failed: No rows deleted. Check permissions/RLS or ID.');
+        }
+        return success;
     }
 
     async getProducts(): Promise<Product[]> {
