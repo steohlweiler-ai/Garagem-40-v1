@@ -171,7 +171,7 @@ const App: React.FC = () => {
         const timeout = setTimeout(() => {
             console.error('⏱️ [ERROR] Timeout ao buscar serviços — abortando');
             controller.abort();
-        }, 5000); // 5s fail-safe (optimized from 15s)
+        }, 20000); // 20s fail-safe (Extended for Chrome/Cold Starts)
 
         try {
             console.log('📊 [DEBUG] Setting loading states...');
