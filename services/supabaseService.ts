@@ -1485,6 +1485,25 @@ class SupabaseService {
         return true;
     }
 
+    async getTaskHistory(serviceId: string): Promise<any[]> {
+        // Fetch task history joined with task details if needed, or just raw history filtered by service's tasks
+        // Since historico_tarefas has task_id, we need to know which tasks belong to this service.
+        // Or better: filter history where task_id is in (select id from tarefas where service_id = serviceId)
+
+        // Simpler approach: Fetch all history for tasks of this service
+        const { data, error } = await supabase
+            .from('historico_tarefas')
+            .select('*, tarefas!inner(service_id, title)')
+            .eq('tarefas.service_id', serviceId)
+            .order('started_at', { ascending: false });
+
+        if (error) {
+            console.error('Supabase Error (getTaskHistory):', error);
+            return [];
+        }
+        return data || [];
+    }
+
     // ===================== REMINDER OPERATIONS =====================
 
     async addReminder(serviceId: string, reminder: Partial<Reminder>): Promise<Reminder | null> {

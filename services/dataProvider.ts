@@ -671,6 +671,19 @@ class DataProvider {
         return true;
     }
 
+    async getTaskHistory(serviceId: string): Promise<any[]> {
+        if (this.useSupabase) {
+            try {
+                // @ts-ignore
+                return await supabaseDB.getTaskHistory(serviceId);
+            } catch (e) {
+                console.warn('Supabase getTaskHistory failed.', e);
+                return [];
+            }
+        }
+        return mockDB.getTaskHistory(serviceId);
+    }
+
     async startTaskExecution(taskId: string, user: { id: string; name: string }): Promise<boolean> {
         if (this.useSupabase) {
             try {

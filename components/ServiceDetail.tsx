@@ -58,6 +58,8 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   const [isAddingReminder, setIsAddingReminder] = useState(false);
   const [newReminderTitle, setNewReminderTitle] = useState('');
+  const [historyData, setHistoryData] = useState<any[]>([]); // New state for history
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [newReminderDate, setNewReminderDate] = useState(
     new Date().toISOString().split('T')[0]
   );
@@ -503,14 +505,60 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                 {/* Card Logs (com botão) */}
                 <div className="bg-white/5 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/10 shadow-lg flex items-center justify-center">
                   <button
-                    onClick={() => setShowHistory(!showHistory)}
-                    className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-500/20 border border-blue-400/30 rounded-xl text-blue-300 hover:bg-blue-500/30 hover:text-blue-200 active:scale-95 transition-all shadow-sm w-full justify-center"
+                    onClick={async () => {
+                      if (!showHistory) {
+                        setLoadingHistory(true);
+                        const data = await dataProvider.getTaskHistory(serviceId);
+                        setHistoryData(data);
+                        setLoadingHistory(false);
+                      }
+                      setShowHistory(!showHistory);
+                    }}
+                    className={`flex items-center gap-2 px-3 sm:px-4 py-2 border rounded-xl transition-all shadow-sm w-full justify-center ${showHistory
+                      ? 'bg-blue-500 text-white border-blue-600'
+                      : 'bg-blue-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30 hover:text-blue-200'}`}
                   >
                     <History size={14} strokeWidth={3} />
                     <span className="text-[9px] font-black uppercase tracking-wider">Logs</span>
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* HISTORY SECTION (New) */}
+          {showHistory && (
+            <div className="bg-slate-900 border-y border-white/10 p-4 sm:p-6 animate-in slide-in-from-top-4 space-y-4">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <History size={14} /> Histórico de Execução
+              </h3>
+
+              {loadingHistory ? (
+                <div className="text-slate-500 text-xs italic">Carregando histórico...</div>
+              ) : historyData.length === 0 ? (
+                <div className="text-slate-500 text-xs italic">Nenhum registro encontrado.</div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                  {historyData.map((log: any) => (
+                    <div key={log.id} className="flex items-start gap-3 text-xs bg-white/5 p-3 rounded-xl border border-white/5">
+                      <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
+                        <User size={14} className="text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="text-slate-300 font-bold mb-0.5">
+                          {log.user_name || 'Usuário Desconhecido'}
+                        </p>
+                        <p className="text-slate-400">
+                          Executou <span className="text-slate-200 font-medium">"{log.tarefas?.title || 'Tarefa'}"</span> por {formatDuration(log.duration_seconds || 0)}
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-1 uppercase font-bold tracking-wider">
+                          {new Date(log.started_at).toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -737,10 +785,18 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                             )}
 
 
-                            {/* EXECUTOR BADGE (Inline) */}
-                            {isTaskInProgress && typeof task.last_executor_name === 'string' && task.last_executor_name.length > 0 && (
-                              <span className="text-[8px] font-black bg-purple-100 text-purple-700 px-2 py-0.5 rounded-lg uppercase border border-purple-200 animate-in fade-in flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
+
+                            {/* EXECUTOR BADGE (Inline - Persisted) */}
+                            {typeof task.last_executor_name === 'string' && task.last_executor_name.length > 0 && (
+                              <span className={`text-[8px] font-black px-2 py-0.5 rounded-lg uppercase border animate-in fade-in flex items-center gap-1 ${isTaskInProgress
+                                  ? 'bg-purple-100 text-purple-700 border-purple-200'
+                                  : 'bg-slate-100 text-slate-500 border-slate-200'
+                                }`}>
+                                {isTaskInProgress ? (
+                                  <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
+                                ) : (
+                                  <User size={8} className="text-slate-400" />
+                                )}
                                 {task.last_executor_name.split(' ')[0]}
                               </span>
                             )}
