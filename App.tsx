@@ -396,28 +396,34 @@ const App: React.FC = () => {
 
     // NUCLEAR CACHE BUSTER - VERSION 1.1
     useEffect(() => {
-        const APP_VERSION = '1.2-robust-boot';
+        const APP_VERSION = '1.3-deep-clean-auto';
         const storedVersion = localStorage.getItem('g40_app_version');
         if (storedVersion !== APP_VERSION) {
             console.warn('App Version mismatch. Clearing cache and Service Workers...');
 
-            // Clear data
-            localStorage.removeItem('g40_user_session');
-            localStorage.removeItem('g40_dashboard_filters');
+            // AUTOMATIC DEEP CLEAN TRIGER
+            // This replicates the handleSmartRetry logic but runs automatically on version mismatch
+            const performAutoClean = async () => {
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const r of registrations) await r.unregister();
+                }
 
-            // UNREGISTER SERVICE WORKERS (Classic PWA cache issue fix)
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(registrations => {
-                    for (const registration of registrations) {
-                        registration.unregister();
-                        console.log('Service Worker unregistered');
-                    }
-                });
-            }
+                if ('caches' in window) {
+                    const keys = await caches.keys();
+                    // Clean only sw-related caches or all? All to be safe.
+                    await Promise.all(keys.map(k => caches.delete(k)));
+                }
 
-            localStorage.setItem('g40_app_version', APP_VERSION);
-            // Force reload to ensure fresh state
-            window.location.reload();
+                localStorage.removeItem('g40_user_session');
+                localStorage.removeItem('g40_dashboard_filters');
+                localStorage.setItem('g40_app_version', APP_VERSION);
+
+                console.log('✅ Auto Deep Clean Done. Reloading...');
+                window.location.reload();
+            };
+
+            performAutoClean();
         }
     }, []);
 
