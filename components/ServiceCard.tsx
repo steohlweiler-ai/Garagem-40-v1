@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ServiceJob, Vehicle, Client, ServiceStatus, UserAccount, DelayCriteria } from '../types';
-import { Clock, User, ChevronRight, Hash, StickyNote, Calendar, CheckCircle2 } from 'lucide-react';
+import { ServiceJob, ServiceStatus, UserAccount, DelayCriteria } from '../types';
+import { Clock, StickyNote, CheckCircle2 } from 'lucide-react';
 import { formatDuration, calculateDelayStatus, formatCurrency } from '../utils/helpers';
-import StatusBadge from './StatusBadge';
 import '../styles/ServiceCard.css';
 
 interface ServiceCardProps {
@@ -41,94 +40,106 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
   }, [service.tasks]);
 
   const hasReminders = service.reminders?.some(r => r.status === 'active');
+  const entryDate = new Date(service.entry_at);
+  const day = entryDate.getDate();
+  const month = entryDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+
+  // Status Styling Logic (similar to ClientDetails)
+  const getStatusStyle = (status: ServiceStatus) => {
+    switch (status) {
+      case ServiceStatus.ENTREGUE: return 'bg-slate-100 text-slate-500';
+      case ServiceStatus.PRONTO: return 'bg-green-100 text-green-700';
+      case ServiceStatus.PENDENTE: return 'bg-amber-100 text-amber-700';
+      default: return 'bg-blue-100 text-blue-700';
+    }
+  };
+
+  const getStatusIconBox = (status: ServiceStatus) => {
+    switch (status) {
+      case ServiceStatus.ENTREGUE: return 'bg-slate-100 text-slate-400';
+      case ServiceStatus.PRONTO: return 'bg-green-100 text-green-600';
+      default: return 'bg-blue-50 text-blue-600';
+    }
+  };
 
   return (
     <div
       onClick={onClick}
-      className={`svc-card group ${delayInfo.isDelayed ? 'svc-border-delayed' : 'svc-border-normal'}`}
+      className={`w-full bg-white p-4 rounded-3xl border transition-all flex justify-between items-center group cursor-pointer relative overflow-hidden
+        ${delayInfo.isDelayed ? 'border-red-200 shadow-sm shadow-red-100' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200'}
+        active:scale-[0.99]`}
     >
-      {/* Barra de progresso para tarefa ativa */}
+      {/* Active Timer Indicator Bar */}
       {activeDuration !== null && (
-        <div className="absolute top-0 right-0 left-0 h-1.5 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500 animate-pulse shadow-lg shadow-purple-500/50" />
+        <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500 animate-pulse opacity-50" />
       )}
 
-      {/* Indicador de delay no canto superior esquerdo */}
-      {delayInfo.isDelayed && (
-        <div className="absolute top-4 left-4 w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50" />
-      )}
+      {/* Left Side: Date Box + Info */}
+      <div className="flex items-center gap-4">
+        {/* Date Box */}
+        <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 ${getStatusIconBox(service.status)}`}>
+          <span className="text-xl font-black uppercase leading-none">{day}</span>
+          <span className="text-[10px] font-bold uppercase leading-none mt-0.5">{month}</span>
+        </div>
 
-      {/* Cabeçalho do Card: Placa e Status */}
-      <div className="svc-header">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="svc-plate">
+        {/* Text Info */}
+        <div className="flex flex-col gap-1">
+          {/* Top Line: Model + Plate */}
+          <div className="flex items-center gap-2">
+            <h4 className="text-sm font-black text-slate-800 uppercase line-clamp-1">
+              {vehicle?.model || 'Modelo'}
+            </h4>
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 uppercase whitespace-nowrap">
               {vehicle?.plate || '???-????'}
-            </h3>
-            {hasReminders && (
-              <div className="w-6 h-6 bg-gradient-to-br from-amber-400 to-amber-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/30 animate-pulse">
-                <StickyNote size={14} strokeWidth={3} />
-              </div>
-            )}
+            </span>
           </div>
-          <p className="svc-meta-text mt-2.5">
-            {vehicle?.brand || 'Marca'} <span className="text-slate-200 mx-1.5">•</span> {vehicle?.model || 'Modelo'}
+
+          {/* Bottom Line: Client + Status + Icons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-400 uppercase truncate max-w-[120px]">
+              {client?.name || 'Cliente'}
+            </span>
+
+            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md whitespace-nowrap ${getStatusStyle(service.status)}`}>
+              {service.status}
+            </span>
+
+            {/* Icons row */}
+            <div className="flex items-center gap-1.5 ml-1">
+              {delayInfo.isDelayed && (
+                <span className="text-[9px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded animate-pulse">ATRASADO</span>
+              )}
+              {hasReminders && (
+                <StickyNote size={12} className="text-amber-500 fill-amber-500/20" />
+              )}
+              {activeDuration !== null && (
+                <div className="flex items-center gap-1 text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">
+                  <Clock size={10} className="animate-spin-slow" />
+                  <span className="text-[9px] font-black font-mono">{formatDuration(activeDuration)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side: Money + Tasks */}
+      <div className="text-right flex flex-col justify-center items-end pl-2">
+        {currentUser?.permissions?.view_financials ? (
+          <p className="text-sm font-black text-slate-800 tabular-nums">
+            {service.total_value > 0 ? formatCurrency(service.total_value) : 'R$ 0,00'}
           </p>
-        </div>
-        <div className="flex flex-col items-end gap-2 shrink-0">
-          <StatusBadge status={service.status} size="sm" delayed={delayInfo.isDelayed} />
-          {activeDuration !== null && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-br from-purple-50 to-blue-50 text-purple-600 rounded-xl border border-purple-200 shadow-sm">
-              <Clock size={12} className="animate-pulse" strokeWidth={2.5} />
-              <span className="text-[10px] font-black font-mono">{formatDuration(activeDuration)}</span>
-            </div>
-          )}
-        </div>
-      </div>
+        ) : (
+          <div className="h-5" /> /* Place holder to keep alignment if needed */
+        )}
 
-      {/* Info Cliente e Data */}
-      <div className="space-y-3 mt-5">
-        <div className="svc-info-row">
-          <div className="svc-icon-box">
-            <User className="svc-meta-icon" />
-          </div>
-          <span className="svc-client-text">{client?.name || 'Cliente'}</span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="svc-info-row">
-            <div className="svc-icon-box">
-              <Calendar className="svc-meta-icon" />
-            </div>
-            <span className="svc-meta-text" style={{ fontSize: '10px' }}>
-              {new Date(service.entry_at).toLocaleDateString('pt-BR')}
-            </span>
-          </div>
-          {currentUser?.permissions?.view_financials && (
-            <div className="text-xs font-black text-green-600 font-mono bg-green-50 px-3 py-1.5 rounded-xl border border-green-100/50">
-              {service.total_value > 0 ? formatCurrency(service.total_value) : 'R$ —'}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Rodapé: Etapas */}
-      <div className="mt-6 pt-5 border-t border-slate-50 flex justify-between items-center">
-        <div className="svc-badge-group">
-          <div className="svc-badge-count svc-badge-gray">
-            <Hash className="svc-meta-icon" />
-            <span>
-              {service.tasks.length} {service.tasks.length === 1 ? 'Etapa' : 'Etapas'}
-            </span>
-          </div>
-          <div className="svc-badge-count svc-badge-green">
-            <CheckCircle2 className="svc-meta-icon text-green-500" style={{ opacity: 1 }} />
-            <span>
-              {service.tasks.filter(t => t.status === 'done').length} OK
-            </span>
-          </div>
-        </div>
-        <div className="svc-action-btn">
-          <ChevronRight size={20} strokeWidth={2.5} />
+        <div className="flex items-center gap-1.5 mt-1 text-slate-400">
+          {service.tasks.every(t => t.status === 'done') && service.tasks.length > 0 ? (
+            <CheckCircle2 size={12} className="text-green-500" />
+          ) : null}
+          <p className="text-[10px] font-bold uppercase">
+            {service.tasks.length} {service.tasks.length === 1 ? 'Etapa' : 'Etapas'}
+          </p>
         </div>
       </div>
     </div>
