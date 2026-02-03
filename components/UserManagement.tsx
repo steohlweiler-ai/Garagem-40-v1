@@ -314,11 +314,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
               <button onClick={() => resetPassword(user)} className="p-3 touch-target text-slate-300 hover:text-blue-500 transition-colors" title="Redefinir Senha"><Key size={18} /></button>
               <button onClick={() => handleOpenModal(user)} className="p-3 touch-target text-slate-300 hover:text-green-600 transition-colors" title="Editar"><Edit2 size={18} /></button>
 
-              {currentUser?.email === user.email ? (
-                <button disabled className="p-3 text-slate-200 cursor-not-allowed" title="Você não pode excluir seu próprio usuário"><Shield size={18} /></button>
-              ) : (
-                <button onClick={() => handleDeleteUser(user)} className="p-3 touch-target text-slate-300 hover:text-red-500 transition-colors" title="Excluir Definitivamente"><Trash2 size={18} /></button>
-              )}
+              {(() => {
+                const isCurrentUser = currentUser?.email?.toLowerCase() === user.email.toLowerCase();
+                // console.log(`[UserMgmt] Checking ${user.email} vs Current ${currentUser?.email}: ${isCurrentUser}`);
+                return isCurrentUser ? (
+                  <button disabled className="p-3 text-slate-200 cursor-not-allowed" title="Você não pode excluir seu próprio usuário"><Shield size={18} /></button>
+                ) : (
+                  <button onClick={() => handleDeleteUser(user)} className="p-3 touch-target text-slate-300 hover:text-red-500 transition-colors" title="Excluir Definitivamente"><Trash2 size={18} /></button>
+                );
+              })()}
 
               <button onClick={() => toggleStatus(user)} className={`p-3 touch-target transition-colors ${user.active ? 'text-green-500 hover:text-red-400' : 'text-red-400 hover:text-green-500'}`} title={user.active ? 'Desativar' : 'Ativar'}>
                 {user.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
