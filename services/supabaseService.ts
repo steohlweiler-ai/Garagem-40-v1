@@ -1096,9 +1096,14 @@ class SupabaseService {
 
         try {
             // Sub-query 3: History (NEW TABLE - Suspector number 1)
+            // DISABLED TEMPORARILY due to timeout issues
+            /*
             const { data: h, error: he } = await supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp');
             if (he) console.error('[DEBUG] History Fetch Error:', he);
             historyData = h || [];
+            */
+            historyData = [];
+            console.warn('[DEBUG] History fetch disabled temporarily.');
         } catch (e) { console.error('[DEBUG] History Crash:', e); }
 
         /*
