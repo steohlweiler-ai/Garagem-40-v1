@@ -67,7 +67,11 @@ const ROLE_PRESETS: Record<UserRole, Partial<UserPermissions>> = {
   }
 };
 
-const UserManagement: React.FC = () => {
+interface UserManagementProps {
+  currentUser: UserAccount | null;
+}
+
+const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -89,6 +93,8 @@ const UserManagement: React.FC = () => {
     password: '' // New field for initial password
   });
 
+  const canManageTeam = currentUser?.role === 'admin' || currentUser?.permissions?.manage_team;
+
   const loadUsers = async () => {
     const list = await dataProvider.getUsers();
     setUsers(list);
@@ -101,6 +107,10 @@ const UserManagement: React.FC = () => {
   };
 
   const handleOpenModal = (user?: UserAccount) => {
+    if (!canManageTeam) {
+      showToast('Acesso negado: Você não tem permissão.');
+      return;
+    }
     if (user) {
       setEditingUser(user);
       // If user has no permissions defined, use role preset
@@ -133,6 +143,8 @@ const UserManagement: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (!canManageTeam) return;
+
     if (!formData.name || !formData.email) return;
 
     if (editingUser) {
@@ -157,6 +169,7 @@ const UserManagement: React.FC = () => {
   };
 
   const toggleStatus = async (user: UserAccount) => {
+    if (!canManageTeam) return;
     const newStatus = !user.active;
     await dataProvider.updateUser(user.id, { active: newStatus });
     loadUsers();
@@ -164,6 +177,11 @@ const UserManagement: React.FC = () => {
   };
 
   const softDeleteUser = async (user: UserAccount) => {
+    if (!canManageTeam) return;
+    if (currentUser?.id === user.id) {
+      showToast('Você não pode se excluir.');
+      return;
+    }
     if (!window.confirm(`Tem certeza que deseja remover "${user.name}"?\nO usuário será desativado permanentemente.`)) {
       return;
     }
@@ -173,6 +191,7 @@ const UserManagement: React.FC = () => {
   };
 
   const resetPassword = (user: UserAccount) => {
+    if (!canManageTeam) return;
     setPasswordModalUser(user);
     setNewPassword('');
     setShowPassword(false);
@@ -214,12 +233,14 @@ const UserManagement: React.FC = () => {
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Gestão de Níveis de Permissão</p>
           </div>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="p-4 bg-green-600 text-white rounded-2xl shadow-xl shadow-green-100 active:scale-90 transition-all flex items-center justify-center"
-        >
-          <UserPlus size={24} />
-        </button>
+        {canManageTeam && (
+          <button
+            onClick={() => handleOpenModal()}
+            className="p-4 bg-green-600 text-white rounded-2xl shadow-xl shadow-green-100 active:scale-90 transition-all flex items-center justify-center"
+          >
+            <UserPlus size={24} />
+          </button>
+        )}
       </div>
 
       {/* Busca */}

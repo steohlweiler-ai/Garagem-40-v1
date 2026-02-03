@@ -417,7 +417,7 @@ const App: React.FC = () => {
                             view_financials: true
                         }
                     });
-                    if (newUser) matchedUser = newUser;
+                    if (newUser.data) matchedUser = newUser.data;
                 } else {
                     // Fallback para usuário existente ou recusa (aqui mantemos permissivo para demo)
                     // matchedUser = users[0]; (Desabilitado para forçar consistência)
@@ -969,7 +969,7 @@ const App: React.FC = () => {
                                         {settingsTab === 'catalog' && <CatalogManagement />}
                                         {settingsTab === 'colors' && <ColorManagement />}
                                         {settingsTab === 'integrations' && <IntegrationsSettings />}
-                                        {settingsTab === 'users' && <UserManagement />}
+                                        {settingsTab === 'users' && <UserManagement currentUser={user} />}
                                         {settingsTab === 'delay' && <DelaySettings user={user} />}
                                         {settingsTab === 'workshop' && <WorkshopSettingsComp />}
                                         {settingsTab === 'rates' && <RatesSettings onClose={() => setSettingsTab('hub')} />}
