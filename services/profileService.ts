@@ -37,14 +37,15 @@ export const profileService = {
             // Map 'papel' from DB to 'role' in App
             role: (data.papel || 'admin') as any,
             active: data.ativo ?? true,
-            permissions: data.permissions || {
+            permissions: {
                 manage_team: false,
                 manage_clients: false,
                 manage_inventory: false,
                 config_rates: false,
                 config_vehicles: false,
                 config_system: false,
-                view_financials: false
+                view_financials: false,
+                ...(data.permissions || {})
             },
             created_at: data.created_at,
             user_id: userId // Ensure Auth ID is passed

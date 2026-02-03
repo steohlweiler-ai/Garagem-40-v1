@@ -100,7 +100,7 @@ const App: React.FC = () => {
                         email: session.user.email || '',
                         role: profile.papel,
                         active: true,
-                        permissions: {
+                        permissions: profile.permissoes || profile.permissions || {
                             manage_team: false,
                             manage_clients: false,
                             manage_inventory: false,
