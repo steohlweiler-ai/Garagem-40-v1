@@ -1051,12 +1051,13 @@ class SupabaseService {
         if (statuses.length > 0) {
             query = query.in('status', statuses);
         } else if (excludeStatuses.length > 0) {
-            // Action-First Optimization: Instead of multiple .not(), which kills performance,
-            // we should ideally query for the "Included" statuses if we know them.
-            // But since this is dynamic, we iterate.
-            // The CRITICAL fix is the INDEX on 'status' which the user will create.
-            for (const status of excludeStatuses) {
-                query = query.not('status', 'eq', status);
+            // ULTRA OPTIMIZAÇÃO: Inverter a lógica de exclusão para inclusão (.in)
+            // Isso permite que o índice (idx_servicos_status) seja usado eficientemente.
+            const allStatuses = ['Pendente', 'Em Andamento', 'Lembrete', 'Pronto', 'Entregue'];
+            const validStatuses = allStatuses.filter(s => !excludeStatuses.includes(s));
+
+            if (validStatuses.length > 0) {
+                query = query.in('status', validStatuses);
             }
         }
 
@@ -1066,6 +1067,7 @@ class SupabaseService {
         // Apply pagination
         query = query.range(offset, offset + limit - 1);
 
+        console.log('[DEBUG] About to execute MAIN QUERY...');
         const { data: services, error, count } = await query;
         console.log('[DEBUG] getServicesFiltered MAIN QUERY RES', { count, error, servicesLength: services?.length });
 
