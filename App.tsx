@@ -111,7 +111,8 @@ const App: React.FC = () => {
                         },
                         organization_id: profile.organization_id || 'org_1',
                         phone: profile.phone || '',
-                        created_at: profile.created_at || new Date().toISOString()
+                        created_at: profile.created_at || new Date().toISOString(),
+                        user_id: session.user.id
                     };
                     setUser(loggedUser);
                     setIsAuthenticated(true);

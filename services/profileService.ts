@@ -46,7 +46,8 @@ export const profileService = {
                 config_system: false,
                 view_financials: false
             },
-            created_at: data.created_at
+            created_at: data.created_at,
+            user_id: userId // Ensure Auth ID is passed
         };
     },
 
