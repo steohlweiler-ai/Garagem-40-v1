@@ -229,9 +229,10 @@ class DataProvider {
         return mockDB.getUsers();
     }
 
-    async createUser(u: Partial<UserAccount>) {
+    async createUser(u: Partial<UserAccount>): Promise<{ data: UserAccount | null; error?: string }> {
         if (this.useSupabase) return await supabaseDB.createUser(u);
-        return mockDB.createUser(u);
+        const user = mockDB.createUser(u);
+        return { data: user, error: undefined };
     }
 
     async updateUser(id: string, u: Partial<UserAccount>) {

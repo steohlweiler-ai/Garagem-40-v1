@@ -144,11 +144,11 @@ const UserManagement: React.FC = () => {
         return;
       }
     } else {
-      const newUser = await dataProvider.createUser(formData);
+      const { data: newUser, error } = await dataProvider.createUser(formData);
       if (newUser) {
         showToast('Convite enviado! Usuário criado.');
       } else {
-        showToast('Erro ao criar usuário');
+        showToast(`Erro: ${error || 'Falha ao criar usuário'}`);
         return;
       }
     }
@@ -237,8 +237,8 @@ const UserManagement: React.FC = () => {
       {/* Lista de Usuários */}
       <div className="space-y-4">
         {filteredUsers.map(user => (
-          <div key={user.id} className={`bg-white p-5 rounded-[2.25rem] border-2 shadow-sm flex items-center justify-between transition-all ${!user.active ? 'opacity-60 border-red-100 bg-red-50/30' : 'border-slate-50'}`}>
-            <div className="flex gap-4 items-center">
+          <div key={user.id} className={`bg-white p-5 rounded-[2.25rem] border-2 shadow-sm flex flex-col sm:flex-row items-center sm:justify-between gap-4 transition-all ${!user.active ? 'opacity-60 border-red-100 bg-red-50/30' : 'border-slate-50'}`}>
+            <div className="flex gap-4 items-center w-full sm:w-auto">
               {/* Avatar com indicador de status */}
               <div className="relative">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-inner ${user.role?.toLowerCase() === 'admin' ? 'bg-slate-900' : 'bg-slate-200'}`}>
@@ -265,7 +265,7 @@ const UserManagement: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto mt-2 sm:mt-0 border-t sm:border-0 pt-4 sm:pt-0 border-slate-100">
               <button onClick={() => resetPassword(user)} className="p-3 touch-target text-slate-300 hover:text-blue-500 transition-colors" title="Redefinir Senha"><Key size={18} /></button>
               <button onClick={() => handleOpenModal(user)} className="p-3 touch-target text-slate-300 hover:text-green-600 transition-colors" title="Editar"><Edit2 size={18} /></button>
               <button onClick={() => softDeleteUser(user)} className="p-3 touch-target text-slate-300 hover:text-red-500 transition-colors" title="Remover"><Trash2 size={18} /></button>
