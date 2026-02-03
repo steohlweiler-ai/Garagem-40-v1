@@ -976,7 +976,8 @@ class SupabaseService {
         console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, limit, offset });
 
         // Build base query
-        let queryArray = supabase.from('serviços').select('*', { count: 'exact' });
+        // OPTIMIZED: Fetch vehicle and client data in the same query (Server-Side Join)
+        let queryArray = supabase.from('serviços').select('*, vehicle:veículos(*), client:clientes(*)', { count: 'exact' });
 
         // Apply AbortSignal if provided
         if (signal) {
@@ -1013,7 +1014,7 @@ class SupabaseService {
         }
 
         // Fetch relations for the paginated services (batched)
-        const serviceIds = services.map(s => s.id);
+        const serviceIds = services.map((s: any) => s.id);
 
         let tasksData: any[] = [];
         let remindersData: any[] = [];
@@ -1049,7 +1050,7 @@ class SupabaseService {
         */
 
         // Map relations to services
-        const servicesWithRelations = services.map(s => ({
+        const servicesWithRelations = services.map((s: any) => ({
             ...s,
             tasks: tasksData.filter(t => t.service_id === s.id).map(this.mapTask),
             reminders: remindersData.filter(r => r.service_id === s.id).map(this.mapReminder),
@@ -1058,7 +1059,10 @@ class SupabaseService {
             archived: s.archived,
             created_by: s.created_by,
             created_by_name: s.created_by_name,
-            inspection: s.inspection
+            inspection: s.inspection,
+            // Optimized mapping for joined data
+            vehicle: s.vehicle ? this.mapVehicle(s.vehicle) : undefined,
+            client: s.client ? this.mapClient(s.client) : undefined
         }));
 
         // Client-side sort: Lembrete first, then by entry_at ascending (oldest first)

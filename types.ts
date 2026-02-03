@@ -258,6 +258,8 @@ export interface ServiceJob {
   inspection?: InspectionData;
   service_type?: 'novo' | 'retrabalho';
   active_template_id?: string; // New field to track active template for this OS
+  vehicle?: Vehicle; // OPTIMIZED: Joined data
+  client?: Client;   // OPTIMIZED: Joined data
 }
 
 export interface Client {

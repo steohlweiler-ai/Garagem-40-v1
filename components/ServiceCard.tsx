@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ServiceJob, Vehicle, Client, ServiceStatus, UserAccount } from '../types';
-import { dataProvider } from '../services/dataProvider';
-import { Clock, User, ChevronRight, Hash, Play, StickyNote, AlertTriangle, Calendar, CheckCircle2 } from 'lucide-react';
+import { ServiceJob, Vehicle, Client, ServiceStatus, UserAccount, DelayCriteria } from '../types';
+import { Clock, User, ChevronRight, Hash, StickyNote, Calendar, CheckCircle2 } from 'lucide-react';
 import { formatDuration, calculateDelayStatus, formatCurrency } from '../utils/helpers';
 import StatusBadge from './StatusBadge';
 import '../styles/ServiceCard.css';
@@ -9,31 +8,16 @@ import '../styles/ServiceCard.css';
 interface ServiceCardProps {
   service: ServiceJob;
   onClick: () => void;
+  currentUser: UserAccount | null;
+  delayCriteria: DelayCriteria | null;
 }
 
-const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick }) => {
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
+const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser, delayCriteria }) => {
   const [activeDuration, setActiveDuration] = useState<number | null>(null);
 
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-  const [delayCriteria, setDelayCriteria] = useState<any>(null);
-
-  useEffect(() => {
-    const loadData = async () => {
-      const [users, criteria, vehicles, clients] = await Promise.all([
-        dataProvider.getUsers(),
-        dataProvider.getDelayCriteria(),
-        dataProvider.getVehicles(),
-        dataProvider.getClients()
-      ]);
-      setCurrentUser(users[0]);
-      setDelayCriteria(criteria);
-      setVehicle(vehicles.find(v => v.id === service.vehicle_id) || null);
-      setClient(clients.find(c => c.id === service.client_id) || null);
-    };
-    loadData();
-  }, [service.vehicle_id, service.client_id]);
+  // OPTIMIZATION: Use embedded relations if available
+  const vehicle = service.vehicle || null;
+  const client = service.client || null;
 
   const delayInfo = useMemo(() => {
     if (!service.estimated_delivery || service.status === ServiceStatus.ENTREGUE) return { isDelayed: false };
@@ -78,7 +62,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <h3 className="svc-plate">
-              {vehicle?.plate}
+              {vehicle?.plate || '???-????'}
             </h3>
             {hasReminders && (
               <div className="w-6 h-6 bg-gradient-to-br from-amber-400 to-amber-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/30 animate-pulse">
@@ -87,7 +71,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick }) => {
             )}
           </div>
           <p className="svc-meta-text mt-2.5">
-            {vehicle?.brand} <span className="text-slate-200 mx-1.5">•</span> {vehicle?.model}
+            {vehicle?.brand || 'Marca'} <span className="text-slate-200 mx-1.5">•</span> {vehicle?.model || 'Modelo'}
           </p>
         </div>
         <div className="flex flex-col items-end gap-2 shrink-0">
@@ -107,7 +91,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick }) => {
           <div className="svc-icon-box">
             <User className="svc-meta-icon" />
           </div>
-          <span className="svc-client-text">{client?.name}</span>
+          <span className="svc-client-text">{client?.name || 'Cliente'}</span>
         </div>
 
         <div className="flex items-center justify-between">
@@ -119,7 +103,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick }) => {
               {new Date(service.entry_at).toLocaleDateString('pt-BR')}
             </span>
           </div>
-          {currentUser?.permissions?.view_values_execution && (
+          {currentUser?.permissions?.view_financials && (
             <div className="text-xs font-black text-green-600 font-mono bg-green-50 px-3 py-1.5 rounded-xl border border-green-100/50">
               {service.total_value > 0 ? formatCurrency(service.total_value) : 'R$ —'}
             </div>
