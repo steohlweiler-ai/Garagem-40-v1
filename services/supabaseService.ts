@@ -632,7 +632,7 @@ class SupabaseService {
         return success;
     }
 
-    async deleteUser(id: string): Promise<boolean> {
+    async deleteUser(id: string): Promise<{ success: boolean; error?: string }> {
         // 1. Get the Profile to find the Auth User ID
         const { data: profile } = await supabase.from('perfis_de_usuário').select('user_id').eq('id', id).single();
 
@@ -641,25 +641,32 @@ class SupabaseService {
             const { data: rpcData, error: rpcError } = await supabase.rpc('delete_user_account', { target_user_id: profile.user_id });
 
             if (!rpcError && rpcData && rpcData.success) {
-                return true;
+                return { success: true };
             }
-            console.warn('RPC delete failed, falling back to profile delete:', rpcError || rpcData);
+
+            // Capture RPC specific error
+            const errorMessage = rpcError?.message || rpcData?.error || 'Erro desconhecido ao excluir conta Auth';
+            console.warn('RPC delete failed:', errorMessage);
+
+            // If it's a permission/constraint error, we might want to stop here rather than falling back
+            // But for now, let's return this error so the UI can show it
+            return { success: false, error: errorMessage };
         }
 
-        // 3. Fallback: Local profile delete (what we had before)
+        // 3. Fallback: Local profile delete (Only if user has no Auth ID - "Zombie Profile")
         const { data, error } = await supabase.from('perfis_de_usuário').delete().eq('id', id).select();
 
         if (error) {
             console.error('Supabase Error (deleteUser):', error);
-            return false;
+            return { success: false, error: error.message };
         }
 
         // If RLS blocked the delete, data will be empty
         const success = data && data.length > 0;
         if (!success) {
-            console.warn('DeleteUser failed: No rows deleted. Check permissions/RLS or ID.');
+            return { success: false, error: 'Permissão negada ou usuário não encontrado (RLS).' };
         }
-        return success;
+        return { success: true };
     }
 
     async getProducts(): Promise<Product[]> {

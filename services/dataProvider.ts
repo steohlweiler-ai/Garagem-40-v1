@@ -241,19 +241,14 @@ class DataProvider {
         return true;
     }
 
-    async deleteUser(id: string): Promise<boolean> {
+    async deleteUser(id: string): Promise<{ success: boolean; error?: string }> {
         if (this.useSupabase) return await supabaseDB.deleteUser(id);
         // Mock implementation
         const idx = mockDB.getUsers().findIndex(u => u.id === id);
         if (idx !== -1) {
-            // In mock we just filter out
-            // Note: mockDB needs a delete method or we simulate it here?
-            // Actually assuming mockDB has or acts like it.
-            // But let's check mockDatabase, I saw it has no explicit deleteUser.
-            // I'll add a simple filter hack or just return true for mock for now.
-            return true;
+            return { success: true };
         }
-        return false;
+        return { success: false, error: 'User not found in mock' };
     }
 
     async getDelayCriteria() {
