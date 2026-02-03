@@ -290,7 +290,29 @@ const App: React.FC = () => {
         await Promise.all([loadStats(), loadServices(true)]);
     };
 
-    // COMBINED SECURE LOAD EFFECT - REMOVED (consolidated below with delayCriteria dependency)
+    // COMBINED SECURE LOAD EFFECT
+    useEffect(() => {
+        if (isAuthenticated) {
+            console.log('🚀 Authenticated data sync trigger');
+            loadStats();
+            loadServices(true);
+
+            // Configura poll de atualização para stats (não para lista, para evitar piscadas)
+            const interval = setInterval(loadStats, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [isAuthenticated, dashboardFilter, dashboardAdvancedFilters]);
+
+    // SAFETY TIMER: Force exit Initial Load if stuck
+    useEffect(() => {
+        if (isInitialLoad) {
+            const timer = setTimeout(() => {
+                console.warn('⚠️ Safety Timer triggered: Forcing isInitialLoad to false');
+                setIsInitialLoad(false);
+            }, 8000); // 8 seconds max
+            return () => clearTimeout(timer);
+        }
+    }, [isInitialLoad]);
 
     // NUCLEAR CACHE BUSTER - VERSION 1.1
     useEffect(() => {
