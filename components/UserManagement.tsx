@@ -324,9 +324,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) => {
                 );
               })()}
 
-              <button onClick={() => toggleStatus(user)} className={`p-3 touch-target transition-colors ${user.active ? 'text-green-500 hover:text-red-400' : 'text-red-400 hover:text-green-500'}`} title={user.active ? 'Desativar' : 'Ativar'}>
-                {user.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-              </button>
+              {currentUser?.email?.toLowerCase() === user.email.toLowerCase() ? (
+                <button disabled className="p-3 text-slate-200 cursor-not-allowed" title="Você não pode desativar seu próprio usuário">
+                  <ToggleRight size={28} className="opacity-50" />
+                </button>
+              ) : (
+                <button onClick={() => toggleStatus(user)} className={`p-3 touch-target transition-colors ${user.active ? 'text-green-500 hover:text-red-400' : 'text-red-400 hover:text-green-500'}`} title={user.active ? 'Desativar' : 'Ativar'}>
+                  {user.active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                </button>
+              )}
             </div>
           </div>
         ))}

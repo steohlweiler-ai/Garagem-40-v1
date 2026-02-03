@@ -608,7 +608,7 @@ const App: React.FC = () => {
         const allOptions = [
             { id: 'profile', label: 'Meu Perfil', desc: 'Dados da conta', icon: <User size={20} />, perm: null },
             { id: 'stock', label: 'Estoque', desc: 'Peças e notas', icon: <Package size={20} />, perm: 'manage_inventory' },
-            { id: 'templates', label: 'Fichas', desc: 'Modelos de inspeção', icon: <FileCode size={20} />, perm: null },
+            { id: 'templates', label: 'Fichas', desc: 'Modelos de inspeção', icon: <FileCode size={20} />, perm: 'config_system' },
             { id: 'rates', label: 'Mão de Obra', desc: 'Valores por hora', icon: <DollarSign size={20} />, perm: 'config_rates' },
             { id: 'statuses', label: 'Status', desc: 'Etapas do fluxo', icon: <Tag size={20} />, perm: 'config_system' },
             { id: 'catalog', label: 'Veículos', desc: 'Marcas e modelos', icon: <Briefcase size={20} />, perm: 'config_vehicles' },
@@ -617,7 +617,7 @@ const App: React.FC = () => {
             { id: 'users', label: 'Equipe', desc: 'Colaboradores', icon: <Users size={20} />, perm: 'manage_team' },
             { id: 'workshop', label: 'Oficina', desc: 'Dados da OS', icon: <Store size={20} />, perm: 'config_system' },
             { id: 'delay', label: 'Atrasos', desc: 'Regras de tempo', icon: <Clock size={20} />, perm: 'config_system' },
-            { id: 'status', label: 'Diagnóstico', desc: 'Verificar conexão', icon: <ShieldAlert size={20} />, perm: null }
+            { id: 'status', label: 'Diagnóstico', desc: 'Verificar conexão', icon: <ShieldAlert size={20} />, perm: 'config_system' }
         ];
 
         return allOptions.filter(opt =>
