@@ -515,6 +515,7 @@ class SupabaseService {
         if (error) return [];
         return data.map(u => ({
             id: u.id,
+            user_id: u.user_id,
             organization_id: u.organization_id || 'org-default',
             name: u.nome || u.name || 'Usuário',
             email: u.email,
@@ -632,8 +633,20 @@ class SupabaseService {
     }
 
     async deleteUser(id: string): Promise<boolean> {
-        // Exclusão física do perfil (o usuário Auth permanece mas perde acesso ao sistema)
-        // Isso resolve o problema de usuários "zumbis" na listagem
+        // 1. Get the Profile to find the Auth User ID
+        const { data: profile } = await supabase.from('perfis_de_usuário').select('user_id').eq('id', id).single();
+
+        if (profile && profile.user_id) {
+            // 2. Try to delete via RPC (Deletes Auth + Profile Cascade)
+            const { data: rpcData, error: rpcError } = await supabase.rpc('delete_user_account', { target_user_id: profile.user_id });
+
+            if (!rpcError && rpcData && rpcData.success) {
+                return true;
+            }
+            console.warn('RPC delete failed, falling back to profile delete:', rpcError || rpcData);
+        }
+
+        // 3. Fallback: Local profile delete (what we had before)
         const { data, error } = await supabase.from('perfis_de_usuário').delete().eq('id', id).select();
 
         if (error) {
