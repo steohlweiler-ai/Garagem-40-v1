@@ -685,286 +685,282 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                   return (
                     <div
                       key={task.id}
-                      className={`bg-gradient-to-br from-white to-slate-50/50 backdrop-blur-sm rounded-[2.5rem] border-2 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 ${isTaskInProgress
-                        ? 'border-purple-200 shadow-xl shadow-purple-100 ring-4 ring-purple-50 from-purple-50/30 to-white'
+                      className={`relative bg-white rounded-3xl border transition-all duration-300 shadow-sm hover:shadow-md ${isTaskInProgress
+                        ? 'border-purple-200 shadow-purple-100 ring-4 ring-purple-50/50'
                         : task.status === 'done'
-                          ? 'border-green-100 from-green-50/20 to-white'
+                          ? 'border-green-100 opacity-75'
                           : 'border-slate-100'
                         }`}
                     >
-                      <div className="p-6 backdrop-blur-sm bg-white/40">
-                        <div className="flex items-start gap-5">
-                          <button
-                            onClick={() => toggleTaskStatus(task)}
-                            className={`w-12 h-12 rounded-2xl border-2 flex items-center justify-center shrink-0 transition-all active:scale-90 shadow-md ${task.status === 'done'
-                              ? 'bg-gradient-to-br from-green-500 to-green-600 border-green-400 text-white shadow-lg shadow-green-200'
-                              : 'bg-slate-50/80 backdrop-blur-sm border-slate-200 text-transparent hover:border-slate-300'
+                      {/* LAYOUT COMPACTO: ROW ÚNICA (PREDOMINANTE) */}
+                      <div className="flex items-center p-3 sm:p-4 gap-3">
+
+                        {/* 1. BUTTON CHECK (Left) */}
+                        <button
+                          onClick={() => toggleTaskStatus(task)}
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl border-2 flex items-center justify-center shrink-0 transition-all active:scale-90 ${task.status === 'done'
+                            ? 'bg-green-500 border-green-500 text-white shadow-md shadow-green-200'
+                            : 'bg-slate-50 border-slate-200 text-transparent hover:border-slate-300'
+                            }`}
+                        >
+                          <Check size={20} strokeWidth={4} />
+                        </button>
+
+                        {/* 2. MAIN INFO (Middle) */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <h4
+                            className={`text-xs sm:text-sm font-black uppercase tracking-tight leading-tight mb-1 truncate ${task.status === 'done'
+                              ? 'text-slate-400 line-through'
+                              : 'text-slate-900'
                               }`}
                           >
-                            <Check size={24} strokeWidth={4} />
-                          </button>
+                            {task.title}
+                          </h4>
 
-                          <div className="flex-1 min-w-0 pt-0.5">
-                            <h4
-                              className={`text-sm font-black uppercase tracking-tight leading-tight mb-2 ${task.status === 'done'
-                                ? 'text-slate-400 line-through'
-                                : 'text-slate-900'
-                                }`}
-                            >
-                              {task.title}
-                            </h4>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Badges */}
+                            <span className="text-[8px] font-black bg-slate-100 text-slate-500 px-2 py-0.5 rounded-lg uppercase border border-slate-200">
+                              {task.charge_type === 'Fixo' ? 'Fix' : 'Hora'}
+                            </span>
 
-                            <div className="flex gap-2 flex-wrap">
-                              <span className="text-[9px] font-black bg-slate-100/80 backdrop-blur-sm text-slate-500 px-3 py-1.5 rounded-xl uppercase border border-slate-200 shadow-sm">
-                                {task.charge_type}
+                            {task.charge_type === 'Hora' && (
+                              <span className="text-[8px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-lg uppercase border border-blue-100">
+                                {task.type || 'Serv'}
                               </span>
+                            )}
 
-                              {task.type && (
-                                <span className="text-[9px] font-black bg-blue-50/80 backdrop-blur-sm text-blue-600 px-3 py-1.5 rounded-xl uppercase border border-blue-200 shadow-sm">
-                                  {task.type}
-                                </span>
-                              )}
-
-                              <PriceDisplay
-                                value={
-                                  task.charge_type === 'Fixo'
-                                    ? task.fixed_value
-                                    : (task.rate_per_hour *
-                                      (task.time_spent_seconds || 0)) /
-                                    3600
-                                }
-                                user={user}
-                                className="text-[10px] font-black text-green-600 ml-auto bg-green-50/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-green-200 shadow-sm"
-                              />
-                            </div>
+                            <PriceDisplay
+                              value={
+                                task.charge_type === 'Fixo'
+                                  ? task.fixed_value
+                                  : (task.rate_per_hour *
+                                    (task.time_spent_seconds || 0)) /
+                                  3600
+                              }
+                              user={user}
+                              className="text-[9px] font-black text-slate-700 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100 ml-auto sm:ml-0"
+                            />
                           </div>
-
-                          <button
-                            onClick={() => setSelectedTaskForDetails(task)}
-                            className="p-3 bg-slate-100/50 backdrop-blur-sm rounded-xl text-slate-400 hover:text-green-600 hover:bg-green-50/50 transition-all active:scale-110 border border-slate-200 shadow-sm"
-                          >
-                            <Search size={22} strokeWidth={2.5} />
-                          </button>
                         </div>
 
-                        <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
+                        {/* 3. ACTIONS (Right) */}
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+
+                          {/* Timer / Play Button Combined */}
+                          <div className="flex flex-col items-end gap-1">
                             <button
                               onClick={() => handleToggleTaskTimer(task)}
-                              className={`p-3 rounded-xl transition-all shadow-md active:scale-90 border-2 ${isTaskInProgress
-                                ? 'bg-gradient-to-br from-purple-600 to-purple-700 border-purple-500 text-white animate-pulse shadow-purple-200'
-                                : 'bg-slate-100/80 backdrop-blur-sm text-slate-400 border-slate-200 hover:border-slate-300'
+                              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 border-2 ${isTaskInProgress
+                                ? 'bg-purple-600 border-purple-500 text-white animate-pulse shadow-purple-200'
+                                : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-600'
                                 }`}
                             >
-                              {isTaskInProgress ? (
-                                <Pause size={18} fill="currentColor" />
-                              ) : (
-                                <Play size={18} fill="currentColor" />
-                              )}
+                              {isTaskInProgress ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
                             </button>
 
-                            <div className="flex flex-col">
-                              {/* STATUS DO TIMER */}
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`text-[12px] font-black font-mono tracking-tight ${isTaskInProgress
-                                    ? 'text-purple-600'
-                                    : 'text-slate-800'
-                                    }`}
-                                >
-                                  {formatDuration(displaySeconds)}
-                                </span>
-
-                                {/* BADGE EXECUTOR - SAFE MODE */}
-                                {isTaskInProgress && typeof task.last_executor_name === 'string' && task.last_executor_name.length > 0 && (
-                                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-purple-100/50 rounded-full border border-purple-200 animate-in fade-in slide-in-from-left-2">
-                                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
-                                    <span className="text-[8px] font-bold uppercase text-purple-700 tracking-wide max-w-[80px] truncate">
-                                      {task.last_executor_name.split(' ')[0]}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-                                Execução
+                            {/* Timer Display (Always visible or only if started?) - User requests similar to image which shows timer */}
+                            {(isTaskInProgress || (task.time_spent_seconds || 0) > 0) && (
+                              <span className={`text-[9px] font-black font-mono tracking-tight ${isTaskInProgress ? 'text-purple-600 animate-pulse' : 'text-slate-400'}`}>
+                                {formatDuration(displaySeconds)}
                               </span>
-                            </div>
+                            )}
                           </div>
 
-                          {task.media && task.media.length > 0 && (
-                            <div className="flex -space-x-2">
-                              {task.media.slice(0, 3).map(m => (
-                                <div
-                                  key={m.id}
-                                  className="w-8 h-8 rounded-lg border-2 border-white bg-slate-100/80 backdrop-blur-sm overflow-hidden shadow-md"
-                                >
-                                  <img
-                                    src={m.url}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          {/* Details Button */}
+                          <button
+                            onClick={() => setSelectedTaskForDetails(task)}
+                            className="w-8 h-8 sm:w-10 sm:h-10 bg-slate-50 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all active:scale-90 border border-slate-200 flex items-center justify-center"
+                          >
+                            <Search size={16} strokeWidth={2.5} />
+                          </button>
                         </div>
                       </div>
+
+                      {/* 4. EXECUTOR BADGE (Absolute or row?) - Keeping safe logic */}
+                      {isTaskInProgress && typeof task.last_executor_name === 'string' && task.last_executor_name.length > 0 && (
+                        <div className="absolute -top-2 left-4 px-2 py-0.5 bg-purple-100 rounded-full border border-purple-200 shadow-sm flex items-center gap-1.5 z-10">
+                          <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
+                          <span className="text-[8px] font-bold uppercase text-purple-700 tracking-wide">
+                            {task.last_executor_name.split(' ')[0]}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 5. MEDIA INDICATOR (Mini) */}
+                      {task.media && task.media.length > 0 && (
+                        <div className="absolute -bottom-2 left-6 flex -space-x-1.5">
+                          {task.media.slice(0, 3).map(m => (
+                            <div key={m.id} className="w-5 h-5 rounded-full border border-white bg-slate-200 overflow-hidden shadow-sm">
+                              {m.type === 'video' ? (
+                                <div className="w-full h-full flex items-center justify-center bg-slate-800 text-white"><Video size={8} /></div>
+                              ) : (
+                                <img src={m.url} className="w-full h-full object-cover" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
 
-                {service.tasks.length === 0 && (
-                  <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[3rem] bg-slate-50/50">
-                    <LayoutPanelTop
-                      size={40}
-                      className="text-slate-200 mx-auto mb-4"
-                    />
-                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest px-10">
-                      Nenhum item adicionado ao plano de execução
-                    </p>
-                  </div>
-                )}
+                {
+                  service.tasks.length === 0 && (
+                    <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[3rem] bg-slate-50/50">
+                      <LayoutPanelTop
+                        size={40}
+                        className="text-slate-200 mx-auto mb-4"
+                      />
+                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest px-10">
+                        Nenhum item adicionado ao plano de execução
+                      </p>
+                    </div>
+                  )
+                }
               </div>
 
               {/* ADICIONAR NOVA ETAPA MANUAL */}
               <div className="pt-2">
-                {isAddingTask ? (
-                  <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-sm p-6 animate-in slide-in-from-top-2">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl border-2 border-slate-100 bg-slate-50 flex items-center justify-center text-slate-300">
-                        <Wrench size={24} strokeWidth={2} />
-                      </div>
-                      <div className="flex-1">
-                        <VoiceInput
-                          value={newTaskTitle}
-                          onTranscript={setNewTaskTitle}
-                          placeholder="Nome da nova etapa..."
-                          multiline={false}
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleAddTask();
-                            if (e.key === 'Escape') setIsAddingTask(false);
-                          }}
-                          className="!w-full !p-2 !pr-14 !bg-transparent !border-0 !shadow-none !text-sm !font-black !text-slate-800 !placeholder-slate-300 !outline-none !uppercase !tracking-tight !ring-0"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setIsAddingTask(false)}
-                          className="p-3 text-slate-300 hover:text-red-400 transition-colors"
-                        >
-                          <X size={20} />
-                        </button>
-                        <button
-                          onClick={handleAddTask}
-                          className="p-3 bg-slate-900 text-white rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg"
-                        >
-                          <Check size={20} />
-                        </button>
+                {
+                  isAddingTask ? (
+                    <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-sm p-6 animate-in slide-in-from-top-2" >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl border-2 border-slate-100 bg-slate-50 flex items-center justify-center text-slate-300">
+                          <Wrench size={24} strokeWidth={2} />
+                        </div>
+                        <div className="flex-1">
+                          <VoiceInput
+                            value={newTaskTitle}
+                            onTranscript={setNewTaskTitle}
+                            placeholder="Nome da nova etapa..."
+                            multiline={false}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleAddTask();
+                              if (e.key === 'Escape') setIsAddingTask(false);
+                            }}
+                            className="!w-full !p-2 !pr-14 !bg-transparent !border-0 !shadow-none !text-sm !font-black !text-slate-800 !placeholder-slate-300 !outline-none !uppercase !tracking-tight !ring-0"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setIsAddingTask(false)}
+                            className="p-3 text-slate-300 hover:text-red-400 transition-colors"
+                          >
+                            <X size={20} />
+                          </button>
+                          <button
+                            onClick={handleAddTask}
+                            className="p-3 bg-slate-900 text-white rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg"
+                          >
+                            <Check size={20} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setIsAddingTask(true)}
-                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex items-center justify-center gap-3 text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
-                      <Plus size={16} />
-                    </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest">
-                      Adicionar Nova Etapa
-                    </span>
-                  </button>
-                )}
+                  ) : (
+                    <button
+                      onClick={() => setIsAddingTask(true)}
+                      className="w-full py-4 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex items-center justify-center gap-3 text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-slate-50 transition-all group"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
+                        <Plus size={16} />
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        Adicionar Nova Etapa
+                      </span>
+                    </button>
+                  )}
               </div>
 
               {/* TOTAIS DAS ETAPAS */}
-              {service.tasks.length > 0 && (
-                <div className="mt-6 bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2.5rem] p-8 shadow-2xl border-2 border-slate-700 animate-in fade-in-50">
-                  <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[4px] flex items-center gap-2">
-                      <Info size={14} className="text-slate-500" />
-                      Resumo Geral
-                    </h4>
-                  </div>
+              {
+                service.tasks.length > 0 && (
+                  <div className="mt-6 bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2.5rem] p-8 shadow-2xl border-2 border-slate-700 animate-in fade-in-50">
+                    <div className="flex items-center justify-between mb-6">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[4px] flex items-center gap-2">
+                        <Info size={14} className="text-slate-500" />
+                        Resumo Geral
+                      </h4>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-6">
-                    {/* TEMPO TOTAL */}
-                    <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-2xl p-6 border border-purple-400/20 shadow-lg">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                          <Clock size={20} className="text-purple-400" strokeWidth={2.5} />
+                    <div className="grid grid-cols-2 gap-6">
+                      {/* TEMPO TOTAL */}
+                      <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-2xl p-6 border border-purple-400/20 shadow-lg">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                            <Clock size={20} className="text-purple-400" strokeWidth={2.5} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[8px] font-black uppercase text-purple-300 tracking-[2px]">
+                              Tempo Total
+                            </span>
+                            <span className="text-2xl font-black font-mono text-white leading-none">
+                              {formatDuration(
+                                service.tasks.reduce((acc, task) => {
+                                  const isTaskInProgress = task.status === 'in_progress';
+                                  const elapsed = isTaskInProgress && task.started_at
+                                    ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
+                                    : 0;
+                                  return acc + (task.time_spent_seconds || 0) + elapsed;
+                                }, 0)
+                              )}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-[8px] font-black uppercase text-purple-300 tracking-[2px]">
-                            Tempo Total
+                        <div className="text-[9px] font-bold text-purple-300/70 uppercase tracking-wider">
+                          {service.tasks.filter(t => t.status === 'done').length} de {service.tasks.length} concluídas
+                        </div>
+                      </div>
+
+                      {/* VALOR TOTAL */}
+                      <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl p-6 border border-green-400/20 shadow-lg">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
+                            <DollarSign size={20} className="text-green-400" strokeWidth={2.5} />
+                          </div>
+                          <span className="text-[8px] font-black uppercase text-green-300 tracking-[2px]">
+                            Valor Total
                           </span>
-                          <span className="text-2xl font-black font-mono text-white leading-none">
-                            {formatDuration(
-                              service.tasks.reduce((acc, task) => {
+                        </div>
+                        <div className="w-full">
+                          {(() => {
+                            const totalValue = service.tasks.reduce((acc, task) => {
+                              if (task.charge_type === 'Fixo') {
+                                return acc + (task.fixed_value || 0);
+                              } else {
                                 const isTaskInProgress = task.status === 'in_progress';
                                 const elapsed = isTaskInProgress && task.started_at
                                   ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
                                   : 0;
-                                return acc + (task.time_spent_seconds || 0) + elapsed;
-                              }, 0)
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-[9px] font-bold text-purple-300/70 uppercase tracking-wider">
-                        {service.tasks.filter(t => t.status === 'done').length} de {service.tasks.length} concluídas
-                      </div>
-                    </div>
+                                const totalSeconds = (task.time_spent_seconds || 0) + elapsed;
+                                return acc + ((task.rate_per_hour || 0) * totalSeconds) / 3600;
+                              }
+                            }, 0);
 
-                    {/* VALOR TOTAL */}
-                    <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl p-6 border border-green-400/20 shadow-lg">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                          <DollarSign size={20} className="text-green-400" strokeWidth={2.5} />
+                            return (
+                              <PriceDisplay
+                                value={totalValue}
+                                user={user}
+                                className="text-2xl font-black font-mono text-white leading-none whitespace-nowrap block"
+                              />
+                            );
+                          })()}
                         </div>
-                        <span className="text-[8px] font-black uppercase text-green-300 tracking-[2px]">
-                          Valor Total
-                        </span>
-                      </div>
-                      <div className="w-full">
-                        {(() => {
-                          const totalValue = service.tasks.reduce((acc, task) => {
-                            if (task.charge_type === 'Fixo') {
-                              return acc + (task.fixed_value || 0);
-                            } else {
-                              const isTaskInProgress = task.status === 'in_progress';
-                              const elapsed = isTaskInProgress && task.started_at
-                                ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
-                                : 0;
-                              const totalSeconds = (task.time_spent_seconds || 0) + elapsed;
-                              return acc + ((task.rate_per_hour || 0) * totalSeconds) / 3600;
-                            }
-                          }, 0);
-
-                          return (
-                            <PriceDisplay
-                              value={totalValue}
-                              user={user}
-                              className="text-2xl font-black font-mono text-white leading-none whitespace-nowrap block"
-                            />
-                          );
-                        })()}
-                      </div>
-                      <div className="text-[9px] font-bold text-green-300/70 uppercase tracking-wider">
-                        Soma de todas as etapas
+                        <div className="text-[9px] font-bold text-green-300/70 uppercase tracking-wider">
+                          Soma de todas as etapas
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </section>
-          </div>
-        </div>
+                )
+              }
+            </section >
+          </div >
+        </div >
 
         {/* BARRA INFERIOR DE AÇÕES */}
-        <div className="bg-[#1e293b] border-t border-white/10 p-4 pb-6 flex items-center justify-around shrink-0 z-30 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] rounded-b-[2.5rem]">
+        < div className="bg-[#1e293b] border-t border-white/10 p-4 pb-6 flex items-center justify-around shrink-0 z-30 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] rounded-b-[2.5rem]" >
           <button
             onClick={() => setIsSheetOpen(true)}
             className="flex flex-col items-center gap-1 group"
@@ -1004,213 +1000,215 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
               Entregar
             </span>
           </button>
-        </div>
+        </div >
 
         {/* PANEL DETALHES DA ETAPA (LUPA) */}
-        {selectedTaskForDetails && (
-          <div className="fixed inset-0 z-[100] flex items-end justify-center animate-in fade-in duration-300">
-            <div
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-              onClick={() => setSelectedTaskForDetails(null)}
-            />
+        {
+          selectedTaskForDetails && (
+            <div className="fixed inset-0 z-[100] flex items-end justify-center animate-in fade-in duration-300">
+              <div
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                onClick={() => setSelectedTaskForDetails(null)}
+              />
 
-            <div className="bg-white w-full max-w-2xl rounded-t-[3.5rem] p-8 space-y-8 animate-in slide-in-from-bottom-20 shadow-2xl relative z-10 max-h-[90vh] overflow-y-auto font-['Arial'] custom-scrollbar">
+              <div className="bg-white w-full max-w-2xl rounded-t-[3.5rem] p-8 space-y-8 animate-in slide-in-from-bottom-20 shadow-2xl relative z-10 max-h-[90vh] overflow-y-auto font-['Arial'] custom-scrollbar">
 
-              {/* CABEÇALHO */}
-              <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase">
-                    {selectedTaskForDetails.type || 'Etapa'}
-                  </span>
-                  <h3 className="text-xl font-black uppercase text-slate-800 pt-2 tracking-tight">
-                    {selectedTaskForDetails.title}
-                  </h3>
+                {/* CABEÇALHO */}
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase">
+                      {selectedTaskForDetails.type || 'Etapa'}
+                    </span>
+                    <h3 className="text-xl font-black uppercase text-slate-800 pt-2 tracking-tight">
+                      {selectedTaskForDetails.title}
+                    </h3>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedTaskForDetails(null)}
+                    className="p-4 bg-slate-100 rounded-full text-slate-400 active:scale-90"
+                  >
+                    <X size={24} />
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => setSelectedTaskForDetails(null)}
-                  className="p-4 bg-slate-100 rounded-full text-slate-400 active:scale-90"
-                >
-                  <X size={24} />
-                </button>
-              </div>
+                {/* CONFIGURAÇÃO DE VALOR (Apenas se tiver permissão financeira) */}
+                {user?.permissions?.view_financials && (
+                  <div className="bg-slate-50 p-6 rounded-[2.5rem] border-2 border-slate-100 space-y-5">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                        <DollarSign size={14} /> Configuração de Valor
+                      </h4>
+                      <span className="text-[8px] font-black bg-white px-2 py-0.5 rounded-lg border border-slate-200 text-slate-300 uppercase">
+                        Item da OS
+                      </span>
+                    </div>
 
-              {/* CONFIGURAÇÃO DE VALOR (Apenas se tiver permissão financeira) */}
-              {user?.permissions?.view_financials && (
-                <div className="bg-slate-50 p-6 rounded-[2.5rem] border-2 border-slate-100 space-y-5">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                      <DollarSign size={14} /> Configuração de Valor
-                    </h4>
-                    <span className="text-[8px] font-black bg-white px-2 py-0.5 rounded-lg border border-slate-200 text-slate-300 uppercase">
-                      Item da OS
-                    </span>
-                  </div>
+                    <div className="flex p-1 bg-white border border-slate-200 rounded-2xl">
+                      {['Hora', 'Fixo'].map(ct => (
+                        <button
+                          key={ct}
+                          onClick={() =>
+                            handleUpdateTaskCharge({ charge_type: ct as ChargeType })
+                          }
+                          className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedTaskForDetails.charge_type === ct
+                            ? 'bg-slate-900 text-white shadow-lg'
+                            : 'text-slate-400 hover:bg-slate-50'
+                            }`}
+                        >
+                          {ct}
+                        </button>
+                      ))}
+                    </div>
 
-                  <div className="flex p-1 bg-white border border-slate-200 rounded-2xl">
-                    {['Hora', 'Fixo'].map(ct => (
-                      <button
-                        key={ct}
-                        onClick={() =>
-                          handleUpdateTaskCharge({ charge_type: ct as ChargeType })
-                        }
-                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedTaskForDetails.charge_type === ct
-                          ? 'bg-slate-900 text-white shadow-lg'
-                          : 'text-slate-400 hover:bg-slate-50'
-                          }`}
-                      >
-                        {ct}
-                      </button>
-                    ))}
-                  </div>
+                    {/* CAMPO DE VALOR */}
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
+                        {selectedTaskForDetails.charge_type === 'Fixo'
+                          ? 'Preço do Serviço (R$)'
+                          : 'Valor da Hora Técnica (R$)'}
+                      </label>
 
-                  {/* CAMPO DE VALOR */}
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
-                      {selectedTaskForDetails.charge_type === 'Fixo'
-                        ? 'Preço do Serviço (R$)'
-                        : 'Valor da Hora Técnica (R$)'}
-                    </label>
-
-                    <div className="relative">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={priceInputValue}
-                        onFocus={(e) => e.target.select()} // Seleciona tudo ao clicar
-                        onChange={(e) => setPriceInputValue(e.target.value)}
-                        onBlur={() => {
-                          const clean = priceInputValue.replace(/\./g, '').replace(',', '.');
-                          const val = parseFloat(clean) || 0;
-                          handleUpdateTaskCharge(
-                            selectedTaskForDetails.charge_type === 'Fixo'
-                              ? { fixed_value: val }
-                              : { rate_per_hour: val }
-                          );
-                        }}
-                        placeholder="0,00"
-                        className="w-full p-4 pr-20 bg-white border-2 border-transparent focus:border-green-500 rounded-2xl text-lg font-black outline-none transition-all shadow-inner"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20">
-                        <VoiceInput
-                          multiline={false}
-                          normalizeAs="currency"
-                          value=""
-                          onTranscript={(text) => {
-                            // Normalizer retorna "123.45" (US format), apenas parsear
-                            const val = parseFloat(text) || 0;
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={priceInputValue}
+                          onFocus={(e) => e.target.select()} // Seleciona tudo ao clicar
+                          onChange={(e) => setPriceInputValue(e.target.value)}
+                          onBlur={() => {
+                            const clean = priceInputValue.replace(/\./g, '').replace(',', '.');
+                            const val = parseFloat(clean) || 0;
                             handleUpdateTaskCharge(
                               selectedTaskForDetails.charge_type === 'Fixo'
                                 ? { fixed_value: val }
                                 : { rate_per_hour: val }
                             );
                           }}
-                          className="!w-12 !h-12 !p-0 !bg-transparent !border-0 !shadow-none"
+                          placeholder="0,00"
+                          className="w-full p-4 pr-20 bg-white border-2 border-transparent focus:border-green-500 rounded-2xl text-lg font-black outline-none transition-all shadow-inner"
                         />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20">
+                          <VoiceInput
+                            multiline={false}
+                            normalizeAs="currency"
+                            value=""
+                            onTranscript={(text) => {
+                              // Normalizer retorna "123.45" (US format), apenas parsear
+                              const val = parseFloat(text) || 0;
+                              handleUpdateTaskCharge(
+                                selectedTaskForDetails.charge_type === 'Fixo'
+                                  ? { fixed_value: val }
+                                  : { rate_per_hour: val }
+                              );
+                            }}
+                            className="!w-12 !h-12 !p-0 !bg-transparent !border-0 !shadow-none"
+                          />
+                        </div>
+                        <span className="absolute right-16 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm pointer-events-none z-10">
+                          R$
+                        </span>
                       </div>
-                      <span className="absolute right-16 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm pointer-events-none z-10">
-                        R$
+                    </div>
+                  </div>
+                )}
+
+                {/* OBSERVAÇÕES */}
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-2">
+                        <User size={12} /> Relato do Cliente
+                      </label>
+                      <div className="p-5 bg-white rounded-2xl text-sm text-slate-700 font-medium italic border-2 border-slate-50 leading-relaxed shadow-sm">
+                        {selectedTaskForDetails.relato || "Sem observações registradas."}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-2">
+                        <Wrench size={12} /> Diagnóstico Técnico
+                      </label>
+                      <VoiceInput
+                        value={selectedTaskForDetails.diagnostico || ''}
+                        onTranscript={(v) => handleUpdateTaskCharge({ diagnostico: v })}
+                        placeholder="Atualize o diagnóstico aqui..."
+                        className="!bg-white !rounded-2xl !border-2 !border-slate-50 !shadow-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* GALERIA DE MÍDIAS */}
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                        <ImageIcon size={12} /> Galeria de Evidências
+                      </label>
+                      <div className="flex gap-2">
+                        <button onClick={() => setCameraMode('photo')} className="p-2 bg-slate-900 text-white rounded-lg active:scale-90 transition-all">
+                          <Camera size={16} />
+                        </button>
+                        <button onClick={() => setCameraMode('video')} className="p-2 bg-slate-900 text-white rounded-lg active:scale-90 transition-all">
+                          <Video size={16} />
+                        </button>
+                        <button onClick={() => fileInputRef.current?.click()} className="p-2 bg-slate-100 text-slate-500 rounded-lg active:scale-90 transition-all border border-slate-200">
+                          <Upload size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {selectedTaskForDetails.media && selectedTaskForDetails.media.length > 0 ? (
+                        selectedTaskForDetails.media.map(m => (
+                          <div key={m.id} className="aspect-square rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm group relative bg-slate-50">
+                            {m.type === 'image' ? (
+                              <img src={m.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                            ) : (
+                              <video src={m.url} className="w-full h-full object-cover" />
+                            )}
+                            <button
+                              onClick={() => removeMediaFromTask(m.id)}
+                              className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-100 rounded-[2.5rem] bg-slate-50/30">
+                          <ImageIcon size={32} className="text-slate-200 mx-auto mb-2" />
+                          <p className="text-[9px] font-black text-slate-300 uppercase tracking-[2px]">Nenhuma mídia anexada</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RODAPÉ */}
+                <div className="pt-8 border-t flex justify-between items-center sticky bottom-0 bg-white">
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2 text-slate-800">
+                      <Timer size={14} className="text-green-500" />
+                      <span className="text-[12px] font-black font-mono tracking-tight">
+                        {formatDuration(selectedTaskForDetails.time_spent_seconds)}
                       </span>
                     </div>
+                    <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">Tempo Registrado</span>
                   </div>
-                </div>
-              )}
-
-              {/* OBSERVAÇÕES */}
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-2">
-                      <User size={12} /> Relato do Cliente
-                    </label>
-                    <div className="p-5 bg-white rounded-2xl text-sm text-slate-700 font-medium italic border-2 border-slate-50 leading-relaxed shadow-sm">
-                      {selectedTaskForDetails.relato || "Sem observações registradas."}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-2">
-                      <Wrench size={12} /> Diagnóstico Técnico
-                    </label>
-                    <VoiceInput
-                      value={selectedTaskForDetails.diagnostico || ''}
-                      onTranscript={(v) => handleUpdateTaskCharge({ diagnostico: v })}
-                      placeholder="Atualize o diagnóstico aqui..."
-                      className="!bg-white !rounded-2xl !border-2 !border-slate-50 !shadow-sm"
-                    />
-                  </div>
+                  <button
+                    onClick={() => setSelectedTaskForDetails(null)}
+                    className="py-5 px-12 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[2px] shadow-2xl active:scale-95 transition-all flex items-center gap-3"
+                  >
+                    Concluir Edição <Check size={18} strokeWidth={4} />
+                  </button>
                 </div>
 
-                {/* GALERIA DE MÍDIAS */}
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center px-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                      <ImageIcon size={12} /> Galeria de Evidências
-                    </label>
-                    <div className="flex gap-2">
-                      <button onClick={() => setCameraMode('photo')} className="p-2 bg-slate-900 text-white rounded-lg active:scale-90 transition-all">
-                        <Camera size={16} />
-                      </button>
-                      <button onClick={() => setCameraMode('video')} className="p-2 bg-slate-900 text-white rounded-lg active:scale-90 transition-all">
-                        <Video size={16} />
-                      </button>
-                      <button onClick={() => fileInputRef.current?.click()} className="p-2 bg-slate-100 text-slate-500 rounded-lg active:scale-90 transition-all border border-slate-200">
-                        <Upload size={16} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    {selectedTaskForDetails.media && selectedTaskForDetails.media.length > 0 ? (
-                      selectedTaskForDetails.media.map(m => (
-                        <div key={m.id} className="aspect-square rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm group relative bg-slate-50">
-                          {m.type === 'image' ? (
-                            <img src={m.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                          ) : (
-                            <video src={m.url} className="w-full h-full object-cover" />
-                          )}
-                          <button
-                            onClick={() => removeMediaFromTask(m.id)}
-                            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full py-10 text-center border-2 border-dashed border-slate-100 rounded-[2.5rem] bg-slate-50/30">
-                        <ImageIcon size={32} className="text-slate-200 mx-auto mb-2" />
-                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[2px]">Nenhuma mídia anexada</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
-
-              {/* RODAPÉ */}
-              <div className="pt-8 border-t flex justify-between items-center sticky bottom-0 bg-white">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2 text-slate-800">
-                    <Timer size={14} className="text-green-500" />
-                    <span className="text-[12px] font-black font-mono tracking-tight">
-                      {formatDuration(selectedTaskForDetails.time_spent_seconds)}
-                    </span>
-                  </div>
-                  <span className="text-[7px] font-black text-slate-300 uppercase tracking-widest">Tempo Registrado</span>
-                </div>
-                <button
-                  onClick={() => setSelectedTaskForDetails(null)}
-                  className="py-5 px-12 bg-slate-900 text-white rounded-2xl font-black uppercase text-[10px] tracking-[2px] shadow-2xl active:scale-95 transition-all flex items-center gap-3"
-                >
-                  Concluir Edição <Check size={18} strokeWidth={4} />
-                </button>
-              </div>
-
             </div>
-          </div>
-        )}
+          )
+        }
 
-      </div>
+      </div >
 
       {isSheetOpen && (
         <EvaluationSheet
@@ -1223,68 +1221,72 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
         />
       )}
 
-      {showPrintModal && (
-        <PrintModal
-          service={service}
-          vehicle={vehicle}
-          client={client}
-          onClose={() => setShowPrintModal(false)}
-        />
-      )}
+      {
+        showPrintModal && (
+          <PrintModal
+            service={service}
+            vehicle={vehicle}
+            client={client}
+            onClose={() => setShowPrintModal(false)}
+          />
+        )
+      }
 
       {/* Modal de Edição de Lembrete */}
-      {editingReminder && (
-        <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-in fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-t-[3.5rem] p-8 space-y-6 animate-in slide-in-from-bottom-20">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-bold uppercase text-slate-800 tracking-tight leading-none">Editar Lembrete</h3>
-                <p className="text-[10px] font-medium text-slate-400 uppercase mt-2 tracking-widest">{editingReminder.title}</p>
+      {
+        editingReminder && (
+          <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-end justify-center animate-in fade-in">
+            <div className="bg-white w-full max-w-2xl rounded-t-[3.5rem] p-8 space-y-6 animate-in slide-in-from-bottom-20">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold uppercase text-slate-800 tracking-tight leading-none">Editar Lembrete</h3>
+                  <p className="text-[10px] font-medium text-slate-400 uppercase mt-2 tracking-widest">{editingReminder.title}</p>
+                </div>
+                <button onClick={() => setEditingReminder(null)} className="p-4 bg-slate-100 rounded-full text-slate-300 active:scale-90 transition-all touch-target"><X size={24} /></button>
               </div>
-              <button onClick={() => setEditingReminder(null)} className="p-4 bg-slate-100 rounded-full text-slate-300 active:scale-90 transition-all touch-target"><X size={24} /></button>
-            </div>
-            <div className="space-y-4">
-              {/* Título */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Descrição *</label>
-                <VoiceInput
-                  multiline={false}
-                  value={editReminderData.title}
-                  onTranscript={(text) => setEditReminderData({ ...editReminderData, title: text })}
-                  placeholder="Descrição do lembrete"
-                  className="!bg-amber-50 !border-amber-200 focus:!border-amber-400 !text-slate-800"
-                />
-              </div>
-              {/* Data e Hora */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                {/* Título */}
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Data *</label>
-                  <input
-                    type="date"
-                    value={editReminderData.date}
-                    onChange={e => setEditReminderData({ ...editReminderData, date: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-amber-400 rounded-2xl text-sm font-semibold outline-none"
+                  <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Descrição *</label>
+                  <VoiceInput
+                    multiline={false}
+                    value={editReminderData.title}
+                    onTranscript={(text) => setEditReminderData({ ...editReminderData, title: text })}
+                    placeholder="Descrição do lembrete"
+                    className="!bg-amber-50 !border-amber-200 focus:!border-amber-400 !text-slate-800"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Horário *</label>
-                  <input
-                    type="time"
-                    value={editReminderData.time}
-                    onChange={e => setEditReminderData({ ...editReminderData, time: e.target.value })}
-                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-amber-400 rounded-2xl text-sm font-semibold outline-none"
-                  />
+                {/* Data e Hora */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Data *</label>
+                    <input
+                      type="date"
+                      value={editReminderData.date}
+                      onChange={e => setEditReminderData({ ...editReminderData, date: e.target.value })}
+                      className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-amber-400 rounded-2xl text-sm font-semibold outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Horário *</label>
+                    <input
+                      type="time"
+                      value={editReminderData.time}
+                      onChange={e => setEditReminderData({ ...editReminderData, time: e.target.value })}
+                      className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-amber-400 rounded-2xl text-sm font-semibold outline-none"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-4 pt-4 border-t">
-                <button onClick={() => setEditingReminder(null)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Cancelar</button>
-                <button onClick={handleSaveReminderEdit} className="flex-[2] py-5 bg-amber-500 text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all">Salvar</button>
+                <div className="flex gap-4 pt-4 border-t">
+                  <button onClick={() => setEditingReminder(null)} className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl font-bold uppercase text-[10px] tracking-widest">Cancelar</button>
+                  <button onClick={handleSaveReminderEdit} className="flex-[2] py-5 bg-amber-500 text-white rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all">Salvar</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 
