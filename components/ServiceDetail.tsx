@@ -789,8 +789,8 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                             {/* EXECUTOR BADGE (Inline - Persisted) */}
                             {typeof task.last_executor_name === 'string' && task.last_executor_name.length > 0 && (
                               <span className={`text-[8px] font-black px-2 py-0.5 rounded-lg uppercase border animate-in fade-in flex items-center gap-1 ${isTaskInProgress
-                                  ? 'bg-purple-100 text-purple-700 border-purple-200'
-                                  : 'bg-slate-100 text-slate-500 border-slate-200'
+                                ? 'bg-purple-100 text-purple-700 border-purple-200'
+                                : 'bg-slate-100 text-slate-500 border-slate-200'
                                 }`}>
                                 {isTaskInProgress ? (
                                   <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
@@ -960,44 +960,42 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
                     <div className="grid grid-cols-2 gap-6">
                       {/* TEMPO TOTAL */}
-                      <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-2xl p-6 border border-purple-400/20 shadow-lg">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                            <Clock size={20} className="text-purple-400" strokeWidth={2.5} />
+                      <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-2xl p-4 border border-purple-400/20 shadow-lg flex flex-col items-center text-center">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                            <Clock size={16} className="text-purple-400" strokeWidth={2.5} />
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase text-purple-300 tracking-[2px]">
-                              Tempo Total
-                            </span>
-                            <span className="text-2xl font-black font-mono text-white leading-none">
-                              {formatDuration(
-                                service.tasks.reduce((acc, task) => {
-                                  const isTaskInProgress = task.status === 'in_progress';
-                                  const elapsed = isTaskInProgress && task.started_at
-                                    ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
-                                    : 0;
-                                  return acc + (task.time_spent_seconds || 0) + elapsed;
-                                }, 0)
-                              )}
-                            </span>
-                          </div>
+                          <span className="text-[8px] font-black uppercase text-purple-300 tracking-[2px]">
+                            Tempo Total
+                          </span>
                         </div>
-                        <div className="text-[9px] font-bold text-purple-300/70 uppercase tracking-wider">
+                        <span className="text-xl font-black font-mono text-white leading-none">
+                          {formatDuration(
+                            service.tasks.reduce((acc, task) => {
+                              const isTaskInProgress = task.status === 'in_progress';
+                              const elapsed = isTaskInProgress && task.started_at
+                                ? Math.floor((now - new Date(task.started_at).getTime()) / 1000)
+                                : 0;
+                              return acc + (task.time_spent_seconds || 0) + elapsed;
+                            }, 0)
+                          )}
+                        </span>
+                        <div className="text-[8px] font-bold text-purple-300/70 uppercase tracking-wider mt-1">
                           {service.tasks.filter(t => t.status === 'done').length} de {service.tasks.length} concluídas
                         </div>
                       </div>
 
                       {/* VALOR TOTAL */}
-                      <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl p-6 border border-green-400/20 shadow-lg">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-                            <DollarSign size={20} className="text-green-400" strokeWidth={2.5} />
+                      <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl p-4 border border-green-400/20 shadow-lg flex flex-col items-center text-center">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 rounded-xl bg-green-500/20 flex items-center justify-center">
+                            <DollarSign size={16} className="text-green-400" strokeWidth={2.5} />
                           </div>
                           <span className="text-[8px] font-black uppercase text-green-300 tracking-[2px]">
                             Valor Total
                           </span>
                         </div>
-                        <div className="w-full">
+                        <div className="w-full flex justify-center">
                           {(() => {
                             const totalValue = service.tasks.reduce((acc, task) => {
                               if (task.charge_type === 'Fixo') {
@@ -1016,12 +1014,12 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                               <PriceDisplay
                                 value={totalValue}
                                 user={user}
-                                className="text-2xl font-black font-mono text-white leading-none whitespace-nowrap block"
+                                className="text-xl font-black font-mono text-white leading-none whitespace-nowrap block"
                               />
                             );
                           })()}
                         </div>
-                        <div className="text-[9px] font-bold text-green-300/70 uppercase tracking-wider">
+                        <div className="text-[8px] font-bold text-green-300/70 uppercase tracking-wider mt-1">
                           Soma de todas as etapas
                         </div>
                       </div>
