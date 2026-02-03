@@ -1035,84 +1035,86 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                 </button>
               </div>
 
-              {/* CONFIGURAÇÃO DE VALOR — CORREÇÃO APLICADA */}
-              <div className="bg-slate-50 p-6 rounded-[2.5rem] border-2 border-slate-100 space-y-5">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                    <DollarSign size={14} /> Configuração de Valor
-                  </h4>
-                  <span className="text-[8px] font-black bg-white px-2 py-0.5 rounded-lg border border-slate-200 text-slate-300 uppercase">
-                    Item da OS
-                  </span>
-                </div>
+              {/* CONFIGURAÇÃO DE VALOR (Apenas se tiver permissão financeira) */}
+              {user?.permissions?.view_financials && (
+                <div className="bg-slate-50 p-6 rounded-[2.5rem] border-2 border-slate-100 space-y-5">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                      <DollarSign size={14} /> Configuração de Valor
+                    </h4>
+                    <span className="text-[8px] font-black bg-white px-2 py-0.5 rounded-lg border border-slate-200 text-slate-300 uppercase">
+                      Item da OS
+                    </span>
+                  </div>
 
-                <div className="flex p-1 bg-white border border-slate-200 rounded-2xl">
-                  {['Hora', 'Fixo'].map(ct => (
-                    <button
-                      key={ct}
-                      onClick={() =>
-                        handleUpdateTaskCharge({ charge_type: ct as ChargeType })
-                      }
-                      className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedTaskForDetails.charge_type === ct
-                        ? 'bg-slate-900 text-white shadow-lg'
-                        : 'text-slate-400 hover:bg-slate-50'
-                        }`}
-                    >
-                      {ct}
-                    </button>
-                  ))}
-                </div>
+                  <div className="flex p-1 bg-white border border-slate-200 rounded-2xl">
+                    {['Hora', 'Fixo'].map(ct => (
+                      <button
+                        key={ct}
+                        onClick={() =>
+                          handleUpdateTaskCharge({ charge_type: ct as ChargeType })
+                        }
+                        className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${selectedTaskForDetails.charge_type === ct
+                          ? 'bg-slate-900 text-white shadow-lg'
+                          : 'text-slate-400 hover:bg-slate-50'
+                          }`}
+                      >
+                        {ct}
+                      </button>
+                    ))}
+                  </div>
 
-                {/* CAMPO DE VALOR */}
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
-                    {selectedTaskForDetails.charge_type === 'Fixo'
-                      ? 'Preço do Serviço (R$)'
-                      : 'Valor da Hora Técnica (R$)'}
-                  </label>
+                  {/* CAMPO DE VALOR */}
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1">
+                      {selectedTaskForDetails.charge_type === 'Fixo'
+                        ? 'Preço do Serviço (R$)'
+                        : 'Valor da Hora Técnica (R$)'}
+                    </label>
 
-                  <div className="relative">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={priceInputValue}
-                      onFocus={(e) => e.target.select()} // Seleciona tudo ao clicar
-                      onChange={(e) => setPriceInputValue(e.target.value)}
-                      onBlur={() => {
-                        const clean = priceInputValue.replace(/\./g, '').replace(',', '.');
-                        const val = parseFloat(clean) || 0;
-                        handleUpdateTaskCharge(
-                          selectedTaskForDetails.charge_type === 'Fixo'
-                            ? { fixed_value: val }
-                            : { rate_per_hour: val }
-                        );
-                      }}
-                      placeholder="0,00"
-                      className="w-full p-4 pr-20 bg-white border-2 border-transparent focus:border-green-500 rounded-2xl text-lg font-black outline-none transition-all shadow-inner"
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20">
-                      <VoiceInput
-                        multiline={false}
-                        normalizeAs="currency"
-                        value=""
-                        onTranscript={(text) => {
-                          // Normalizer retorna "123.45" (US format), apenas parsear
-                          const val = parseFloat(text) || 0;
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={priceInputValue}
+                        onFocus={(e) => e.target.select()} // Seleciona tudo ao clicar
+                        onChange={(e) => setPriceInputValue(e.target.value)}
+                        onBlur={() => {
+                          const clean = priceInputValue.replace(/\./g, '').replace(',', '.');
+                          const val = parseFloat(clean) || 0;
                           handleUpdateTaskCharge(
                             selectedTaskForDetails.charge_type === 'Fixo'
                               ? { fixed_value: val }
                               : { rate_per_hour: val }
                           );
                         }}
-                        className="!w-12 !h-12 !p-0 !bg-transparent !border-0 !shadow-none"
+                        placeholder="0,00"
+                        className="w-full p-4 pr-20 bg-white border-2 border-transparent focus:border-green-500 rounded-2xl text-lg font-black outline-none transition-all shadow-inner"
                       />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20">
+                        <VoiceInput
+                          multiline={false}
+                          normalizeAs="currency"
+                          value=""
+                          onTranscript={(text) => {
+                            // Normalizer retorna "123.45" (US format), apenas parsear
+                            const val = parseFloat(text) || 0;
+                            handleUpdateTaskCharge(
+                              selectedTaskForDetails.charge_type === 'Fixo'
+                                ? { fixed_value: val }
+                                : { rate_per_hour: val }
+                            );
+                          }}
+                          className="!w-12 !h-12 !p-0 !bg-transparent !border-0 !shadow-none"
+                        />
+                      </div>
+                      <span className="absolute right-16 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm pointer-events-none z-10">
+                        R$
+                      </span>
                     </div>
-                    <span className="absolute right-16 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm pointer-events-none z-10">
-                      R$
-                    </span>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* OBSERVAÇÕES */}
               <div className="space-y-6">
