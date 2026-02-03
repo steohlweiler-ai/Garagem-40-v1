@@ -13,6 +13,7 @@ export interface UserPermissions {
 
 export interface UserAccount {
   id: string;
+  user_id?: string;
   organization_id: string;
   name: string;
   email: string;
