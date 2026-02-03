@@ -1037,7 +1037,8 @@ class SupabaseService {
 
         // Build base query
         // OPTIMIZED: Fetch vehicle and client data in the same query (Server-Side Join)
-        let queryArray = supabase.from('serviços').select('*, vehicle:veículos(*), client:clientes(*)', { count: 'exact' });
+        // OPTIMIZED: Use estimated count for performance
+        let queryArray = supabase.from('serviços').select('*, vehicle:veículos(*), client:clientes(*)', { count: 'estimated' });
 
         // Apply AbortSignal if provided
         if (signal) {
@@ -1050,6 +1051,10 @@ class SupabaseService {
         if (statuses.length > 0) {
             query = query.in('status', statuses);
         } else if (excludeStatuses.length > 0) {
+            // Action-First Optimization: Instead of multiple .not(), which kills performance,
+            // we should ideally query for the "Included" statuses if we know them.
+            // But since this is dynamic, we iterate.
+            // The CRITICAL fix is the INDEX on 'status' which the user will create.
             for (const status of excludeStatuses) {
                 query = query.not('status', 'eq', status);
             }
