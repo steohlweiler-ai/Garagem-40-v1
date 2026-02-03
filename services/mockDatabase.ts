@@ -320,6 +320,14 @@ class MockDB {
       }
     }
   }
+
+  deleteTask(sid: string, tid: string) {
+    const s = this.getServiceById(sid);
+    if (!s) return;
+    s.tasks = s.tasks.filter(t => t.id !== tid);
+    this.save();
+    this.recomputeServiceStatus(sid, 'Exclusão de Etapa');
+  }
   getTemplates() { return this.data.templates || []; }
   saveTemplate(t: any) {
     if (!this.data.templates) this.data.templates = [];

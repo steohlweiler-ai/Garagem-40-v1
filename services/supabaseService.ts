@@ -1475,6 +1475,16 @@ class SupabaseService {
         return true;
     }
 
+
+    async deleteTask(taskId: string): Promise<boolean> {
+        const { error } = await supabase.from('tarefas').delete().eq('id', taskId);
+        if (error) {
+            console.error('Supabase Error (deleteTask):', error);
+            return false;
+        }
+        return true;
+    }
+
     // ===================== REMINDER OPERATIONS =====================
 
     async addReminder(serviceId: string, reminder: Partial<Reminder>): Promise<Reminder | null> {

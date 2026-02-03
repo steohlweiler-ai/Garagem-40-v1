@@ -657,6 +657,20 @@ class DataProvider {
         return true;
     }
 
+    async deleteTask(serviceId: string, taskId: string): Promise<boolean> {
+        if (this.useSupabase) {
+            try {
+                // @ts-ignore
+                return await supabaseDB.deleteTask(taskId);
+            } catch (e) {
+                console.warn('Supabase deleteTask failed.', e);
+                return false;
+            }
+        }
+        mockDB.deleteTask(serviceId, taskId);
+        return true;
+    }
+
     async startTaskExecution(taskId: string, user: { id: string; name: string }): Promise<boolean> {
         if (this.useSupabase) {
             try {

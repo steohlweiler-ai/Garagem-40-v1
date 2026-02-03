@@ -404,6 +404,13 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
     onUpdate();
   };
 
+  const handleDeleteTask = async (taskId: string) => {
+    if (!window.confirm('Excluir esta etapa permanentemente?')) return;
+    await dataProvider.deleteTask(serviceId, taskId);
+    loadData();
+    onUpdate();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex md:items-center md:justify-center bg-slate-900/60 backdrop-blur-sm md:p-10 font-['Arial'] animate-in fade-in">
       {cameraMode && (
@@ -729,6 +736,15 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                               </span>
                             )}
 
+
+                            {/* EXECUTOR BADGE (Inline) */}
+                            {isTaskInProgress && typeof task.last_executor_name === 'string' && task.last_executor_name.length > 0 && (
+                              <span className="text-[8px] font-black bg-purple-100 text-purple-700 px-2 py-0.5 rounded-lg uppercase border border-purple-200 animate-in fade-in flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
+                                {task.last_executor_name.split(' ')[0]}
+                              </span>
+                            )}
+
                             <PriceDisplay
                               value={
                                 task.charge_type === 'Fixo'
@@ -773,18 +789,20 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                           >
                             <Search size={16} strokeWidth={2.5} />
                           </button>
+
+                          {/* Delete Button */}
+                          <button
+                            onClick={() => handleDeleteTask(task.id)}
+                            className="w-8 h-8 sm:w-10 sm:h-10 bg-red-50 rounded-xl text-red-300 hover:text-red-500 hover:bg-red-100 transition-all active:scale-90 border border-red-100 flex items-center justify-center"
+                            title="Excluir etapa"
+                          >
+                            <Trash2 size={16} strokeWidth={2.5} />
+                          </button>
                         </div>
                       </div>
 
                       {/* 4. EXECUTOR BADGE (Absolute or row?) - Keeping safe logic */}
-                      {isTaskInProgress && typeof task.last_executor_name === 'string' && task.last_executor_name.length > 0 && (
-                        <div className="absolute -top-2 left-4 px-2 py-0.5 bg-purple-100 rounded-full border border-purple-200 shadow-sm flex items-center gap-1.5 z-10">
-                          <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
-                          <span className="text-[8px] font-bold uppercase text-purple-700 tracking-wide">
-                            {task.last_executor_name.split(' ')[0]}
-                          </span>
-                        </div>
-                      )}
+
 
                       {/* 5. MEDIA INDICATOR (Mini) */}
                       {task.media && task.media.length > 0 && (
