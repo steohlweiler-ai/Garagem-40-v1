@@ -438,10 +438,10 @@ const App: React.FC = () => {
         }
     }, [isInitialLoad]);
 
-    // ===================== SELF-HEALING CACHE MECHANISM v1.8 =====================
+    // ===================== SELF-HEALING CACHE MECHANISM v1.9 =====================
     // CRITICAL: Must clear IndexedDB (Supabase session storage) not just localStorage
     useEffect(() => {
-        const CURRENT_APP_VERSION = 'v1.8_delaycriteria_fix';
+        const CURRENT_APP_VERSION = 'v1.9_no_criteria_dep';
         const storedVersion = localStorage.getItem('g40_app_version');
 
         console.log('🔍 [CACHE] Checking app version...', { stored: storedVersion, current: CURRENT_APP_VERSION });
@@ -688,7 +688,7 @@ const App: React.FC = () => {
         const interval = setInterval(loadStats, 60000);
 
         return () => clearInterval(interval);
-    }, [isAuthenticated, dashboardFilter, dashboardAdvancedFilters, delayCriteria]);
+    }, [isAuthenticated, dashboardFilter, dashboardAdvancedFilters]); // Removed delayCriteria - uses ref
 
     // Stats now come from fast count API query
     const stats = useMemo(() => {
