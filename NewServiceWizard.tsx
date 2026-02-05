@@ -12,6 +12,7 @@ import VoiceInput from './components/VoiceInput';
 import Stepper from './components/Stepper';
 import CameraCapture from './components/CameraCapture';
 import ColorSelector from './components/ColorSelector';
+import PlateScanner from './components/PlateScanner';
 
 interface NewServiceWizardProps {
   onClose: () => void;
@@ -43,6 +44,7 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
   const [cameraMode, setCameraMode] = useState<'photo' | 'video' | null>(null);
   const [mediaModalItem, setMediaModalItem] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showPlateScanner, setShowPlateScanner] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -381,9 +383,16 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
     } catch (e) { console.error(e); } finally { setIsProcessing(false); setMediaModalItem(null); setCameraMode(null); }
   };
 
+  // 🚗 Handle Plate Scanner Result
+  const handlePlateDetected = (detectedPlate: string) => {
+    handlePlateChange(detectedPlate);
+    setShowPlateScanner(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex md:items-center md:justify-center bg-slate-900/60 backdrop-blur-sm md:p-10 font-['Arial'] animate-in fade-in">
       {cameraMode && <CameraCapture mode={cameraMode} onCapture={addMediaToItem} onClose={() => setCameraMode(null)} />}
+      {showPlateScanner && <PlateScanner onPlateDetected={handlePlateDetected} onClose={() => setShowPlateScanner(false)} />}
       <input type="file" ref={fileInputRef} accept="image/*,video/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) addMediaToItem(file); }} />
 
       <div className="bg-white w-full md:max-w-4xl h-full md:h-[95vh] flex flex-col md:rounded-[2.5rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 duration-500">
@@ -406,7 +415,16 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
             <div className="max-w-2xl mx-auto space-y-6">
               <div className="space-y-2 relative" ref={plateDropdownRef}>
                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Placa (Manual ou Voz)</label>
-                <VoiceInput multiline={false} value={plate} onTranscript={handlePlateChange} placeholder="ABC1234" normalizeAs="plate" className="!text-[28px] !font-black !font-mono !py-6 !shadow-inner !bg-slate-50 !border-transparent" />
+                <div className="relative">
+                  <VoiceInput multiline={false} value={plate} onTranscript={handlePlateChange} placeholder="ABC1234" normalizeAs="plate" className="!text-[28px] !font-black !font-mono !py-6 !shadow-inner !bg-slate-50 !border-transparent !pr-16" />
+                  <button
+                    onClick={() => setShowPlateScanner(true)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-green-600 text-white rounded-xl active:scale-95 transition-all shadow-md hover:bg-green-700"
+                    title="Escanear placa com câmera"
+                  >
+                    <Camera size={20} />
+                  </button>
+                </div>
                 {showPlateDropdown && plate.length >= 1 && (
                   <div className="absolute top-full left-0 right-0 bg-white border-2 border-slate-100 rounded-2xl mt-2 shadow-2xl z-[60] overflow-hidden">
                     {plateSuggestions.map(v => (
