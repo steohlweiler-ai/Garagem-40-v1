@@ -419,54 +419,94 @@ const App: React.FC = () => {
         }
     }, [isInitialLoad]);
 
-    // ===================== SELF-HEALING CACHE MECHANISM v1.5 =====================
-    // MUST RUN FIRST - Detects version mismatch and forces complete reset
+    // ===================== SELF-HEALING CACHE MECHANISM v1.6 =====================
+    // CRITICAL: Must clear IndexedDB (Supabase session storage) not just localStorage
     useEffect(() => {
-        const CURRENT_APP_VERSION = 'v1.5_fix_loop';
+        const CURRENT_APP_VERSION = 'v1.6_full_idb_clear';
         const storedVersion = localStorage.getItem('g40_app_version');
 
         console.log('🔍 [CACHE] Checking app version...', { stored: storedVersion, current: CURRENT_APP_VERSION });
 
         if (storedVersion !== CURRENT_APP_VERSION) {
-            console.warn('⚠️ [CACHE] Version mismatch! Initiating HARD RESET...');
+            console.warn('⚠️ [CACHE] Version mismatch! Initiating NUCLEAR RESET...');
 
-            // SYNCHRONOUS HARD RESET - No async operations that could be interrupted
-            try {
-                // 1. Clear ALL localStorage (removes corrupted state)
-                localStorage.clear();
-                console.log('✅ [CACHE] localStorage.clear() executed');
+            // Must be async to properly clear IndexedDB before reload
+            const performNuclearReset = async () => {
+                try {
+                    // 1. Clear ALL localStorage
+                    localStorage.clear();
+                    console.log('✅ [CACHE] localStorage.clear() executed');
 
-                // 2. Set new version marker AFTER clearing
-                localStorage.setItem('g40_app_version', CURRENT_APP_VERSION);
-                console.log('✅ [CACHE] New version marker set:', CURRENT_APP_VERSION);
+                    // 2. Clear ALL sessionStorage
+                    sessionStorage.clear();
+                    console.log('✅ [CACHE] sessionStorage.clear() executed');
 
-                // 3. Clear Service Workers (async but fire-and-forget)
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.getRegistrations().then(registrations => {
-                        registrations.forEach(r => r.unregister());
-                    }).catch(() => { });
+                    // 3. CRITICAL: Clear ALL IndexedDB databases (including Supabase sb-* databases)
+                    if ('indexedDB' in window && window.indexedDB.databases) {
+                        try {
+                            const databases = await window.indexedDB.databases();
+                            console.log('📦 [CACHE] Found IndexedDB databases:', databases.map(d => d.name));
+
+                            for (const db of databases) {
+                                if (db.name) {
+                                    await new Promise<void>((resolve) => {
+                                        const request = window.indexedDB.deleteDatabase(db.name!);
+                                        request.onsuccess = () => {
+                                            console.log('✅ [CACHE] Deleted IndexedDB:', db.name);
+                                            resolve();
+                                        };
+                                        request.onerror = () => {
+                                            console.warn('⚠️ [CACHE] Failed to delete IndexedDB:', db.name);
+                                            resolve();
+                                        };
+                                        request.onblocked = () => {
+                                            console.warn('⚠️ [CACHE] IndexedDB deletion blocked:', db.name);
+                                            resolve();
+                                        };
+                                    });
+                                }
+                            }
+                            console.log('✅ [CACHE] All IndexedDB databases cleared');
+                        } catch (idbErr) {
+                            console.warn('⚠️ [CACHE] IndexedDB enumeration failed:', idbErr);
+                        }
+                    }
+
+                    // 4. Clear Service Workers
+                    if ('serviceWorker' in navigator) {
+                        try {
+                            const registrations = await navigator.serviceWorker.getRegistrations();
+                            await Promise.all(registrations.map(r => r.unregister()));
+                            console.log('✅ [CACHE] Service Workers cleared');
+                        } catch { }
+                    }
+
+                    // 5. Clear Cache Storage API
+                    if ('caches' in window) {
+                        try {
+                            const keys = await caches.keys();
+                            await Promise.all(keys.map(k => caches.delete(k)));
+                            console.log('✅ [CACHE] Cache Storage cleared');
+                        } catch { }
+                    }
+
+                    // 6. Set new version marker
+                    localStorage.setItem('g40_app_version', CURRENT_APP_VERSION);
+                    console.log('✅ [CACHE] New version marker set:', CURRENT_APP_VERSION);
+
+                    // 7. FORCE RELOAD
+                    console.log('🔄 [CACHE] Nuclear reset complete. Forcing page reload...');
+                    window.location.reload();
+
+                } catch (e) {
+                    console.error('❌ [CACHE] Nuclear reset failed:', e);
+                    localStorage.setItem('g40_app_version', CURRENT_APP_VERSION);
+                    window.location.reload();
                 }
+            };
 
-                // 4. Clear Cache Storage API (async but fire-and-forget)
-                if ('caches' in window) {
-                    caches.keys().then(keys => {
-                        keys.forEach(k => caches.delete(k));
-                    }).catch(() => { });
-                }
-
-                // 5. FORCE RELOAD - Hard refresh to bypass any in-memory state
-                console.log('🔄 [CACHE] Forcing page reload...');
-                window.location.reload();
-
-            } catch (e) {
-                console.error('❌ [CACHE] Hard reset failed:', e);
-                // Fallback: just set version and reload
-                localStorage.setItem('g40_app_version', CURRENT_APP_VERSION);
-                window.location.reload();
-            }
-
-            // CRITICAL: Stop all further execution in this render cycle
-            return;
+            performNuclearReset();
+            return; // Stop further execution
         }
 
         console.log('✅ [CACHE] Version match - proceeding normally');
