@@ -324,6 +324,8 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
     onUpdate();
   };
 
+  const [viewingMedia, setViewingMedia] = useState<ItemMedia | null>(null);
+
   const addMediaToTask = async (mediaSource: { url: string; type: 'image' | 'video' } | File) => {
     if (!selectedTaskForDetails) return;
     setIsProcessingMedia(true);
@@ -340,8 +342,23 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
         }
         finalUrl = uploadedUrl;
         mediaType = mediaSource.type.startsWith('video') ? 'video' : 'image';
+      } else if (mediaSource.url.startsWith('blob:')) {
+        // BLOB URL CONVERSION (From Camera)
+        const response = await fetch(mediaSource.url);
+        const blob = await response.blob();
+        const ext = mediaSource.type === 'video' ? 'webm' : 'jpg';
+        const filename = `capture_${Date.now()}.${ext}`;
+        const file = new File([blob], filename, { type: blob.type });
+
+        const uploadedUrl = await dataProvider.uploadFile(file, 'evidencias');
+        if (!uploadedUrl) {
+          alert('Erro ao salvar captura da câmera.');
+          return;
+        }
+        finalUrl = uploadedUrl;
+        mediaType = mediaSource.type;
       } else {
-        // Reuse existing URL (or re-upload if needed, but usually just linking)
+        // Reuse existing URL
         finalUrl = mediaSource.url;
         mediaType = mediaSource.type;
       }
@@ -415,6 +432,37 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   return (
     <div className="fixed inset-0 z-50 flex md:items-center md:justify-center bg-slate-900/60 backdrop-blur-sm md:p-10 font-['Arial'] animate-in fade-in">
+      {/* LIGHTBOX MEDIA VIEWER */}
+      {viewingMedia && (
+        <div className="fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center p-4 animate-in fade-in duration-200">
+          <button
+            onClick={() => setViewingMedia(null)}
+            className="absolute top-6 right-6 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-all z-10"
+          >
+            <X size={24} />
+          </button>
+
+          <div className="relative w-full h-full flex items-center justify-center max-w-5xl max-h-[85vh]">
+            {viewingMedia.type === 'video' ? (
+              <video
+                src={viewingMedia.url}
+                controls
+                autoPlay
+                className="max-w-full max-h-full rounded-lg shadow-2xl"
+              />
+            ) : (
+              <img
+                src={viewingMedia.url}
+                alt="Evidence"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+            )}
+          </div>
+          <p className="text-slate-400 text-sm mt-4 font-mono">
+            {viewingMedia.type === 'video' ? 'Reproduzindo Vídeo' : 'Visualizando Imagem'}
+          </p>
+        </div>
+      )}
       {cameraMode && (
         <CameraCapture
           mode={cameraMode}
@@ -1232,15 +1280,29 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       {selectedTaskForDetails.media && selectedTaskForDetails.media.length > 0 ? (
                         selectedTaskForDetails.media.map(m => (
-                          <div key={m.id} className="aspect-square rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm group relative bg-slate-50">
+                          <div
+                            key={m.id}
+                            onClick={() => setViewingMedia(m)}
+                            className="aspect-square rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm group relative bg-slate-50 cursor-pointer"
+                          >
                             {m.type === 'image' ? (
                               <img src={m.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
                             ) : (
-                              <video src={m.url} className="w-full h-full object-cover" />
+                              <div className="relative w-full h-full">
+                                <video src={m.url} className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
+                                  <div className="w-10 h-10 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg">
+                                    <Play size={16} className="text-white fill-white ml-0.5" />
+                                  </div>
+                                </div>
+                              </div>
                             )}
                             <button
-                              onClick={() => removeMediaFromTask(m.id)}
-                              className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeMediaFromTask(m.id);
+                              }}
+                              className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-10"
                             >
                               <Trash2 size={12} />
                             </button>
