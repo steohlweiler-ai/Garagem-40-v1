@@ -13,6 +13,12 @@
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
         
+        /* UX: Desabilita pull-to-refresh para evitar atualizações acidentais */
+        html, body {
+            overscroll-behavior-y: contain;
+            overscroll-behavior-x: none;
+        }
+        
         /* UX Feedback: Scrollbar visível para indicar continuidade */
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
