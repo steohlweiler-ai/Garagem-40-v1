@@ -1084,40 +1084,34 @@ class SupabaseService {
         let remindersData: any[] = [];
         let historyData: any[] = [];
 
-        try {
-            // Sub-query 1: Tasks
-            const { data: t, error: te } = await supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order');
-            if (te) console.error('[DEBUG] Tasks Fetch Error:', te);
-            tasksData = t || [];
-        } catch (e) { console.error('[DEBUG] Tasks Crash:', e); }
+        // PERFORMANCE: Fetch sub-queries in PARALLEL using Promise.all
+        const startTime = performance.now();
+        console.log('⏱️ [PERF] Starting parallel sub-queries...');
 
         try {
-            // Sub-query 2: Reminders
-            const { data: r, error: re } = await supabase.from('lembretes').select('*').in('service_id', serviceIds);
-            if (re) console.error('[DEBUG] Reminders Fetch Error:', re);
-            remindersData = r || [];
-        } catch (e) { console.error('[DEBUG] Reminders Crash:', e); }
+            const [tasksData, remindersData, historyData] = await Promise.all([
+                // Sub-query 1: Tasks  
+                supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order')
+                    .then(res => res.data || []).catch(() => []),
 
-        try {
-            // Sub-query 3: History (OPTIMIZED: Added LIMIT to prevent huge result sets)
-            // Re-enabled with performance optimizations to fix React Error #310
-            const { data: h, error: he } = await supabase
-                .from('historico_status')
-                .select('id, service_id, status, timestamp, user_name, action_source')
-                .in('service_id', serviceIds)
-                .order('timestamp', { ascending: false })
-                .limit(1000); // Prevent returning millions of rows
+                // Sub-query 2: Reminders
+                supabase.from('lembretes').select('*').in('service_id', serviceIds)
+                    .then(res => res.data || []).catch(() => []),
 
-            if (he) {
-                console.error('[DEBUG] History Fetch Error:', he);
-                historyData = []; // Graceful fallback
-            } else {
-                historyData = h || [];
-            }
-        } catch (e) {
-            console.error('[DEBUG] History Crash:', e);
-            historyData = []; // Graceful fallback
-        }
+                // Sub-query 3: History (OPTIMIZED: LIMIT + graceful error handling)
+                supabase
+                    .from('historico_status')
+                    .select('id, service_id, status, timestamp, user_name, action_source')
+                    .in('service_id', serviceIds)
+                    .order('timestamp', { ascending: false })
+                    .limit(1000)
+                    .then(res => res.data || []).catch(() => [])
+            ]);
+
+            const duration = performance.now() - startTime;
+            console.log(`⏱️ [PERF] Parallel sub-queries completed in ${duration.toFixed(0)}ms`);
+        } catch (e) { console.error('[DEBUG] Parallel queries crash:', e); }
+
 
         /*
         // OLD BLOCK - DISABLED FOR DEBUGGING
