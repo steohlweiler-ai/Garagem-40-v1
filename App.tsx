@@ -59,6 +59,10 @@ const App: React.FC = () => {
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const PAGE_SIZE = 20;
 
+    // Request ID refs for race condition protection
+    const loadStatsRequestIdRef = useRef(0);
+    const loadServicesRequestIdRef = useRef(0);
+
     // State moved up to be accessible by loadStats
     const [delayCriteria, setDelayCriteria] = useState<any>(null);
     const delayCriteriaRef = useRef(delayCriteria);
@@ -140,16 +144,22 @@ const App: React.FC = () => {
     // Load stats (counts) separately - fast query for chips
     // Load stats (counts) separately - fast query for chips
     const loadStats = async () => {
-        console.log('📈 [DEBUG] loadStats called');
-        // Rescue Plan: Prevent race condition & Stale Data
-        const criteria = delayCriteriaRef.current;
+        // Race condition protection: track this request
+        const requestId = ++loadStatsRequestIdRef.current;
+        console.log('📈 [DEBUG] loadStats called (requestId:', requestId, ')');
 
-        // ✅ FIX: Removed early return - allow loading stats even without criteria
-        // The dataProvider.getServiceCounts accepts null/undefined criteria
+        const criteria = delayCriteriaRef.current;
 
         try {
             console.log('📊 [DEBUG] Fetching service counts...', criteria ? 'with criteria' : 'without criteria');
             const counts = await dataProvider.getServiceCounts(criteria || null);
+
+            // Only update state if this is still the latest request
+            if (requestId !== loadStatsRequestIdRef.current) {
+                console.log('⏭️ [DEBUG] Stale loadStats request detected, skipping state update');
+                return;
+            }
+
             console.log('✅ [DEBUG] Stats received:', counts);
             setStatsCounts(counts || {
                 'Lembrete': 0, 'Pronto': 0, 'total': 0,
@@ -162,7 +172,9 @@ const App: React.FC = () => {
 
     // Load services with Action-First filtering and pagination
     const loadServices = async (reset: boolean = false) => {
-        console.log('🔍 [DEBUG] loadServices called - reset:', reset);
+        // Race condition protection: track this request
+        const requestId = ++loadServicesRequestIdRef.current;
+        console.log('🔍 [DEBUG] loadServices called - reset:', reset, '(requestId:', requestId, ')');
 
         // Reset error state on new fetch attempt
         if (reset) setError(null);
@@ -228,14 +240,18 @@ const App: React.FC = () => {
                 hasMore: result.hasMore
             });
 
+            // Only update state if this is still the latest request
+            if (requestId !== loadServicesRequestIdRef.current) {
+                console.log('⏭️ [DEBUG] Stale loadServices request detected, skipping state update');
+                return;
+            }
+
             if (reset) {
                 setServices(result.data);
             } else {
                 setServices(prev => [...prev, ...result.data]);
             }
 
-            setHasMoreServices(result.hasMore);
-            setCurrentPage(prev => reset ? 1 : prev + 1);
             setHasMoreServices(result.hasMore);
             setCurrentPage(prev => reset ? 1 : prev + 1);
         } catch (err: any) {
@@ -370,18 +386,8 @@ const App: React.FC = () => {
         await Promise.all([loadStats(), loadServices(true)]);
     };
 
-    // COMBINED SECURE LOAD EFFECT
-    useEffect(() => {
-        if (isAuthenticated) {
-            console.log('🚀 Authenticated data sync trigger');
-            loadStats();
-            loadServices(true);
-
-            // Configura poll de atualização para stats (não para lista, para evitar piscadas)
-            const interval = setInterval(loadStats, 30000);
-            return () => clearInterval(interval);
-        }
-    }, [isAuthenticated, dashboardFilter, dashboardAdvancedFilters]);
+    // REMOVED: Duplicate useEffect that was causing race conditions
+    // The main data loading effect is at lines ~573-587
 
     // SAFETY TIMER: Force exit Initial Load if stuck
     useEffect(() => {
