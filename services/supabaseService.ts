@@ -18,11 +18,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 export { SUPABASE_URL, SUPABASE_KEY };
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-    global: {
-        fetch: (url, options) => fetch(url, { ...options, cache: 'no-store' })
-    }
-});
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 class SupabaseService {
     // ===================== STORAGE OPERATIONS =====================
@@ -1085,42 +1081,42 @@ class SupabaseService {
         let historyData: any[] = [];
 
         // PERFORMANCE: Fetch sub-queries in PARALLEL using Promise.all
-        const startTime = performance.now();
-        console.log('⏱️ [PERF] Starting parallel sub-queries...');
+        // OPTIMIZED: Run sub-queries in parallel for significant performance boost
+        const performanceStart = performance.now();
 
         try {
-            const [tasksData, remindersData, historyData] = await Promise.all([
-                // Sub-query 1: Tasks  
-                supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order')
-                    .then(res => res.data || []).catch(() => []),
-
-                // Sub-query 2: Reminders
-                supabase.from('lembretes').select('*').in('service_id', serviceIds)
-                    .then(res => res.data || []).catch(() => []),
-
-                // Sub-query 3: History (OPTIMIZED: LIMIT + graceful error handling)
+            const [tasksResult, remindersResult, historyResult] = await Promise.all([
+                supabase
+                    .from('tarefas')
+                    .select('*')
+                    .in('service_id', serviceIds),
+                supabase
+                    .from('lembretes')
+                    .select('*')
+                    .in('service_id', serviceIds),
                 supabase
                     .from('historico_status')
                     .select('id, service_id, status, timestamp, user_name, action_source')
                     .in('service_id', serviceIds)
                     .order('timestamp', { ascending: false })
                     .limit(1000)
-                    .then(res => res.data || []).catch(() => [])
             ]);
 
-            const duration = performance.now() - startTime;
-            console.log(`⏱️ [PERF] Parallel sub-queries completed in ${duration.toFixed(0)}ms`);
-        } catch (e) { console.error('[DEBUG] Parallel queries crash:', e); }
+            // Properly assign results to outer-scoped variables
+            tasksData = tasksResult.data || [];
+            remindersData = remindersResult.data || [];
+            historyData = historyResult.data || [];
 
+            const performanceEnd = performance.now();
+            console.log(`⚡ [PERFORMANCE] Parallel sub-queries completed in ${(performanceEnd - performanceStart).toFixed(2)}ms`);
 
-        /*
-        // OLD BLOCK - DISABLED FOR DEBUGGING
-        const timeoutPromise = new Promise<{ data: any[], error: any }>((_, reject) => 
-            setTimeout(() => reject(new Error('Query timeout')), 10000)
-        );
-        const fetchPromise = Promise.all([...]);
-        */
-
+            if (tasksResult.error) console.error('❌ [ERROR] Tasks query failed:', tasksResult.error);
+            if (remindersResult.error) console.error('❌ [ERROR] Reminders query failed:', remindersResult.error);
+            if (historyResult.error) console.error('❌ [ERROR] History query failed:', historyResult.error);
+        } catch (err) {
+            console.error('❌ [ERROR] Parallel queries failed:', err);
+            // Continue with empty arrays if parallel queries fail
+        }
         // Map relations to services
         const servicesWithRelations = services.map((s: any) => ({
             ...s,

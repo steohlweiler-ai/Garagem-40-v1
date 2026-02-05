@@ -54,6 +54,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   const [cameraMode, setCameraMode] = useState<'photo' | 'video' | null>(null);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
+  const [loadingMedia, setLoadingMedia] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isAddingReminder, setIsAddingReminder] = useState(false);
@@ -1286,11 +1287,58 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                             onClick={() => setViewingMedia(m)}
                             className="aspect-square rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-sm group relative bg-slate-50 cursor-pointer"
                           >
+                            {loadingMedia.has(m.id) && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-slate-100 z-10">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-400"></div>
+                              </div>
+                            )}
                             {m.type === 'image' ? (
-                              <img src={m.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                              <img
+                                src={m.url}
+                                className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                                onLoad={() => {
+                                  console.log('✅ [MEDIA] Image loaded:', m.url);
+                                  setLoadingMedia(prev => {
+                                    const next = new Set(prev);
+                                    next.delete(m.id);
+                                    return next;
+                                  });
+                                }}
+                                onError={(e) => {
+                                  console.error('❌ [MEDIA] Image load error:', m.url);
+                                  console.error('❌ [MEDIA] Check Supabase bucket permissions');
+                                  setLoadingMedia(prev => {
+                                    const next = new Set(prev);
+                                    next.delete(m.id);
+                                    return next;
+                                  });
+                                  // Show broken image placeholder
+                                  e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23999" font-size="12"%3EImagem%3C/text%3E%3C/svg%3E';
+                                }}
+                              />
                             ) : (
                               <div className="relative w-full h-full">
-                                <video src={m.url} className="w-full h-full object-cover" />
+                                <video
+                                  src={m.url}
+                                  className="w-full h-full object-cover"
+                                  onLoadedData={() => {
+                                    console.log('✅ [MEDIA] Video loaded:', m.url);
+                                    setLoadingMedia(prev => {
+                                      const next = new Set(prev);
+                                      next.delete(m.id);
+                                      return next;
+                                    });
+                                  }}
+                                  onError={() => {
+                                    console.error('❌ [MEDIA] Video load error:', m.url);
+                                    console.error('❌ [MEDIA] Check Supabase bucket permissions');
+                                    setLoadingMedia(prev => {
+                                      const next = new Set(prev);
+                                      next.delete(m.id);
+                                      return next;
+                                    });
+                                  }}
+                                />
                                 <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/10 transition-colors">
                                   <div className="w-10 h-10 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg">
                                     <Play size={16} className="text-white fill-white ml-0.5" />
