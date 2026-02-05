@@ -36,6 +36,7 @@ import UpdatePassword from './components/UpdatePassword';
 import { notificationService } from './services/NotificationService';
 import { supabase } from './services/supabaseService';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
+import { Toaster } from 'react-hot-toast';
 
 
 const App: React.FC = () => {
@@ -913,6 +914,16 @@ const App: React.FC = () => {
 
     return (
         <GlobalErrorBoundary>
+            <Toaster
+                position="top-right"
+                toastOptions={{
+                    duration: 3000,
+                    style: {
+                        background: '#363636',
+                        color: '#fff',
+                    },
+                }}
+            />
             <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 flex text-slate-900 overflow-x-hidden relative">
                 {/* SIDEBAR DESKTOP */}
                 <aside className="hidden lg:flex flex-col w-64 bg-slate-900 text-white fixed h-full z-50 shadow-2xl">

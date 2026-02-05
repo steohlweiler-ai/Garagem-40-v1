@@ -4,12 +4,14 @@ import {
   X, Check, AlertCircle, Package, Hash, DollarSign,
   Trash2, ChevronRight, Search, Info, SlidersHorizontal,
   Wrench, Edit3, ShoppingCart, ArrowRight, Plus, Loader2,
-  ShieldAlert, Clock
+  ShieldAlert, Clock, Sparkles
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { InvoiceItemReview, Product, UserAccount, Invoice, StockMovement } from '../types';
 import { formatCurrency } from '../utils/helpers';
-import { automationService } from '../services/automationService'; // Serviço de automação
+import { automationService } from '../services/automationService';
+import { geminiOCRService } from '../services/geminiOCRService';
+import { toast } from 'react-hot-toast';
 
 interface ValidateInvoiceItemsProps {
   onClose: () => void;
@@ -18,12 +20,7 @@ interface ValidateInvoiceItemsProps {
   user: UserAccount | null;
 }
 
-const MOCK_OCR_ITEMS: InvoiceItemReview[] = [
-  { id: '1', description: 'OLEO MOTOR 5W30 SINTETICO 1L', qty: 12, unit: 'lt', unit_price: 42.50 },
-  { id: '2', description: 'FILTRO OLEO PH10906 HONDA', qty: 4, unit: 'un', unit_price: 28.90 },
-  { id: '3', description: 'PASTILHA FREIO DIANT CIVIC 2012', qty: 2, unit: 'cj', unit_price: 115.00 },
-  { id: '4', description: 'LAMPADA FAROL H4 12V 60W', qty: 10, unit: 'un', unit_price: 15.50 },
-];
+// MOCK_OCR_ITEMS removed - using real Gemini extraction
 // 🔍 Fuzzy Matching Utility for Auto-Linking
 function fuzzyMatch(str1: string, str2: string): number {
   const s1 = str1.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -45,56 +42,98 @@ function fuzzyMatch(str1: string, str2: string): number {
 }
 
 const ValidateInvoiceItems: React.FC<ValidateInvoiceItemsProps> = ({ onClose, onFinish, invoiceImage, user }) => {
-  const [items, setItems] = useState<InvoiceItemReview[]>(MOCK_OCR_ITEMS);
+  const [items, setItems] = useState<InvoiceItemReview[]>([]);
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState('');
   const [isConfirmingFinal, setIsConfirmingFinal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState('NF-' + Math.floor(1000 + Math.random() * 9000));
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [isCreatingProduct, setIsCreatingProduct] = useState<string | null>(null);
 
   const [catalog, setCatalog] = useState<Product[]>([]);
 
+  // 🤖 GEMINI OCR: Extract items from invoice image
   useEffect(() => {
-    const load = async () => {
-      const all = await dataProvider.getProducts();
-      setCatalog(all);
+    const extractAndProcess = async () => {
+      if (!invoiceImage) {
+        console.warn('⚠️ No invoice image provided');
+        return;
+      }
 
-      // 🔗 AUTO-LINK: Match each item to best catalog product
-      console.log('🤖 Starting auto-link for', items.length, 'items');
-      setItems(prev => prev.map(item => {
-        if (item.product_id) {
-          console.log('✅ Item already linked:', item.description);
-          return item; // Already manually linked
-        }
+      setIsProcessingOCR(true);
 
-        let bestMatch: Product | null = null;
-        let bestScore = 0.6; // Minimum confidence threshold (60%)
+      try {
+        console.log('🤖 [GEMINI] Starting invoice extraction...');
 
-        for (const product of all) {
-          const score = fuzzyMatch(item.description, product.name);
-          if (score > bestScore) {
-            bestScore = score;
-            bestMatch = product;
+        // Extract items using Gemini AI
+        const extractedItems = await geminiOCRService.scanInvoiceWithGemini(invoiceImage);
+        console.log(`✅ [GEMINI] Extracted ${extractedItems.length} items`);
+
+        // Load product catalog
+        const all = await dataProvider.getProducts();
+        setCatalog(all);
+
+        // 🔗 AUTO-LINK: Match each item to best catalog product
+        const processedItems = extractedItems.map(item => {
+          let bestMatch: Product | null = null;
+          let bestScore = 0;
+
+          for (const product of all) {
+            const score = fuzzyMatch(item.description, product.name);
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = product;
+            }
           }
-        }
 
-        if (bestMatch) {
-          console.log('🎯 Auto-linked:', item.description, '->', bestMatch.name, `(${Math.round(bestScore * 100)}%)`);
-          return {
-            ...item,
-            product_id: bestMatch.id,
-            unit: bestMatch.unit,
-            unit_price: bestMatch.cost,
-            matchConfidence: bestScore
-          };
-        }
+          // ✅ HIGH CONFIDENCE (≥75%): Auto-link
+          if (bestMatch && bestScore >= 0.75) {
+            console.log(`🎯 AUTO-LINKED (HIGH): ${item.description} -> ${bestMatch.name} (${Math.round(bestScore * 100)}%)`);
+            return {
+              ...item,
+              product_id: bestMatch.id,
+              unit: bestMatch.unit,
+              unit_price: bestMatch.cost,
+              matchConfidence: bestScore
+            };
+          }
 
-        console.log('❌ No match found for:', item.description);
-        return item;
-      }));
+          // ⚠️ MEDIUM CONFIDENCE (60-74%): Suggest but don't auto-link
+          if (bestMatch && bestScore >= 0.6) {
+            console.log(`⚠️ POSSIBLE MATCH (LOW): ${item.description} ~ ${bestMatch.name} (${Math.round(bestScore * 100)}%)`);
+            return {
+              ...item,
+              matchConfidence: bestScore,
+              suggestedProduct: bestMatch // Store suggestion
+            } as any;
+          }
+
+          // ❌ NO MATCH (<60%): Will show "Create New Product"
+          console.log(`❌ NO MATCH: ${item.description}`);
+          return item;
+        });
+
+        setItems(processedItems);
+        toast.success(`${processedItems.length} itens extraídos da nota!`);
+
+      } catch (error: any) {
+        console.error('❌ [GEMINI] Extraction failed:', error);
+
+        if (error.message === 'RATE_LIMIT') {
+          toast.error('Muitas notas de uma vez! Aguarde 1 minuto.');
+        } else if (error.message === 'INVALID_API_KEY') {
+          toast.error('Chave API Gemini inválida. Configure em .env');
+        } else {
+          toast.error('Erro ao processar nota. Tente novamente.');
+        }
+      } finally {
+        setIsProcessingOCR(false);
+      }
     };
-    load();
-  }, []);
+
+    extractAndProcess();
+  }, [invoiceImage]);
 
   const canFinalizeStock = user?.role?.toLowerCase() === 'admin' || user?.role === 'stock_manager';
 
@@ -124,6 +163,36 @@ const ValidateInvoiceItems: React.FC<ValidateInvoiceItemsProps> = ({ onClose, on
     });
     setIsProductSelectorOpen(null);
     setProductSearch('');
+  };
+
+  // 🆕 Quick Product Creation from Invoice Item
+  const handleCreateNewProduct = async (item: InvoiceItemReview) => {
+    setIsCreatingProduct(item.id);
+
+    try {
+      const newProduct = await dataProvider.createProduct({
+        name: item.description,
+        sku: `AUTO_${Date.now()}`,
+        unit: (item.unit || 'un') as any,
+        cost: item.unit_price,
+        price: item.unit_price * 1.3, // 30% markup
+        current_stock: 0,
+        min_stock: 5
+      });
+
+      if (newProduct) {
+        associateProduct(item.id, newProduct);
+        setCatalog(prev => [...prev, newProduct]);
+        toast.success(`Produto "${newProduct.name}" cadastrado!`);
+      } else {
+        toast.error('Erro ao cadastrar produto');
+      }
+    } catch (error) {
+      console.error('Error creating product:', error);
+      toast.error('Erro ao cadastrar produto');
+    } finally {
+      setIsCreatingProduct(null);
+    }
   };
 
   const totalInvoice = useMemo(() => {

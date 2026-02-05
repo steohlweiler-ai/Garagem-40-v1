@@ -772,6 +772,43 @@ class SupabaseService {
         return !error;
     }
 
+    async createProduct(product: Omit<Product, 'id'>): Promise<Product | null> {
+        const { data, error } = await supabase
+            .from('produtos')
+            .insert([{
+                name: product.name,
+                sku: product.sku,
+                unit: product.unit,
+                cost: product.cost,
+                price: product.price,
+                stock_quantity: product.current_stock,
+                min_stock: product.min_stock,
+                supplier: product.supplier,
+                organization_id: 'org-default'
+            }])
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Error creating product:', error);
+            return null;
+        }
+
+        // Map back to Product type
+        return {
+            id: data.id,
+            name: data.name,
+            sku: data.sku,
+            unit: data.unit,
+            cost: data.cost,
+            price: data.price,
+            current_stock: data.stock_quantity || 0,
+            min_stock: data.min_stock,
+            supplier: data.supplier
+        } as Product;
+    }
+
+
     async addInvoice(i: Partial<Invoice>): Promise<Invoice | null> {
         const { data, error } = await supabase.from('faturas').insert({
             invoice_number: i.number,

@@ -154,6 +154,28 @@ class DataProvider {
         return true;
     }
 
+    async createProduct(product: Omit<Product, 'id'>): Promise<Product | null> {
+        if (this.useSupabase) {
+            try {
+                const newProduct = await supabaseDB.createProduct(product);
+                if (newProduct) {
+                    console.log('[DataProvider] Product created in Supabase:', newProduct.id);
+                    return newProduct;
+                }
+            } catch (e) {
+                console.warn('Supabase createProduct failed, falling back to mock.', e);
+            }
+        }
+        // Mock fallback
+        const mockProduct: Product = {
+            id: crypto.randomUUID(),
+            ...product,
+        };
+        mockDB.getProducts().push(mockProduct);
+        return mockProduct;
+    }
+
+
     async addInvoice(i: Partial<Invoice>) {
         if (this.useSupabase) return await supabaseDB.addInvoice(i);
         return mockDB.addInvoice(i);
