@@ -63,6 +63,10 @@ const App: React.FC = () => {
     const loadStatsRequestIdRef = useRef(0);
     const loadServicesRequestIdRef = useRef(0);
 
+    // CHROME STRICT MODE FIX: Loading mutex refs to prevent duplicate calls
+    const loadingStatsRef = useRef(false);
+    const loadingServicesRef = useRef(false);
+
     // State moved up to be accessible by loadStats
     const [delayCriteria, setDelayCriteria] = useState<any>(null);
     const delayCriteriaRef = useRef(delayCriteria);
@@ -140,10 +144,15 @@ const App: React.FC = () => {
 
 
 
-    // ===================== ACTION-FIRST VIEW LOADING =====================
-    // Load stats (counts) separately - fast query for chips
     // Load stats (counts) separately - fast query for chips
     const loadStats = async () => {
+        // CHROME STRICT MODE FIX: Prevent duplicate concurrent calls
+        if (loadingStatsRef.current) {
+            console.log('🔒 [DEBUG] loadStats blocked - already loading');
+            return;
+        }
+        loadingStatsRef.current = true;
+
         // Race condition protection: track this request
         const requestId = ++loadStatsRequestIdRef.current;
         console.log('📈 [DEBUG] loadStats called (requestId:', requestId, ')');
@@ -167,17 +176,23 @@ const App: React.FC = () => {
             }); // Defensive fallback
         } catch (err) {
             console.error('❌ [ERROR] Failed to load stats:', err);
+        } finally {
+            loadingStatsRef.current = false;
         }
     };
 
     // Load services with Action-First filtering and pagination
     const loadServices = async (reset: boolean = false) => {
+        // CHROME STRICT MODE FIX: Prevent duplicate concurrent calls
+        if (loadingServicesRef.current) {
+            console.log('🔒 [DEBUG] loadServices blocked - already loading');
+            return;
+        }
+        loadingServicesRef.current = true;
+
         // Race condition protection: track this request
         const requestId = ++loadServicesRequestIdRef.current;
         console.log('🔍 [DEBUG] loadServices called - reset:', reset, '(requestId:', requestId, ')');
-
-        // Reset error state on new fetch attempt
-        if (reset) setError(null);
 
         const controller = new AbortController();
         const timeout = setTimeout(() => {
@@ -187,7 +202,10 @@ const App: React.FC = () => {
 
         try {
             console.log('📊 [DEBUG] Setting loading states...');
+
+            // Reset error state on new fetch attempt
             if (reset) {
+                setError(null);
                 setIsInitialLoad(true);
                 setCurrentPage(0);
             } else {
@@ -281,6 +299,7 @@ const App: React.FC = () => {
             clearTimeout(timeout);
             setIsLoadingMore(false);
             setIsInitialLoad(false);
+            loadingServicesRef.current = false; // Release mutex
         }
     };
 
@@ -400,37 +419,57 @@ const App: React.FC = () => {
         }
     }, [isInitialLoad]);
 
-    // NUCLEAR CACHE BUSTER - VERSION 1.1
+    // ===================== SELF-HEALING CACHE MECHANISM v1.5 =====================
+    // MUST RUN FIRST - Detects version mismatch and forces complete reset
     useEffect(() => {
-        const APP_VERSION = '1.3-deep-clean-auto';
+        const CURRENT_APP_VERSION = 'v1.5_fix_loop';
         const storedVersion = localStorage.getItem('g40_app_version');
-        if (storedVersion !== APP_VERSION) {
-            console.warn('App Version mismatch. Clearing cache and Service Workers...');
 
-            // AUTOMATIC DEEP CLEAN TRIGER
-            // This replicates the handleSmartRetry logic but runs automatically on version mismatch
-            const performAutoClean = async () => {
+        console.log('🔍 [CACHE] Checking app version...', { stored: storedVersion, current: CURRENT_APP_VERSION });
+
+        if (storedVersion !== CURRENT_APP_VERSION) {
+            console.warn('⚠️ [CACHE] Version mismatch! Initiating HARD RESET...');
+
+            // SYNCHRONOUS HARD RESET - No async operations that could be interrupted
+            try {
+                // 1. Clear ALL localStorage (removes corrupted state)
+                localStorage.clear();
+                console.log('✅ [CACHE] localStorage.clear() executed');
+
+                // 2. Set new version marker AFTER clearing
+                localStorage.setItem('g40_app_version', CURRENT_APP_VERSION);
+                console.log('✅ [CACHE] New version marker set:', CURRENT_APP_VERSION);
+
+                // 3. Clear Service Workers (async but fire-and-forget)
                 if ('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (const r of registrations) await r.unregister();
+                    navigator.serviceWorker.getRegistrations().then(registrations => {
+                        registrations.forEach(r => r.unregister());
+                    }).catch(() => { });
                 }
 
+                // 4. Clear Cache Storage API (async but fire-and-forget)
                 if ('caches' in window) {
-                    const keys = await caches.keys();
-                    // Clean only sw-related caches or all? All to be safe.
-                    await Promise.all(keys.map(k => caches.delete(k)));
+                    caches.keys().then(keys => {
+                        keys.forEach(k => caches.delete(k));
+                    }).catch(() => { });
                 }
 
-                localStorage.removeItem('g40_user_session');
-                localStorage.removeItem('g40_dashboard_filters');
-                localStorage.setItem('g40_app_version', APP_VERSION);
-
-                console.log('✅ Auto Deep Clean Done. Reloading...');
+                // 5. FORCE RELOAD - Hard refresh to bypass any in-memory state
+                console.log('🔄 [CACHE] Forcing page reload...');
                 window.location.reload();
-            };
 
-            performAutoClean();
+            } catch (e) {
+                console.error('❌ [CACHE] Hard reset failed:', e);
+                // Fallback: just set version and reload
+                localStorage.setItem('g40_app_version', CURRENT_APP_VERSION);
+                window.location.reload();
+            }
+
+            // CRITICAL: Stop all further execution in this render cycle
+            return;
         }
+
+        console.log('✅ [CACHE] Version match - proceeding normally');
     }, []);
 
     useEffect(() => {
