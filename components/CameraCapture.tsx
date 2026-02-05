@@ -74,7 +74,9 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ mode, onCapture, onClose 
 
     recorder.ondataavailable = (e) => chunks.push(e.data);
     recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: 'video/mp4' });
+      // Use the actual MIME type from MediaRecorder (browser-native codec)
+      const mimeType = recorder.mimeType || 'video/webm';
+      const blob = new Blob(chunks, { type: mimeType });
       setCapturedBlob(blob);
       setPreviewUrl(URL.createObjectURL(blob));
       stopCamera();

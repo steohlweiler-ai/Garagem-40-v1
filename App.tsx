@@ -427,21 +427,24 @@ const App: React.FC = () => {
     // REMOVED: Duplicate useEffect that was causing race conditions
     // The main data loading effect is at lines ~573-587
 
-    // SAFETY TIMER: Force exit Initial Load if stuck
+    // v2.0 FIX: Controlled initialization - only one initial load per session
+    const hasInitializedRef = useRef(false);
+
+    // Safety fallback: Only trigger if stuck for too long WITH NO DATA
     useEffect(() => {
-        if (isInitialLoad) {
+        if (isInitialLoad && services.length === 0) {
             const timer = setTimeout(() => {
-                console.warn('⚠️ Safety Timer triggered: Forcing isInitialLoad to false');
+                console.warn('⚠️ Safety Timer triggered: Forcing isInitialLoad to false (no data loaded)');
                 setIsInitialLoad(false);
-            }, 8000); // 8 seconds max
+            }, 15000); // Extended to 15 seconds to allow for slower connections
             return () => clearTimeout(timer);
         }
-    }, [isInitialLoad]);
+    }, [isInitialLoad, services.length]);
 
-    // ===================== SELF-HEALING CACHE MECHANISM v1.9 =====================
+    // ===================== SELF-HEALING CACHE MECHANISM v2.0 =====================
     // CRITICAL: Must clear IndexedDB (Supabase session storage) not just localStorage
     useEffect(() => {
-        const CURRENT_APP_VERSION = 'v1.9_no_criteria_dep';
+        const CURRENT_APP_VERSION = 'v2.0_multi_fix';
         const storedVersion = localStorage.getItem('g40_app_version');
 
         console.log('🔍 [CACHE] Checking app version...', { stored: storedVersion, current: CURRENT_APP_VERSION });
@@ -679,9 +682,18 @@ const App: React.FC = () => {
 
         console.log('🚀 Authenticated data sync trigger');
 
-        // Initial load
-        loadStats();
-        loadServices(true);
+        // v2.0: Only do full reset on first initialization
+        const isFirstLoad = !hasInitializedRef.current;
+        if (isFirstLoad) {
+            hasInitializedRef.current = true;
+            // Initial load
+            loadStats();
+            loadServices(true);
+        } else {
+            // Subsequent triggers (filter changes) - just reload with current filters
+            loadStats();
+            loadServices(true);
+        }
 
         // Poll stats only (not full service list to avoid flicker)
         // Optimized from 15s to 60s to prevent excessive requests

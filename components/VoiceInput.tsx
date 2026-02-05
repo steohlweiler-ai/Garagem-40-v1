@@ -84,7 +84,7 @@ const VoiceInput = React.forwardRef<
       if (e.cancelable) e.preventDefault();
 
       if (!isSupported) {
-        setError('Navegador s/ mic');
+        setError(voiceManager.getUnsupportedMessage());
         return;
       }
 
