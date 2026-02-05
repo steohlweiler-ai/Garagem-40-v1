@@ -438,10 +438,10 @@ const App: React.FC = () => {
         }
     }, [isInitialLoad]);
 
-    // ===================== SELF-HEALING CACHE MECHANISM v1.7 =====================
+    // ===================== SELF-HEALING CACHE MECHANISM v1.8 =====================
     // CRITICAL: Must clear IndexedDB (Supabase session storage) not just localStorage
     useEffect(() => {
-        const CURRENT_APP_VERSION = 'v1.7_mutex_timeout';
+        const CURRENT_APP_VERSION = 'v1.8_delaycriteria_fix';
         const storedVersion = localStorage.getItem('g40_app_version');
 
         console.log('🔍 [CACHE] Checking app version...', { stored: storedVersion, current: CURRENT_APP_VERSION });

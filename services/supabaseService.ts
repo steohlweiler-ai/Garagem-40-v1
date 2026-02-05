@@ -235,7 +235,8 @@ class SupabaseService {
     }
 
     async getDelayCriteria(): Promise<DelayCriteria | null> {
-        const { data, error } = await supabase.from('critérios_de_atraso').select('*').eq('active', true).limit(1).single();
+        // Use maybeSingle() to gracefully handle zero rows (returns null instead of 406 error)
+        const { data, error } = await supabase.from('critérios_de_atraso').select('*').eq('active', true).limit(1).maybeSingle();
         if (error || !data) return null;
         return {
             active: data.active,
@@ -925,10 +926,6 @@ class SupabaseService {
     async getServiceCounts(injectedCriteria?: DelayCriteria | null): Promise<Record<string, number>> {
         // Usar critérios injetados (do frontend) ou buscar do banco
         let criteria = injectedCriteria;
-
-        if (!criteria) {
-            criteria = await this.getDelayCriteria();
-        }
 
         if (!criteria) {
             criteria = await this.getDelayCriteria();
