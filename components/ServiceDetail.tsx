@@ -80,6 +80,9 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   // Estado local para o input de preço, permitindo edição sem re-render loop
   const [priceInputValue, setPriceInputValue] = useState('');
 
+  // Estado para visualização de mídia em lightbox
+  const [viewingMedia, setViewingMedia] = useState<ItemMedia | null>(null);
+
   useEffect(() => {
     if (selectedTaskForDetails) {
       const val = selectedTaskForDetails.charge_type === 'Fixo'
@@ -323,8 +326,6 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
     loadData();
     onUpdate();
   };
-
-  const [viewingMedia, setViewingMedia] = useState<ItemMedia | null>(null);
 
   const addMediaToTask = async (mediaSource: { url: string; type: 'image' | 'video' } | File) => {
     if (!selectedTaskForDetails) return;

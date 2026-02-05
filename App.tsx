@@ -444,7 +444,7 @@ const App: React.FC = () => {
     // ===================== SELF-HEALING CACHE MECHANISM v2.0 =====================
     // CRITICAL: Must clear IndexedDB (Supabase session storage) not just localStorage
     useEffect(() => {
-        const CURRENT_APP_VERSION = 'v2.0_multi_fix';
+        const CURRENT_APP_VERSION = 'v2.1_media_viewer_fix';
         const storedVersion = localStorage.getItem('g40_app_version');
 
         console.log('🔍 [CACHE] Checking app version...', { stored: storedVersion, current: CURRENT_APP_VERSION });
