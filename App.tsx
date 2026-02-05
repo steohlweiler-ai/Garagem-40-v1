@@ -431,11 +431,15 @@ const App: React.FC = () => {
     const hasInitializedRef = useRef(false);
 
     // Safety fallback: Only trigger if stuck for too long WITH NO DATA
+    // FIXED: Use requestAnimationFrame to avoid mid-render state changes (React Error #310)
     useEffect(() => {
         if (isInitialLoad && services.length === 0) {
             const timer = setTimeout(() => {
                 console.warn('⚠️ Safety Timer triggered: Forcing isInitialLoad to false (no data loaded)');
-                setIsInitialLoad(false);
+                // Use requestAnimationFrame to ensure we're not mid-render
+                requestAnimationFrame(() => {
+                    setIsInitialLoad(false);
+                });
             }, 15000); // Extended to 15 seconds to allow for slower connections
             return () => clearTimeout(timer);
         }

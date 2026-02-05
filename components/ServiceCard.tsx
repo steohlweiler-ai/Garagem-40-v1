@@ -18,13 +18,22 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
   const vehicle = service.vehicle || null;
   const client = service.client || null;
 
+  // CRITICAL: useMemo must always be called, even if data is missing (React Error #310 prevention)
   const delayInfo = useMemo(() => {
-    if (!service.estimated_delivery || service.status === ServiceStatus.ENTREGUE) return { isDelayed: false };
+    if (!service?.estimated_delivery || service?.status === ServiceStatus.ENTREGUE) {
+      return { isDelayed: false };
+    }
+    // Safely handle null delayCriteria
+    if (!delayCriteria) {
+      return { isDelayed: false };
+    }
     return calculateDelayStatus(service.estimated_delivery, delayCriteria, service.priority);
-  }, [service.estimated_delivery, service.priority, delayCriteria, service.status]);
+  }, [service?.estimated_delivery, service?.priority, service?.status, delayCriteria]);
 
+  // CRITICAL: useEffect must always be called (React Error #310 prevention)
   useEffect(() => {
-    const activeTask = service.tasks?.find(t => t.status === 'in_progress');
+    // Guard: safely access service.tasks
+    const activeTask = service?.tasks?.find(t => t.status === 'in_progress');
     if (!activeTask || !activeTask.started_at) {
       setActiveDuration(null);
       return;
@@ -37,12 +46,18 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [service.tasks]);
+  }, [service?.tasks]);
 
-  const hasReminders = service.reminders?.some(r => r.status === 'active');
-  const entryDate = new Date(service.entry_at);
+  // Safe property access with guards
+  const hasReminders = service?.reminders?.some(r => r.status === 'active') ?? false;
+  const entryDate = service?.entry_at ? new Date(service.entry_at) : new Date();
   const day = entryDate.getDate();
   const month = entryDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+
+  // Early return AFTER all hooks to prevent hook count mismatch
+  if (!service) {
+    return null;
+  }
 
   // Status Styling Logic (similar to ClientDetails)
   const getStatusStyle = (status: ServiceStatus) => {

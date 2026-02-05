@@ -1099,16 +1099,25 @@ class SupabaseService {
         } catch (e) { console.error('[DEBUG] Reminders Crash:', e); }
 
         try {
-            // Sub-query 3: History (NEW TABLE - Suspector number 1)
-            // DISABLED TEMPORARILY due to timeout issues
-            /*
-            const { data: h, error: he } = await supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp');
-            if (he) console.error('[DEBUG] History Fetch Error:', he);
-            historyData = h || [];
-            */
-            historyData = [];
-            console.warn('[DEBUG] History fetch disabled temporarily.');
-        } catch (e) { console.error('[DEBUG] History Crash:', e); }
+            // Sub-query 3: History (OPTIMIZED: Added LIMIT to prevent huge result sets)
+            // Re-enabled with performance optimizations to fix React Error #310
+            const { data: h, error: he } = await supabase
+                .from('historico_status')
+                .select('id, service_id, status, timestamp, user_name, action_source')
+                .in('service_id', serviceIds)
+                .order('timestamp', { ascending: false })
+                .limit(1000); // Prevent returning millions of rows
+
+            if (he) {
+                console.error('[DEBUG] History Fetch Error:', he);
+                historyData = []; // Graceful fallback
+            } else {
+                historyData = h || [];
+            }
+        } catch (e) {
+            console.error('[DEBUG] History Crash:', e);
+            historyData = []; // Graceful fallback
+        }
 
         /*
         // OLD BLOCK - DISABLED FOR DEBUGGING
