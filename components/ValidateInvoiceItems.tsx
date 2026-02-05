@@ -24,6 +24,25 @@ const MOCK_OCR_ITEMS: InvoiceItemReview[] = [
   { id: '3', description: 'PASTILHA FREIO DIANT CIVIC 2012', qty: 2, unit: 'cj', unit_price: 115.00 },
   { id: '4', description: 'LAMPADA FAROL H4 12V 60W', qty: 10, unit: 'un', unit_price: 15.50 },
 ];
+// 🔍 Fuzzy Matching Utility for Auto-Linking
+function fuzzyMatch(str1: string, str2: string): number {
+  const s1 = str1.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const s2 = str2.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // Exact match (normalized)
+  if (s1 === s2) return 1.0;
+
+  // Substring match
+  if (s1.includes(s2) || s2.includes(s1)) return 0.85;
+
+  // Word overlap score
+  const words1 = str1.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  const words2 = str2.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  const overlap = words1.filter(w => words2.includes(w)).length;
+  const score = overlap / Math.max(words1.length, words2.length, 1);
+
+  return score;
+}
 
 const ValidateInvoiceItems: React.FC<ValidateInvoiceItemsProps> = ({ onClose, onFinish, invoiceImage, user }) => {
   const [items, setItems] = useState<InvoiceItemReview[]>(MOCK_OCR_ITEMS);
@@ -39,6 +58,40 @@ const ValidateInvoiceItems: React.FC<ValidateInvoiceItemsProps> = ({ onClose, on
     const load = async () => {
       const all = await dataProvider.getProducts();
       setCatalog(all);
+
+      // 🔗 AUTO-LINK: Match each item to best catalog product
+      console.log('🤖 Starting auto-link for', items.length, 'items');
+      setItems(prev => prev.map(item => {
+        if (item.product_id) {
+          console.log('✅ Item already linked:', item.description);
+          return item; // Already manually linked
+        }
+
+        let bestMatch: Product | null = null;
+        let bestScore = 0.6; // Minimum confidence threshold (60%)
+
+        for (const product of all) {
+          const score = fuzzyMatch(item.description, product.name);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = product;
+          }
+        }
+
+        if (bestMatch) {
+          console.log('🎯 Auto-linked:', item.description, '->', bestMatch.name, `(${Math.round(bestScore * 100)}%)`);
+          return {
+            ...item,
+            product_id: bestMatch.id,
+            unit: bestMatch.unit,
+            unit_price: bestMatch.cost,
+            matchConfidence: bestScore
+          };
+        }
+
+        console.log('❌ No match found for:', item.description);
+        return item;
+      }));
     };
     load();
   }, []);
@@ -216,7 +269,14 @@ const ValidateInvoiceItems: React.FC<ValidateInvoiceItemsProps> = ({ onClose, on
                         </div>
                         <div className="text-left">
                           <p className="text-[10px] font-black text-green-800 uppercase">{associatedProduct.name}</p>
-                          <p className="text-[8px] font-bold text-green-600 uppercase">SKU: {associatedProduct.sku}</p>
+                          <div className="flex gap-2 items-center">
+                            <p className="text-[8px] font-bold text-green-600 uppercase">SKU: {associatedProduct.sku}</p>
+                            {item.matchConfidence && (
+                              <span className="text-[7px] font-black text-green-700 bg-green-100 px-1.5 py-0.5 rounded border border-green-200">
+                                {Math.round(item.matchConfidence * 100)}% auto
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <Edit3 size={14} className="text-green-400" />

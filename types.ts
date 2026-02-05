@@ -354,6 +354,7 @@ export interface InvoiceItemReview {
   unit_price: number;
   product_id?: string;
   observation?: string;
+  matchConfidence?: number; // Auto-link confidence score (0-1)
 }
 
 export interface CatalogItem {
