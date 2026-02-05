@@ -66,6 +66,9 @@ const App: React.FC = () => {
     // CHROME STRICT MODE FIX: Loading mutex refs to prevent duplicate calls
     const loadingStatsRef = useRef(false);
     const loadingServicesRef = useRef(false);
+    // Mutex timeout refs to prevent stuck state
+    const loadingStatsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const loadingServicesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // State moved up to be accessible by loadStats
     const [delayCriteria, setDelayCriteria] = useState<any>(null);
@@ -153,6 +156,13 @@ const App: React.FC = () => {
         }
         loadingStatsRef.current = true;
 
+        // Mutex timeout safeguard: auto-release after 15 seconds
+        if (loadingStatsTimeoutRef.current) clearTimeout(loadingStatsTimeoutRef.current);
+        loadingStatsTimeoutRef.current = setTimeout(() => {
+            console.warn('⚠️ [MUTEX] loadStats mutex auto-released after timeout');
+            loadingStatsRef.current = false;
+        }, 15000);
+
         // Race condition protection: track this request
         const requestId = ++loadStatsRequestIdRef.current;
         console.log('📈 [DEBUG] loadStats called (requestId:', requestId, ')');
@@ -177,6 +187,7 @@ const App: React.FC = () => {
         } catch (err) {
             console.error('❌ [ERROR] Failed to load stats:', err);
         } finally {
+            if (loadingStatsTimeoutRef.current) clearTimeout(loadingStatsTimeoutRef.current);
             loadingStatsRef.current = false;
         }
     };
@@ -189,6 +200,13 @@ const App: React.FC = () => {
             return;
         }
         loadingServicesRef.current = true;
+
+        // Mutex timeout safeguard: auto-release after 25 seconds
+        if (loadingServicesTimeoutRef.current) clearTimeout(loadingServicesTimeoutRef.current);
+        loadingServicesTimeoutRef.current = setTimeout(() => {
+            console.warn('⚠️ [MUTEX] loadServices mutex auto-released after timeout');
+            loadingServicesRef.current = false;
+        }, 25000);
 
         // Race condition protection: track this request
         const requestId = ++loadServicesRequestIdRef.current;
@@ -297,6 +315,7 @@ const App: React.FC = () => {
         } finally {
             console.log('🏁 [DEBUG] Cleaning up loadServices');
             clearTimeout(timeout);
+            if (loadingServicesTimeoutRef.current) clearTimeout(loadingServicesTimeoutRef.current);
             setIsLoadingMore(false);
             setIsInitialLoad(false);
             loadingServicesRef.current = false; // Release mutex
@@ -419,10 +438,10 @@ const App: React.FC = () => {
         }
     }, [isInitialLoad]);
 
-    // ===================== SELF-HEALING CACHE MECHANISM v1.6 =====================
+    // ===================== SELF-HEALING CACHE MECHANISM v1.7 =====================
     // CRITICAL: Must clear IndexedDB (Supabase session storage) not just localStorage
     useEffect(() => {
-        const CURRENT_APP_VERSION = 'v1.6_full_idb_clear';
+        const CURRENT_APP_VERSION = 'v1.7_mutex_timeout';
         const storedVersion = localStorage.getItem('g40_app_version');
 
         console.log('🔍 [CACHE] Checking app version...', { stored: storedVersion, current: CURRENT_APP_VERSION });
