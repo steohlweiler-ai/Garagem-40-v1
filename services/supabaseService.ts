@@ -28,16 +28,31 @@ class SupabaseService {
         const fileName = `${path ? path + '/' : ''}${crypto.randomUUID()}.${fileExt}`;
         const filePath = `${fileName}`;
 
+        console.log('📤 [UPLOAD] Starting upload:', {
+            bucket,
+            fileName,
+            fileSize: file.size,
+            fileType: file.type
+        });
+
         const { error: uploadError } = await supabase.storage
             .from(bucket)
             .upload(filePath, file);
 
         if (uploadError) {
-            console.error('Supabase Storage Error (uploadFile):', uploadError);
+            console.error('❌ [UPLOAD] Supabase Storage Error:', {
+                message: uploadError.message,
+                bucket,
+                filePath,
+                fileSize: file.size,
+                fileType: file.type,
+                error: uploadError
+            });
             return null;
         }
 
         const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        console.log('✅ [UPLOAD] Success:', data.publicUrl);
         return data.publicUrl;
     }
 
