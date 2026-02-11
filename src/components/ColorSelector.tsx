@@ -179,7 +179,7 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
                     onMouseUp={handleStopVoice}
                     onTouchStart={handleStartVoice}
                     onTouchEnd={handleStopVoice}
-                    className={`w-[60px] h-[60px] rounded-[1.5rem] flex items-center justify-center shadow-xl transition-all active:scale-90 shrink-0 ${isListening
+                    className={`p-4 rounded-xl flex items-center justify-center shadow-xl transition-all active:scale-90 shrink-0 ${isListening
                         ? 'bg-red-500 text-white ring-4 ring-red-100'
                         : 'bg-green-600 text-white hover:bg-green-700 shadow-green-200'
                         }`}

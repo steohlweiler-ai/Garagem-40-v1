@@ -43,7 +43,7 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
   const [step, setStep] = useState(1);
   const [cameraMode, setCameraMode] = useState<'photo' | 'video' | null>(null);
   const [mediaModalItem, setMediaModalItem] = useState<string | null>(null);
-  const [viewMediaUrl, setViewMediaUrl] = useState<string | null>(null); // State for viewing media
+  const [viewMedia, setViewMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPlateScanner, setShowPlateScanner] = useState(false);
 
@@ -276,6 +276,17 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
 
   const handleCreate = async () => {
     console.log('[Wizard] Starting Service Order creation...');
+
+    // Validação Final
+    if (!plate || !model || !brand) {
+      alert('Por favor, preencha os dados obrigatórios do veículo (Placa, Modelo, Marca).');
+      return;
+    }
+    if (!clientName || !clientPhone) {
+      alert('Por favor, preencha os dados obrigatórios do cliente (Nome, Telefone).');
+      return;
+    }
+
     try {
       if (brand && model) await dataProvider.addToCatalog(brand, model);
 
@@ -419,12 +430,32 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
     <div className="fixed inset-0 z-50 flex md:items-center md:justify-center bg-slate-900/60 backdrop-blur-sm md:p-10 font-['Arial'] animate-in fade-in">
       {cameraMode && <CameraCapture mode={cameraMode} onCapture={addMediaToItem} onClose={() => setCameraMode(null)} />}
       {showPlateScanner && <PlateScanner onPlateDetected={handlePlateDetected} onClose={() => setShowPlateScanner(false)} />}
-      {viewMediaUrl && (
-        <div className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setViewMediaUrl(null)}>
-          <button onClick={() => setViewMediaUrl(null)} className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20"><X size={24} /></button>
-          <img src={viewMediaUrl} alt="Media preview" className="max-w-full max-h-[90vh] rounded-lg object-contain" />
+
+      {viewMedia && (
+        <div className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4 animate-in fade-in" onClick={() => setViewMedia(null)}>
+          <button onClick={() => setViewMedia(null)} className="absolute top-6 right-6 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-colors z-50">
+            <X size={28} />
+          </button>
+
+          <div className="relative max-w-5xl max-h-[90vh] w-full flex items-center justify-center" onClick={e => e.stopPropagation()}>
+            {viewMedia.type === 'video' ? (
+              <video
+                src={viewMedia.url}
+                controls
+                autoPlay
+                className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl"
+              />
+            ) : (
+              <img
+                src={viewMedia.url}
+                alt="Media preview"
+                className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain"
+              />
+            )}
+          </div>
         </div>
       )}
+
       <input type="file" ref={fileInputRef} accept="image/*,video/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) addMediaToItem(file); }} />
 
       <div className="bg-white w-full md:max-w-4xl h-full md:h-[95vh] flex flex-col md:rounded-[2.5rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10 duration-500">
@@ -447,14 +478,16 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
             <div className="max-w-2xl mx-auto space-y-6">
               <div className="space-y-2 relative" ref={plateDropdownRef}>
                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest ml-1">Placa (Manual ou Voz)</label>
-                <div className="relative">
-                  <VoiceInput multiline={false} value={plate} onTranscript={handlePlateChange} placeholder="ABC1234" normalizeAs="plate" className="!text-[28px] !font-black !font-mono !py-6 !shadow-inner !bg-slate-50 !border-transparent !pr-16" />
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1">
+                    <VoiceInput multiline={false} value={plate} onTranscript={handlePlateChange} placeholder="ABC1234" normalizeAs="plate" className="!text-[28px] !font-black !font-mono !py-6 !shadow-inner !bg-slate-50 !border-transparent" />
+                  </div>
                   <button
                     onClick={() => setShowPlateScanner(true)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-green-600 text-white rounded-xl active:scale-95 transition-all shadow-md hover:bg-green-700"
+                    className="p-4 bg-green-600 text-white rounded-2xl active:scale-95 transition-all shadow-lg hover:bg-green-700 hover:shadow-green-500/30 shrink-0"
                     title="Escanear placa com câmera"
                   >
-                    <Camera size={20} />
+                    <Camera size={24} />
                   </button>
                 </div>
                 {showPlateDropdown && plate.length >= 1 && (
@@ -651,7 +684,11 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
                                     {detail.media && detail.media.length > 0 && (
                                       <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                                         {detail.media.map(m => (
-                                          <div key={m.id} className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 shadow-sm cursor-pointer hover:border-green-400 transition-colors group" onClick={() => setViewMediaUrl(m.url)}>
+                                          <div
+                                            key={m.id}
+                                            className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 shadow-sm cursor-pointer hover:border-green-400 transition-colors group"
+                                            onClick={() => setViewMedia({ url: m.url, type: m.type })}
+                                          >
                                             {m.type === 'image' ? <img src={m.url} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-900 flex items-center justify-center text-white"><Play size={16} /></div>}
                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                                               <Maximize2 size={12} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
