@@ -1,0 +1,19 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://127.0.0.1:3000",
+  "loginUser": "garagem40.nene@gmail.com",
+  "loginPassword": "G@r@gem40!",
+  "executionArgs": {
+    "projectName": "Garagem-40-v1",
+    "projectPath": "/home/ohlweiler/Documentos/Nenê/garagem40/Garagem-40-v1",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "sk-user-3zVTCQ581eTS8P7XGyr2bhyLEC0_lWMeL43IMlpWHNct0tMet_0nLvqMb9R-oHz8IyHNW4kj6jyWSGJXP29aEaoFtUCzjdLDsUk3mnMgaMCU61xcO52SKUnVNasrkKObVFA"
+    }
+  },
+  "serverPort": 39135,
+  "proxy": "http://eda816ad-5b7f-4672-acc2-e9d06b4e3f67:Z8NRE4jIXzAFbkslru3aQ9eY9llOeRWc@tun.testsprite.com:8080"
+}

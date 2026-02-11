@@ -1,0 +1,467 @@
+[
+  {
+    "id": "TC001",
+    "title": "Service Order Creation Wizard - Successful Completion",
+    "description": "Verify that a user can complete the 4-step service order creation wizard successfully with valid client, vehicle, assessment, tasks, and review data, resulting in a correctly saved service order with accurate associations.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to new service order creation page"
+      },
+      {
+        "type": "action",
+        "description": "Select existing client or create new client with valid information"
+      },
+      {
+        "type": "action",
+        "description": "Select existing vehicle or register new vehicle with valid details and use OCR plate scanner for license plate recognition"
+      },
+      {
+        "type": "action",
+        "description": "Complete the assessment sheet with valid evaluation inputs"
+      },
+      {
+        "type": "action",
+        "description": "Add tasks to the service order with valid task types, pricing, and assignment to operators"
+      },
+      {
+        "type": "action",
+        "description": "Review summary details and submit the service order"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the service order is saved with correct data and task associations"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify status tracking and history logs are initialized correctly"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Service Order Creation Wizard - Validation Errors",
+    "description": "Verify appropriate validations and error messages occur when required fields are missing or invalid during service order creation wizard steps.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to service order creation wizard"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to proceed without selecting or creating a client"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation error is shown for missing client"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to proceed without vehicle information"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation error is shown for missing vehicle"
+      },
+      {
+        "type": "action",
+        "description": "Input invalid task pricing or omit task assignment"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation errors prevent progressing and clarify required corrections"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "OCR License Plate Scanner - Successful Plate Recognition",
+    "description": "Verify that the OCR license plate scanner correctly recognizes and auto-fills vehicle license plate during vehicle registration with high confidence results.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to vehicle registration form"
+      },
+      {
+        "type": "action",
+        "description": "Open plate scanner and capture image of a vehicle's license plate"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify OCR processes the image and populates license plate input field with recognized plate"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify confidence score is above acceptable threshold"
+      },
+      {
+        "type": "action",
+        "description": "Manually correct plate if OCR result is inaccurate"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify manual input overrides OCR suggestion"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Invoice OCR Processing - Accurate Data Extraction and Validation",
+    "description": "Verify that when uploading an invoice image, the AI-powered OCR extracts supplier, item names, quantities, and prices with high confidence, and allows user validation or correction of extracted data before inventory update.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to receive invoice upload page"
+      },
+      {
+        "type": "action",
+        "description": "Upload a clear image of supplier invoice"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify extracted supplier and invoice items appear pre-filled with confidence scores"
+      },
+      {
+        "type": "action",
+        "description": "Review and validate or edit extracted item details including quantities and prices"
+      },
+      {
+        "type": "action",
+        "description": "Confirm or create new products if suggested items do not match existing catalog"
+      },
+      {
+        "type": "action",
+        "description": "Submit validated invoice data to update inventory stock and record stock movement"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify inventory reflects new stock correctly associated to products and vehicles if applicable"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify stock movement logs accurately record the transaction"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Task Execution and Time Tracking by Operator",
+    "description": "Verify that an operator can view assigned tasks, start and stop timers correctly, add media and observations, mark tasks as complete, and the system records times and statuses properly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as operator role"
+      },
+      {
+        "type": "action",
+        "description": "Open assigned task within a service order"
+      },
+      {
+        "type": "action",
+        "description": "Start the task timer"
+      },
+      {
+        "type": "action",
+        "description": "Add observations text and attach photos or videos using in-app camera functionality"
+      },
+      {
+        "type": "action",
+        "description": "Stop the task timer"
+      },
+      {
+        "type": "action",
+        "description": "Mark task as completed with appropriate status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify recorded time matches timer duration and task status is updated"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify media is linked and accessible from the task record"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Inventory Stock Allocation to Vehicle with Stock Verification",
+    "description": "Verify system behavior when allocating parts from inventory to a vehicle service, including verifying stock availability, reserving parts, updating vehicle-specific allocations, and reflecting stock movement records.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open allocation interface and select vehicle and associated service order"
+      },
+      {
+        "type": "action",
+        "description": "Search and select products to allocate"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that stock availability is checked and insufficient stock prevents allocation"
+      },
+      {
+        "type": "action",
+        "description": "Allocate available parts, confirming reservation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify vehicle-specific stock allocation is updated correctly"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify inventory stock reflects reserved quantities and stock movement is logged"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Role-Based Access Control Enforcement",
+    "description": "Verify that each user role (admin, stock_manager, operator, finance, viewer) has correct permissions enforced for data access, action availability, and UI element visibility, including financial data masking for unauthorized roles.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as admin and verify full access to all features and data, including price viewing and user management"
+      },
+      {
+        "type": "action",
+        "description": "Login as stock_manager and verify ability to manage inventory but no access to financial data or user management"
+      },
+      {
+        "type": "action",
+        "description": "Login as operator and verify ability to execute assigned tasks but no access to stock management or finance data"
+      },
+      {
+        "type": "action",
+        "description": "Login as finance user and verify access to financial data and invoice processing but restricted from service order task execution"
+      },
+      {
+        "type": "action",
+        "description": "Login as viewer and verify read-only access with price and financial data masked or hidden"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI components and routes enforce role-specific access restrictions"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify financial values are masked or not displayed for unauthorized roles"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Scheduling System - Appointment Creation and Notification Triggering",
+    "description": "Verify that appointments can be created manually and automatically linked to service deadlines. Configured notifications trigger correctly based on appointment settings.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to scheduling interface"
+      },
+      {
+        "type": "action",
+        "description": "Create manual appointment specifying date, time, and linked service order"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify appointment is saved and linked to service order deadline"
+      },
+      {
+        "type": "action",
+        "description": "Create automatic appointment triggered by service deadline configuration"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify automatic appointment appears in schedule appropriately"
+      },
+      {
+        "type": "action",
+        "description": "Configure notification settings for appointment reminders"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify notifications are sent as configured when appointment time approaches"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Client and Vehicle Profile Management with History Tracking",
+    "description": "Verify that clients and vehicles can be registered, searched, and edited with detailed profiles, including history tracking of associated service orders and vehicle stock allocations.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to client management tab"
+      },
+      {
+        "type": "action",
+        "description": "Create new client with valid details"
+      },
+      {
+        "type": "action",
+        "description": "Search for existing clients using partial and full matches"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify search results are relevant and accurate"
+      },
+      {
+        "type": "action",
+        "description": "Open client profile and verify associated vehicles and service order history are listed"
+      },
+      {
+        "type": "action",
+        "description": "Edit client and vehicle details and save changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify updated information persists and reflects in related modules"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Responsive UI and Visual Feedback Validation",
+    "description": "Verify the user interface adapts properly on various mobile and desktop screen sizes, and UI elements provide consistent visual feedback including cards, badges, gradients, and glass-morphism effects.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open application on desktop browser and verify layout structure including header, sidebar, and main content"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI uses cards, badges, and gradients consistently"
+      },
+      {
+        "type": "action",
+        "description": "Open application on various mobile screen sizes and orientations"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify layout adjusts with mobile-first design principles, such as mobile bottom navigation presence and sidebar hiding"
+      },
+      {
+        "type": "action",
+        "description": "Interact with actionable UI controls like buttons and input fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify feedback on hover, focus, and click states is consistent and accessible"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Custom Evaluation Templates - Creation, Editing, and Pricing",
+    "description": "Verify users can create and edit customizable evaluation templates, organize sections and service types, attach multimedia, and configure pricing controls properly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to template management interface"
+      },
+      {
+        "type": "action",
+        "description": "Create a new evaluation template with multiple sections and service types"
+      },
+      {
+        "type": "action",
+        "description": "Attach images or other allowed multimedia to template sections"
+      },
+      {
+        "type": "action",
+        "description": "Configure pricing rules or fixed prices within template items"
+      },
+      {
+        "type": "action",
+        "description": "Save and preview the evaluation template within service order assessments"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify template sections and multimedia appear correctly and pricing calculations function as expected"
+      },
+      {
+        "type": "action",
+        "description": "Edit an existing template and verify updates persist"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Printable Reports - Service Orders and Client Histories",
+    "description": "Verify printable reports generate correctly formatted documents for service orders, client histories, and inspection sheets including workshop branding and consistent formatting.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open a completed service order and select print report option"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the printed report contains accurate service order details, status timeline, and associated tasks"
+      },
+      {
+        "type": "action",
+        "description": "Open a client profile and select print client history report"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify printed client report summarizes all past service orders and vehicle information"
+      },
+      {
+        "type": "action",
+        "description": "Print an evaluation/inspection sheet from a service order"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify inspection sheet formatting is clear and includes all inputted evaluation data"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Error Handling and User-Friendly Messages",
+    "description": "Verify that global and component-level error boundaries capture unexpected errors, display user-friendly error messages, and prevent application crashes or blank screens.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate an unexpected error in a core component (e.g., service order fetching fails)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that an error boundary is triggered and a friendly error message is shown to the user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to various pages with simulated network failures or invalid data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify error handling prevents UI breakage and informs the user appropriately"
+      }
+    ]
+  }
+]
