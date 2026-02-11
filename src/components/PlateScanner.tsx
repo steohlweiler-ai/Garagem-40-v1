@@ -52,7 +52,7 @@ const PlateScanner: React.FC<PlateScannerProps> = ({ onPlateDetected, onClose })
       } else if (err.message === 'PLATE_NOT_FOUND') {
         setError("Placa não encontrada. Tente novamente");
       } else {
-        setError("Erro ao ler placa. Tente novamente");
+        setError(`Erro: ${err.message || 'Falha desconhecida'}. Tente novamente.`);
       }
     } finally {
       setScanning(false);

@@ -120,7 +120,11 @@ CRITICAL: Return ONLY the JSON array, nothing else.`;
  */
 export async function scanLicensePlate(imageBase64: string): Promise<string> {
     try {
-        console.log('🚗 [GEMINI SDK] Starting plate scan...');
+        if (!GEMINI_API_KEY) {
+            console.error('❌ [GEMINI SDK] API Key is missing');
+            throw new Error('INVALID_API_KEY');
+        }
+        console.log('🚗 [GEMINI SDK] Starting plate scan... (Key length:', GEMINI_API_KEY.length, ')');
 
         const base64Image = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
