@@ -41,84 +41,78 @@ Return ONLY the plate characters:
 - If no plate: NOT_FOUND`;
 
 function normalizePlate(text: string): string {
-  if (!text) return "NOT_FOUND";
+  if (!text) return "NÃO_ENCONTRADO";
 
-  let cleaned = text
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '');
+  // 1. Limpeza inicial: Remove espaços, hífens e deixa em maiúsculo
+  let clean = text.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-  // Correções comuns OCR
-  cleaned = cleaned
-    .replace(/O/g, '0')
-    .replace(/I/g, '1')
-    .replace(/L/g, '1')
-    .replace(/B/g, '8');
+  // 2. Se não tiver 7 caracteres, o OCR falhou na leitura completa
+  if (clean.length !== 7) return "NÃO_ENCONTRADO";
 
-  // Validação básica placa BR
+  // 3. Regras de correção posicional (Evita confusão entre 0/O, 1/I, 8/B)
+  const chars = clean.split('');
+
+  // Primeiros 3 caracteres: SEMPRE Letras
+  for (let i = 0; i < 3; i++) {
+    chars[i] = chars[i].replace('0', 'O').replace('1', 'I').replace('8', 'B').replace('5', 'S');
+  }
+
+  // 4º caractere: SEMPRE Número
+  chars[3] = chars[3].replace('O', '0').replace('I', '1').replace('B', '8').replace('S', '5');
+
+  // 5º caractere: Letra (Mercosul) ou Número (Antiga)
+  // Deixamos como está, mas o Regex abaixo validará.
+
+  // 6º e 7º caracteres: SEMPRE Números
+  for (let i = 5; i < 7; i++) {
+    chars[i] = chars[i].replace('O', '0').replace('I', '1').replace('B', '8').replace('S', '5');
+  }
+
+  const finalPlate = chars.join('');
+
+  // 4. Validação por Regex
   const oldPattern = /^[A-Z]{3}[0-9]{4}$/;
   const mercosulPattern = /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/;
 
-  if (oldPattern.test(cleaned) || mercosulPattern.test(cleaned)) {
-    return cleaned;
+  if (oldPattern.test(finalPlate) || mercosulPattern.test(finalPlate)) {
+    return finalPlate;
   }
 
-  return "NOT_FOUND";
+  return "NÃO_ENCONTRADO";
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Configuração de CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
 
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-  if (!GEMINI_API_KEY) {
-    console.error('❌ GEMINI_API_KEY not configured');
-    return res.status(500).json({ error: 'MISSING_API_KEY' });
-  }
-
   const { action, imageBase64 } = req.body || {};
 
-  if (!action || !imageBase64) {
-    return res.status(400).json({ error: 'MISSING_FIELDS' });
-  }
-
-  if (!['scan_invoice', 'scan_plate'].includes(action)) {
-    return res.status(400).json({ error: 'INVALID_ACTION' });
-  }
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: 'MISSING_API_KEY' });
+  if (!action || !imageBase64) return res.status(400).json({ error: 'MISSING_FIELDS' });
 
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-
     const isInvoice = action === 'scan_invoice';
-    const systemInstruction = isInvoice ? INVOICE_SYSTEM : PLATE_SYSTEM;
-    const prompt = isInvoice ? INVOICE_PROMPT : PLATE_PROMPT;
-
+    
+    // Configuração do modelo: gemini-1.5-flash é a melhor escolha gratuita
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash-latest',
-      systemInstruction,
+      model: 'gemini-1.5-flash',
+      systemInstruction: isInvoice ? INVOICE_SYSTEM : PLATE_SYSTEM,
     });
 
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("TIMEOUT")), 15000)
-    );
-
-    const geminiPromise = model.generateContent([
-      prompt,
+    const result = await model.generateContent([
+      isInvoice ? INVOICE_PROMPT : PLATE_PROMPT,
       { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
     ]);
 
-    const result: any = await Promise.race([geminiPromise, timeoutPromise]);
     const response = await result.response;
     const text = response.text()?.trim() || "";
 
@@ -126,30 +120,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ text });
     }
 
-    const normalizedPlate = normalizePlate(text);
-
-    return res.status(200).json({
-      text: normalizedPlate
-    });
+    // Aplica a normalização inteligente para placas
+    const normalized = normalizePlate(text);
+    return res.status(200).json({ texto: normalized });
 
   } catch (error: any) {
-    const message = error?.message || "UNKNOWN_ERROR";
-
-    console.error("❌ GEMINI ERROR:", message);
-
-    if (message.includes('429') || message.includes('quota')) {
-      return res.status(429).json({ error: 'RATE_LIMIT' });
-    }
-
-    if (message.includes('API key') || message.includes('401')) {
-      return res.status(401).json({ error: 'INVALID_API_KEY' });
-    }
-
-    if (message.includes('TIMEOUT')) {
-      return res.status(504).json({ error: 'TIMEOUT' });
-    }
-
-    return res.status(500).json({ error: message });
+    console.error("❌ ERRO:", error.message);
+    return res.status(500).json({ error: error.message });
   }
 }
-
