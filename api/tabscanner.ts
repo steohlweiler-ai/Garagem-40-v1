@@ -16,6 +16,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
 
     const TABSCANNER_API_KEY = process.env.TABSCANNER_API_KEY;
+    console.log("TABSCANNER_API_KEY loaded:", process.env.TABSCANNER_API_KEY ? "YES" : "NO");
+
     if (!TABSCANNER_API_KEY) {
         return res.status(500).json({ error: 'MISSING_API_KEY', details: 'Tabscanner API key is not configured.' });
     }
