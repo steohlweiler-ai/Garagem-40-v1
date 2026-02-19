@@ -125,15 +125,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const status = error?.status || error?.httpCode;
     const message = error?.message || 'Unknown error';
 
-    console.error('❌ [GEMINI] Error:', { status, message });
+    // Log completo para diagnóstico nos logs da Vercel
+    console.error('❌ [GEMINI] Full error:', JSON.stringify({
+      status,
+      message,
+      code: error?.code,
+      details: error?.errorDetails,
+    }));
 
-    if (status === 429 || message.includes('429') || message.includes('quota')) {
-      return res.status(429).json({ error: 'RATE_LIMIT' });
+    // 429 real: somente se o HTTP status for explicitamente 429
+    if (status === 429) {
+      return res.status(429).json({ error: 'RATE_LIMIT', detail: message });
     }
-    if (status === 401 || message.includes('API key')) {
-      return res.status(401).json({ error: 'INVALID_API_KEY' });
+
+    // 401 / chave inválida / projeto sem billing
+    if (status === 401 || message.includes('API key') || message.includes('API_KEY_INVALID')) {
+      return res.status(401).json({ error: 'INVALID_API_KEY', detail: message });
+    }
+
+    // Quota/billing: retorna 402 com mensagem específica (não confunde com rate-limit)
+    if (message.includes('quota') || message.includes('billing') || message.includes('RESOURCE_EXHAUSTED')) {
+      return res.status(402).json({ error: 'QUOTA_EXCEEDED', detail: message });
     }
 
     return res.status(500).json({ error: message });
   }
 }
+

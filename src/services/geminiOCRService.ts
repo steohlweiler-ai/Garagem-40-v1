@@ -25,6 +25,10 @@ async function callGeminiProxy(action: 'scan_invoice' | 'scan_plate', imageBase6
         if (res.status === 429 || errorCode === 'RATE_LIMIT') {
             throw new Error('RATE_LIMIT');
         }
+        if (res.status === 402 || errorCode === 'QUOTA_EXCEEDED') {
+            // Quota/billing issue — not a true rate-limit
+            throw new Error('QUOTA_EXCEEDED');
+        }
         if (res.status === 401 || errorCode === 'INVALID_API_KEY') {
             throw new Error('INVALID_API_KEY');
         }

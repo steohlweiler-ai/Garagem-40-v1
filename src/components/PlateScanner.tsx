@@ -47,8 +47,10 @@ const PlateScanner: React.FC<PlateScannerProps> = ({ onPlateDetected, onClose })
 
       if (err.message === 'RATE_LIMIT') {
         setError("Muitas tentativas! Aguarde 1 minuto");
+      } else if (err.message === 'QUOTA_EXCEEDED') {
+        setError("Limite diário da IA atingido ou problema de billing. Verifique a chave Gemini.");
       } else if (err.message === 'INVALID_API_KEY') {
-        setError("Chave API inválida");
+        setError("Chave API inválida ou não configurada no servidor.");
       } else if (err.message === 'PLATE_NOT_FOUND') {
         setError("Placa não encontrada. Tente novamente");
       } else {
