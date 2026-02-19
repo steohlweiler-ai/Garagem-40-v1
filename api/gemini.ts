@@ -1,16 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const INVOICE_SYSTEM = `You are an expert data extractor specialized in Brazilian invoices (Notas Fiscais).
-Analyze invoice images and extract product items with high precision.
-
-RULES:
-- Extract ONLY product items from the table/list
-- Ignore tax lines, totals, headers, and footers
-- Fix common abbreviations (OLEO → Óleo, SINTET → Sintético)
-- Infer units if not explicit (un, lt, kg, cj, par, m)
-- Convert comma decimals to dot (45,00 → 45.00)
-- Return ONLY valid JSON, no markdown, no explanations`;
+const INVOICE_SYSTEM = `You are an OCR engine specialized in Brazilian Invoices (DANFE).
+OBJECTIVE: Extract only product items, ignoring logos, issuer data, or taxes.
+CLEANING PROCEDURE:
+1. Identify the products table.
+2. Ignore rows such as 'TOTAL', 'BASE CÁLCULO' (Tax Base), or 'ISSQN'.
+3. Correct names: 'OLEO' -> 'Óleo', 'SINTET' -> 'Sintético'.
+4. Format numbers: Use a dot for decimals (e.g., 10.50).
+OUTPUT: Return ONLY a pure JSON array. Do not use markdown (such as \`\`\`json).`
 
 const INVOICE_PROMPT = `Extract all product items from this invoice image.
 
@@ -28,10 +26,13 @@ Return a JSON array with this EXACT format:
 
 CRITICAL: Return ONLY the JSON array, nothing else.`;
 
-const PLATE_SYSTEM = `Extract Brazilian vehicle license plate text with maximum accuracy.
-Return ONLY the plate characters (no formatting, no extra text).
-Handle old (ABC1234) and Mercosul (ABC1D23) formats.
-If no plate visible, return: NOT_FOUND`;
+const PLATE_SYSTEM = `You are an expert in computer vision for Brazilian traffic.
+OBJECTIVE: Locate and read the vehicle's primary license plate in the image.
+RULES:
+1. Ignore any text that does not follow the ABC1234 (Old) or ABC1D23 (Mercosul) format.
+2. Ignore stickers, dealership names, or 'For Sale' signs.
+3. If there is a reflection, try to infer the character based on the official font shape.
+OUTPUT: Return ONLY the 7 characters of the plate, with no spaces or symbols. If not found, return: NOT_FOUND.`;
 
 const PLATE_PROMPT = `Extract the license plate text from this image.
 Return ONLY the plate characters:
@@ -96,18 +97,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!GEMINI_API_KEY) return res.status(500).json({ error: 'MISSING_API_KEY' });
   if (!action || !imageBase64) return res.status(400).json({ error: 'MISSING_FIELDS' });
 
-  try {
+try {
+    // 1. Inicializa com a chave de API
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const isInvoice = action === 'scan_invoice';
     
-    // Configuração do modelo: gemini-1.5-flash é a melhor escolha gratuita
+    // 2. Define as instruções (Strings em inglês para as propriedades)
+    const systemInstruction = isInvoice ? INVOICE_SYSTEM : PLATE_SYSTEM;
+
+    // 3. CONFIGURAÇÃO CORRETA DO MODELO
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: isInvoice ? INVOICE_SYSTEM : PLATE_SYSTEM,
+      model: 'gemini-1.5-flash', // Removido o "-latest" para maior estabilidade
+      systemInstruction: systemInstruction, // O nome da chave DEVE ser systemInstruction
     });
 
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
+    // 4. Chamada da API
     const result = await model.generateContent([
       isInvoice ? INVOICE_PROMPT : PLATE_PROMPT,
       { inlineData: { data: cleanBase64, mimeType: 'image/jpeg' } },
@@ -120,12 +126,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ text });
     }
 
-    // Aplica a normalização inteligente para placas
-    const normalized = normalizePlate(text);
-    return res.status(200).json({ texto: normalized });
+    const normalizedPlate = normalizePlate(text);
+    return res.status(200).json({ texto: normalizedPlate });
 
-  } catch (error: any) {
-    console.error("❌ ERRO:", error.message);
+} catch (error: any) {
+    console.error("❌ ERRO GEMINI:", error.message);
     return res.status(500).json({ error: error.message });
-  }
 }
