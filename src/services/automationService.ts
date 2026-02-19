@@ -21,11 +21,7 @@ export class AutomationService {
     // const response = await fetch(process.env.N8N_OCR_WEBHOOK_URL, { method: 'POST', body: JSON.stringify({ image: base64Image }) });
     // return response.json();
 
-    // TODO: Replace this mock with Gemini Flash API call
-    // const apiKey = import.meta.env.VITE_GEMINI_KEY;
-    // const result = await GeminiService.extractInvoiceData(base64Image, apiKey);
-    // return result;
-
+    // TODO: Replace with call to geminiOCRService.scanInvoiceWithGemini()
     return new Promise((resolve) => {
       setTimeout(() => {
         console.log("[AUTOMATION] OCR Mock concluído.");
