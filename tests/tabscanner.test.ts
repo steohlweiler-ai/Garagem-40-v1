@@ -85,6 +85,35 @@ async function runTests() {
         }
     });
 
+    // 4. Cache Scenario
+    await test('Performance: Caching Mechanism', async () => {
+        // First Upload (Already done in test 1, but let's do it explicitly to measure)
+        // Actually, let's just reuse the imageBase64.
+
+        const start1 = Date.now();
+        const res1 = await axios.post(API_URL, { action: 'upload', imageBase64 });
+        const time1 = Date.now() - start1;
+
+        if (!res1.data.token) throw new Error('First upload failed');
+
+        // Second Upload (Should be cached)
+        const start2 = Date.now();
+        const res2 = await axios.post(API_URL, { action: 'upload', imageBase64 });
+        const time2 = Date.now() - start2;
+
+        if (!res2.data.token) throw new Error('Second upload failed');
+        if (res1.data.token !== res2.data.token) throw new Error('Cache mismatch: Tokens should be identical');
+
+        console.log(`      Run 1: ${time1}ms | Run 2: ${time2}ms`);
+        // We expect Run 2 to be significantly faster (no external API call) or at least return 'cached: true' if implemented
+        if (res2.data.cached) {
+            console.log('      ✅ Cache Hit Confirmed via response flag');
+        } else {
+            // If local dev environment is slow, time diff might not be huge, but consistent logic check is key
+            if (time2 > time1) console.warn('      ⚠️ Warning: Cache didn\'t seem faster (network variance?)');
+        }
+    });
+
     // Summary
     console.log('\n---------------------------------------------------');
     console.log(`📊 Test Summary: ${passed} Passed, ${failed} Failed`);

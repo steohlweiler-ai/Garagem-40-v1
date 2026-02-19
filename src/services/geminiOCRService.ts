@@ -66,14 +66,17 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
         const { token } = await uploadRes.json();
         console.log('🧾 [TABSCANNER] Upload successful, token:', token);
 
-        // 2. Poll for Results (Max 10 attempts, 2s interval)
-        const maxAttempts = 15;
+        // 2. Poll for Results (Exponential Backoff)
+        const maxAttempts = 12;
         let attempts = 0;
         let finalResult = null;
+        let delay = 2000; // Start with 2s
+
+        const startTime = Date.now();
 
         while (attempts < maxAttempts) {
             attempts++;
-            await new Promise(res => setTimeout(res, 2000)); // Wait 2s
+            await new Promise(res => setTimeout(res, delay));
 
             const pollRes = await fetch('/api/tabscanner', {
                 method: 'POST',
@@ -89,15 +92,20 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
                 } else if (data.status === 'FAILED') {
                     throw new Error('OCR_FAILED');
                 }
-                console.log(`⏳ [TABSCANNER] Polling attempt ${attempts}/${maxAttempts}...`);
+                console.log(`⏳ [TABSCANNER] Polling attempt ${attempts}/${maxAttempts} (waited ${delay}ms)...`);
+
+                // Exponential Backoff: Increase delay by 50% each step, max 8s
+                delay = Math.min(delay * 1.5, 8000);
+
             } else {
                 const errorBody = await pollRes.json().catch(() => ({}));
                 if (errorBody.error === 'QUOTA_EXCEEDED') throw new Error('QUOTA_EXCEEDED');
-                // If pending or other non-fatal error, continue polling? 
-                // Actually 202 is usually used for pending, but our proxy returns 200 with status PENDING.
-                // Real errors like 402 should throw.
+                // Standard retry for network blips
             }
         }
+
+        const totalTime = Date.now() - startTime;
+        console.log(`⏱️ [TABSCANNER] Total Scan Time: ${totalTime}ms`);
 
         if (!finalResult) {
             throw new Error('TIMEOUT');
