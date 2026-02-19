@@ -118,12 +118,16 @@ const ValidateInvoiceItems: React.FC<ValidateInvoiceItemsProps> = ({ onClose, on
         toast.success(`${processedItems.length} itens extraídos da nota!`);
 
       } catch (error: any) {
-        console.error('❌ [GEMINI] Extraction failed:', error);
+        console.error('❌ [OCR] Extraction failed:', error);
 
-        if (error.message === 'RATE_LIMIT') {
+        if (error.message === 'QUOTA_EXCEEDED') {
+          toast.error('Limite mensal de leituras excedido (Tabscanner).');
+        } else if (error.message === 'RATE_LIMIT') {
           toast.error('Muitas notas de uma vez! Aguarde 1 minuto.');
         } else if (error.message === 'INVALID_API_KEY') {
-          toast.error('Chave API Gemini inválida. Configure em .env');
+          toast.error('Chave API de OCR inválida. Verifique o .env');
+        } else if (error.message === 'TIMEOUT') {
+          toast.error('Tempo limite excedido. Tente novamente.');
         } else {
           toast.error('Erro ao processar nota. Tente novamente.');
         }

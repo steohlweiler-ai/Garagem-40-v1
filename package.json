@@ -6,12 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:tabscanner": "ts-node tests/tabscanner.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.35.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.91.0",
+    "axios": "^1.13.5",
+    "form-data": "^4.0.5",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

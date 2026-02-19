@@ -44,42 +44,133 @@ async function callGeminiProxy(action: 'scan_invoice' | 'scan_plate', imageBase6
 }
 
 /**
- * 🤖 SMART PARSE: Extract invoice items via backend proxy
+ * 🧾 TABSCANNER OCR: Extract invoice items via backend proxy
+ * Workflow: Upload Image -> Get Token -> Poll Result -> Parse JSON
  */
-export async function scanInvoiceWithGemini(imageBase64: string): Promise<InvoiceItemReview[]> {
+export async function scanInvoice(imageBase64: string): Promise<InvoiceItemReview[]> {
     try {
-        console.log('🤖 [GEMINI PROXY] Starting invoice scan...');
+        console.log('🧾 [TABSCANNER] Starting invoice scan...');
 
-        const text = await callGeminiProxy('scan_invoice', imageBase64);
+        // 1. Upload Image
+        const uploadRes = await fetch('/api/tabscanner', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'upload', imageBase64 }),
+        });
 
-        console.log('📝 [GEMINI PROXY] Raw response:', text.substring(0, 200));
-
-        const jsonMatch = text.match(/[\s\S]*\]/);
-        if (!jsonMatch) {
-            throw new Error('No JSON array found in Gemini response');
+        if (!uploadRes.ok) {
+            const error = await uploadRes.json().catch(() => ({ error: 'Upload failed' }));
+            throw new Error(error.error || `HTTP ${uploadRes.status}`);
         }
 
-        const geminiItems: GeminiInvoiceItem[] = JSON.parse(jsonMatch[0]);
+        const { token } = await uploadRes.json();
+        console.log('🧾 [TABSCANNER] Upload successful, token:', token);
 
-        console.log(`✅ [GEMINI PROXY] Extracted ${geminiItems.length} items`);
+        // 2. Poll for Results (Max 10 attempts, 2s interval)
+        const maxAttempts = 15;
+        let attempts = 0;
+        let finalResult = null;
 
-        const items: InvoiceItemReview[] = geminiItems.map((item, idx) => ({
-            id: `gemini_${Date.now()}_${idx}`,
-            description: item.clean_name || item.original_name,
-            qty: item.qty || 1,
+        while (attempts < maxAttempts) {
+            attempts++;
+            await new Promise(res => setTimeout(res, 2000)); // Wait 2s
+
+            const pollRes = await fetch('/api/tabscanner', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'poll', token }),
+            });
+
+            if (pollRes.ok) {
+                const data = await pollRes.json();
+                if (data.status === 'DONE') {
+                    finalResult = data.data;
+                    break;
+                } else if (data.status === 'FAILED') {
+                    throw new Error('OCR_FAILED');
+                }
+                console.log(`⏳ [TABSCANNER] Polling attempt ${attempts}/${maxAttempts}...`);
+            } else {
+                const errorBody = await pollRes.json().catch(() => ({}));
+                if (errorBody.error === 'QUOTA_EXCEEDED') throw new Error('QUOTA_EXCEEDED');
+                // If pending or other non-fatal error, continue polling? 
+                // Actually 202 is usually used for pending, but our proxy returns 200 with status PENDING.
+                // Real errors like 402 should throw.
+            }
+        }
+
+        if (!finalResult) {
+            throw new Error('TIMEOUT');
+        }
+
+        console.log('✅ [TABSCANNER] Result received:', finalResult);
+
+        // 3. Parse Items
+        // Tabscanner structure: result.result.lineItems (array of objects)
+        const resultData = finalResult.result || {};
+
+        // Handle Fallback (OCR.space)
+        if (resultData.fallback) {
+            console.warn('⚠️ [OCR] Using Fallback (OCR.space) results');
+            const rawText = resultData.rawText || '';
+
+            // Simple logic to try to extract lines that look like items
+            // "Item Name 100.00"
+            const lines = rawText.split('\n');
+            const items: InvoiceItemReview[] = lines
+                .map((line: string, idx: number) => {
+                    // Very basic regex to find price at end of line
+                    const priceMatch = line.match(/(\d+[.,]\d{2})$/);
+                    if (priceMatch) {
+                        const unitPrice = parseFloat(priceMatch[1].replace(',', '.'));
+                        const description = line.replace(priceMatch[0], '').trim();
+                        return {
+                            id: `fallback_${Date.now()}_${idx}`,
+                            description: description,
+                            qty: 1,
+                            unit: 'un',
+                            unit_price: unitPrice,
+                        };
+                    }
+                    return null;
+                })
+                .filter((i: any) => i !== null) as InvoiceItemReview[];
+
+            return items.length > 0 ? items : [{
+                id: 'fallback_error',
+                description: 'OCR Falhou (Tentativa Fallback). Digite os itens manualmente.',
+                qty: 1,
+                unit: 'un',
+                unit_price: 0
+            }];
+        }
+
+        const lineItems = resultData.lineItems || [];
+
+        const items: InvoiceItemReview[] = lineItems.map((item: any, idx: number) => ({
+            id: `tab_${Date.now()}_${idx}`,
+            description: item.descClean || item.desc || "Item Desconhecido",
+            qty: parseFloat(item.qty) || 1,
             unit: item.unit || 'un',
-            unit_price: item.unit_price || 0,
+            unit_price: parseFloat(item.unitPrice) || 0,
+            // total_price: parseFloat(item.lineTotal) || 0, // Optional in our interface
         }));
 
-        return items;
+        // Filter out empty items if necessary
+        return items.filter(i => i.description !== "Item Desconhecido");
+
     } catch (error: any) {
-        if (error?.message === 'RATE_LIMIT' || error?.message === 'INVALID_API_KEY') {
+        if (error?.message === 'QUOTA_EXCEEDED' || error?.message === 'INVALID_API_KEY') {
             throw error;
         }
-        console.error('❌ [GEMINI PROXY] Invoice extraction failed:', error);
+        console.error('❌ [TABSCANNER] Invoice extraction failed:', error);
         throw error;
     }
 }
+
+// Deprecated alias for backward compatibility (temporarily) or refactor
+export const scanInvoiceWithGemini = scanInvoice;
+
 
 /**
  * 🚗 PLATE SCANNER: Extract license plate via backend proxy
