@@ -10,7 +10,7 @@ import { dataProvider } from '../services/dataProvider';
 import { InvoiceItemReview, Product, UserAccount, Invoice, StockMovement } from '../types';
 import { formatCurrency } from '../utils/helpers';
 import { automationService } from '../services/automationService';
-import { geminiOCRService } from '../services/geminiOCRService';
+import { ocrService } from '../services/ocrService';
 import { toast } from 'react-hot-toast';
 
 interface ValidateInvoiceItemsProps {
@@ -64,11 +64,11 @@ const ValidateInvoiceItems: React.FC<ValidateInvoiceItemsProps> = ({ onClose, on
       setIsProcessingOCR(true);
 
       try {
-        console.log('🤖 [GEMINI] Starting invoice extraction...');
+        console.log('🤖 [TABSCANNER] Starting invoice extraction...');
 
-        // Extract items using Gemini AI
-        const extractedItems = await geminiOCRService.scanInvoiceWithGemini(invoiceImage);
-        console.log(`✅ [GEMINI] Extracted ${extractedItems.length} items`);
+        // Extract items using Tabscanner OCR
+        const extractedItems = await ocrService.scanInvoice(invoiceImage);
+        console.log(`✅ [TABSCANNER] Extracted ${extractedItems.length} items`);
 
         // Load product catalog
         const all = await dataProvider.getProducts();

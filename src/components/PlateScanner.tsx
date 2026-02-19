@@ -1,7 +1,7 @@
 
 import React, { useRef, useState } from 'react';
 import { Camera, RefreshCw, Check, AlertCircle } from 'lucide-react';
-import { geminiOCRService } from '../services/geminiOCRService';
+import { ocrService } from '../services/ocrService';
 
 interface PlateScannerProps {
   onPlateDetected: (plate: string) => void;
@@ -38,7 +38,7 @@ const PlateScanner: React.FC<PlateScannerProps> = ({ onPlateDetected, onClose })
     const base64Image = canvasRef.current.toDataURL('image/jpeg');
 
     try {
-      const plate = await geminiOCRService.scanLicensePlate(base64Image);
+      const plate = await ocrService.scanLicensePlate(base64Image);
       console.log('🚗 Placa detectada:', plate);
       onPlateDetected(plate);
       stopCamera();

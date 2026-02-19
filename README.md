@@ -15,6 +15,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1Gba4y4PdH_F3cirUt_ai_A
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Configure OCR API Keys in `.env.local`:
+   `TABSCANNER_API_KEY=your_key_here`
+   `OCR_SPACE_API_KEY=your_key_here`
 3. Run the app:
    `npm run dev`

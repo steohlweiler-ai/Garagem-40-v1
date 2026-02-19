@@ -21,7 +21,7 @@ export class AutomationService {
     // const response = await fetch(process.env.N8N_OCR_WEBHOOK_URL, { method: 'POST', body: JSON.stringify({ image: base64Image }) });
     // return response.json();
 
-    // TODO: Replace with call to geminiOCRService.scanInvoiceWithGemini()
+    // TODO: Replace with real OCR call when n8n node is ready
     return new Promise((resolve) => {
       setTimeout(() => {
         console.log("[AUTOMATION] OCR Mock concluído.");

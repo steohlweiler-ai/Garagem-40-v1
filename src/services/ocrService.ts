@@ -1,52 +1,12 @@
-// Gemini OCR Service — Calls backend proxy at /api/gemini
-// API key is NEVER exposed to the client.
+// Generic OCR Service — Calls backend proxies without exposing API Keys
 import { InvoiceItemReview } from '../types';
 
-export interface GeminiInvoiceItem {
-    original_name: string;
-    clean_name: string;
-    qty: number;
-    unit: string;
-    unit_price: number;
-    total_price: number;
+export interface ScanInvoiceResult {
+    items: InvoiceItemReview[];
+    warning?: string;
+    cached?: boolean;
 }
 
-async function callGeminiProxy(action: 'scan_invoice' | 'scan_plate', imageBase64: string): Promise<string> {
-    const res = await fetch('/api/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, imageBase64 }),
-    });
-
-    if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: 'Unknown error' }));
-        const errorCode = body?.error || `HTTP ${res.status}`;
-
-        if (res.status === 429 || errorCode === 'RATE_LIMIT') {
-            throw new Error('RATE_LIMIT');
-        }
-        if (res.status === 402 || errorCode === 'QUOTA_EXCEEDED') {
-            // Quota/billing issue — not a true rate-limit
-            throw new Error('QUOTA_EXCEEDED');
-        }
-        if (res.status === 401 || errorCode === 'INVALID_API_KEY') {
-            throw new Error('INVALID_API_KEY');
-        }
-        if (errorCode === 'MISSING_API_KEY') {
-            throw new Error('INVALID_API_KEY');
-        }
-
-        throw new Error(errorCode);
-    }
-
-    const data = await res.json();
-    return data.text;
-}
-
-/**
- * 🧾 TABSCANNER OCR: Extract invoice items via backend proxy
- * Workflow: Upload Image -> Get Token -> Poll Result -> Parse JSON
- */
 export async function scanInvoice(imageBase64: string): Promise<InvoiceItemReview[]> {
     try {
         console.log('🧾 [TABSCANNER] Starting invoice scan...');
@@ -63,14 +23,15 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
             throw new Error(error.error || `HTTP ${uploadRes.status}`);
         }
 
-        const { token } = await uploadRes.json();
+        const { token, warning, cached } = await uploadRes.json();
         console.log('🧾 [TABSCANNER] Upload successful, token:', token);
+        if (warning) console.warn(warning);
 
         // 2. Poll for Results (Exponential Backoff)
         const maxAttempts = 12;
         let attempts = 0;
         let finalResult = null;
-        let delay = 2000; // Start with 2s
+        let delay = 2000;
 
         const startTime = Date.now();
 
@@ -93,14 +54,10 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
                     throw new Error('OCR_FAILED');
                 }
                 console.log(`⏳ [TABSCANNER] Polling attempt ${attempts}/${maxAttempts} (waited ${delay}ms)...`);
-
-                // Exponential Backoff: Increase delay by 50% each step, max 8s
                 delay = Math.min(delay * 1.5, 8000);
-
             } else {
                 const errorBody = await pollRes.json().catch(() => ({}));
                 if (errorBody.error === 'QUOTA_EXCEEDED') throw new Error('QUOTA_EXCEEDED');
-                // Standard retry for network blips
             }
         }
 
@@ -114,7 +71,6 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
         console.log('✅ [TABSCANNER] Result received:', finalResult);
 
         // 3. Parse Items
-        // Tabscanner structure: result.result.lineItems (array of objects)
         const resultData = finalResult.result || {};
 
         // Handle Fallback (OCR.space)
@@ -122,12 +78,9 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
             console.warn('⚠️ [OCR] Using Fallback (OCR.space) results');
             const rawText = resultData.rawText || '';
 
-            // Simple logic to try to extract lines that look like items
-            // "Item Name 100.00"
             const lines = rawText.split('\n');
             const items: InvoiceItemReview[] = lines
                 .map((line: string, idx: number) => {
-                    // Very basic regex to find price at end of line
                     const priceMatch = line.match(/(\d+[.,]\d{2})$/);
                     if (priceMatch) {
                         const unitPrice = parseFloat(priceMatch[1].replace(',', '.'));
@@ -161,10 +114,8 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
             qty: parseFloat(item.qty) || 1,
             unit: item.unit || 'un',
             unit_price: parseFloat(item.unitPrice) || 0,
-            // total_price: parseFloat(item.lineTotal) || 0, // Optional in our interface
         }));
 
-        // Filter out empty items if necessary
         return items.filter(i => i.description !== "Item Desconhecido");
 
     } catch (error: any) {
@@ -176,29 +127,36 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
     }
 }
 
-// Deprecated alias for backward compatibility (temporarily) or refactor
-export const scanInvoiceWithGemini = scanInvoice;
-
-
 /**
- * 🚗 PLATE SCANNER: Extract license plate via backend proxy
+ * 🚗 PLATE SCANNER: Extract license plate via OCR.space Engine 1
  */
 export async function scanLicensePlate(imageBase64: string): Promise<string> {
     try {
-        console.log('🚗 [GEMINI PROXY] Starting plate scan...');
+        console.log('🚗 [OCR.SPACE] Starting plate scan...');
 
-        const text = await callGeminiProxy('scan_plate', imageBase64);
-        const plateText = text.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const res = await fetch('/api/ocr-plate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64 }),
+        });
 
-        console.log('📝 [GEMINI PROXY] Extracted plate:', plateText);
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(body.error || `HTTP ${res.status}`);
+        }
 
-        if (plateText === 'NOTFOUND' || plateText.length < 6 || plateText.length > 8) {
+        const data = await res.json();
+        const plateText = data.text;
+
+        console.log('📝 [OCR.SPACE] Extracted plate:', plateText);
+
+        if (plateText === 'NÃO_ENCONTRADO' || plateText.length < 6 || plateText.length > 8) {
             throw new Error('PLATE_NOT_FOUND');
         }
 
         const isValidFormat = /^[A-Z]{3}\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/.test(plateText);
         if (!isValidFormat) {
-            console.warn('⚠️ [GEMINI PROXY] Invalid plate format, returning anyway:', plateText);
+            console.warn('⚠️ [OCR.SPACE] Invalid plate format, returning anyway:', plateText);
         }
 
         return plateText;
@@ -206,12 +164,12 @@ export async function scanLicensePlate(imageBase64: string): Promise<string> {
         if (error?.message === 'RATE_LIMIT' || error?.message === 'INVALID_API_KEY' || error?.message === 'PLATE_NOT_FOUND') {
             throw error;
         }
-        console.error('❌ [GEMINI PROXY] Plate scan failed:', error);
+        console.error('❌ [OCR_PLATE] Plate scan failed:', error);
         throw error;
     }
 }
 
-export const geminiOCRService = {
-    scanInvoiceWithGemini,
+export const ocrService = {
+    scanInvoice,
     scanLicensePlate,
 };

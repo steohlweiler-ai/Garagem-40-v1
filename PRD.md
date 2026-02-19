@@ -255,8 +255,9 @@ Oficinas mecânicas enfrentam desafios significativos na gestão de:
   - Realtime subscriptions
 
 #### **AI & Integrações**
-- **Google Gemini 1.5 Flash**:
+- **Tabscanner**:
   - OCR de notas fiscais
+- **OCR.space (Engine 1)**:
   - OCR de placas de veículos
 - **Web Speech API** para entrada de voz
 
@@ -532,7 +533,8 @@ Conforme documentado em `DESIGN_PATTERN.md`:
 
 ### 10.1 Dependências Externas
 - **Supabase**: Core do backend (crítico)
-- **Google Gemini API**: OCR (crítico para notas fiscais)
+- **Tabscanner API**: OCR (crítico para notas fiscais)
+- **OCR.space API**: OCR (necessário para placas de veículos)
 - **Vercel/Netlify**: Hospedagem (sugerido)
 
 ### 10.2 Restrições Técnicas
@@ -616,8 +618,8 @@ Conforme documentado em `DESIGN_PATTERN.md`:
 │              EXTERNAL SERVICES                               │
 │                                                              │
 │  ┌──────────────────────┐    ┌──────────────────────┐       │
-│  │  Google Gemini 1.5   │    │   Web Speech API     │       │
-│  │  (OCR: Notas, Placas)│    │   (Voice Input)      │       │
+│  │   Tabscanner API     │    │   Web Speech API     │       │
+│  │   OCR.space API      │    │   (Voice Input)      │       │
 │  └──────────────────────┘    └──────────────────────┘       │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
