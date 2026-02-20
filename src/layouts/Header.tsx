@@ -13,7 +13,7 @@ interface HeaderProps {
     onSearchChange: (query: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export const Header: React.FC<HeaderProps> = React.memo(({
     user,
     activeTab,
     onTabChange,
@@ -69,4 +69,4 @@ export const Header: React.FC<HeaderProps> = ({
             )}
         </header>
     );
-};
+});

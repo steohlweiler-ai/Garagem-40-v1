@@ -19,9 +19,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<UserAccount | null>(null);
     const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const isMounted = React.useRef(true);
 
     // Unified Auth Initialization (prevents race conditions)
     useEffect(() => {
+        isMounted.current = true;
         console.log('[AuthProvider] Initializing auth...');
 
         // Step 1: Restore session from localStorage
@@ -102,10 +104,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         user_id: session.user.id
                     };
 
-                    console.log('[AuthProvider] Profile loaded successfully:', loggedUser.email);
-                    setUser(loggedUser);
-                    setIsAuthenticated(true);
-                    localStorage.setItem('g40_user_session', JSON.stringify(loggedUser));
+                    if (isMounted.current) {
+                        console.log('[AuthProvider] Profile loaded successfully:', loggedUser.email);
+                        setUser(loggedUser);
+                        setIsAuthenticated(true);
+                        localStorage.setItem('g40_user_session', JSON.stringify(loggedUser));
+                    }
                 } catch (e) {
                     console.error('[AuthProvider] Unexpected error during profile fetch:', e);
                 }
@@ -113,21 +117,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         // Step 3: Mark initialization complete
-        setIsLoading(false);
+        if (isMounted.current) {
+            setIsLoading(false);
+        }
         console.log('[AuthProvider] Initialization complete');
 
         return () => {
+            isMounted.current = false;
             console.log('[AuthProvider] Cleanup: unsubscribing from auth listener');
             subscription.unsubscribe();
         };
     }, []);
 
-    const login = async (userData: any) => {
+    const login = React.useCallback(async (userData: any) => {
         try {
             // Se já vier com ID e Role (do Supabase/AuthService), usamos direto
             if (userData.id && userData.role) {
-                setUser(userData);
-                setIsAuthenticated(true);
+                if (isMounted.current) {
+                    setUser(userData);
+                    setIsAuthenticated(true);
+                }
                 localStorage.setItem('g40_user_session', JSON.stringify(userData));
                 return;
             }
@@ -163,8 +172,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
 
             if (matchedUser) {
-                setUser(matchedUser);
-                setIsAuthenticated(true);
+                if (isMounted.current) {
+                    setUser(matchedUser);
+                    setIsAuthenticated(true);
+                }
                 localStorage.setItem('g40_user_session', JSON.stringify(matchedUser));
             } else {
                 alert("Usuário não encontrado e falha ao criar. Verifique o banco de dados.");
@@ -172,16 +183,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (e) {
             console.error("Login error:", e);
         }
-    };
+    }, []);
 
-    const logout = () => {
-        setIsAuthenticated(false);
-        setUser(null);
+    const logout = React.useCallback(() => {
+        if (isMounted.current) {
+            setIsAuthenticated(false);
+            setUser(null);
+        }
         localStorage.removeItem('g40_user_session');
-    };
+    }, []);
+
+    const contextValue = React.useMemo(() => ({
+        isAuthenticated, user, login, logout, isPasswordRecovery, isLoading
+    }), [isAuthenticated, user, login, logout, isPasswordRecovery, isLoading]);
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout, isPasswordRecovery, isLoading }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );

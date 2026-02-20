@@ -52,18 +52,31 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
     });
   }, [appointments, reminders]);
 
-  // Filter items by selected day or show upcoming
   const filteredItems = useMemo(() => {
-    if (selectedDay) {
-      return allItems.filter(a => a.date === selectedDay);
+    let items = allItems;
+
+    // Apply search filter locally without re-fetching DB
+    if (search) {
+      const q = search.toLowerCase();
+      items = items.filter(a =>
+        a.title.toLowerCase().includes(q) ||
+        (a.vehicle_plate && a.vehicle_plate.toLowerCase().includes(q)) ||
+        (a.itemType === 'appointment' && (a as Appointment).description?.toLowerCase().includes(q)) ||
+        (a.client_name && a.client_name.toLowerCase().includes(q))
+      );
     }
-    // Show upcoming items (today and future)
+
+    if (selectedDay) {
+      return items.filter(a => a.date === selectedDay);
+    }
+    // Show upcoming items (today and future) if no specific day is selected
     const today = new Date().toISOString().split('T')[0];
-    return allItems.filter(a => a.date >= today).slice(0, 15);
-  }, [allItems, selectedDay]);
+    return items.filter(a => a.date >= today).slice(0, 15);
+  }, [allItems, selectedDay, search]);
 
   useEffect(() => {
     const abortController = new AbortController();
+    const signal = abortController.signal;
     let isMounted = true;
 
     const load = async () => {
@@ -71,49 +84,39 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       setError(null);
 
       try {
-        // Timeout wrapper for appointments (10 seconds)
+        // Timeout wrapper com AbortController
         const appointmentsPromise = dataProvider.getAppointments();
-        const appointmentsTimeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout ao buscar agendamentos')), 10000)
-        );
+        const appointmentsTimeout = new Promise<never>((_, reject) => {
+          const id = setTimeout(() => reject(new Error('Timeout ao buscar agendamentos')), 10000);
+          signal.addEventListener('abort', () => {
+            clearTimeout(id);
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        });
+
         const allAppointments = await Promise.race([appointmentsPromise, appointmentsTimeout]);
 
-        if (!isMounted) return;
-
-        // Filter appointments
-        let filteredApps = allAppointments;
-        if (search) {
-          const q = search.toLowerCase();
-          filteredApps = allAppointments.filter(a =>
-            a.title.toLowerCase().includes(q) ||
-            a.vehicle_plate?.toLowerCase().includes(q) ||
-            a.description?.toLowerCase().includes(q) ||
-            a.client_name?.toLowerCase().includes(q)
-          );
-        }
-        setAppointments(filteredApps);
+        if (!isMounted || signal.aborted) return;
+        setAppointments(allAppointments);
 
         // Timeout wrapper for reminders (10 seconds)
         const remindersPromise = dataProvider.getAllReminders(true);
-        const remindersTimeout = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout ao buscar lembretes')), 10000)
-        );
+        const remindersTimeout = new Promise<never>((_, reject) => {
+          const id = setTimeout(() => reject(new Error('Timeout ao buscar lembretes')), 10000);
+          signal.addEventListener('abort', () => {
+            clearTimeout(id);
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        });
         const allReminders = await Promise.race([remindersPromise, remindersTimeout]);
 
-        if (!isMounted) return;
-
-        // Filter reminders
-        let filteredReminders = allReminders;
-        if (search) {
-          const q = search.toLowerCase();
-          filteredReminders = allReminders.filter(r =>
-            r.title.toLowerCase().includes(q) ||
-            r.vehicle_plate?.toLowerCase().includes(q) ||
-            r.client_name?.toLowerCase().includes(q)
-          );
+        if (!isMounted || signal.aborted) return;
+        setReminders(allReminders);
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.log('[Agendamentos] Fetch aborted');
+          return; // Sai silenciosamente se foi abortado
         }
-        setReminders(filteredReminders);
-      } catch (error) {
         if (isMounted) {
           console.error('Erro ao carregar agenda:', error);
           setError(error instanceof Error ? error.message : 'Erro ao carregar dados da agenda');
@@ -132,7 +135,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       isMounted = false;
       abortController.abort();
     };
-  }, [search]);
+  }, []);
 
   const showToast = (msg: string) => {
     setToast(msg);

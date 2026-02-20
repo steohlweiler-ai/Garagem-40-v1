@@ -72,7 +72,7 @@ const InnerApp: React.FC = () => {
     const showFAB = (activeTab === 'dashboard' || activeTab === 'clients');
 
     return (
-        <GlobalErrorBoundary>
+        <>
             <Toaster
                 position="top-right"
                 toastOptions={{
@@ -130,22 +130,24 @@ const InnerApp: React.FC = () => {
                     user={user}
                 />
             )}
-        </GlobalErrorBoundary>
+        </>
     );
 };
 
 const App: React.FC = () => {
     return (
-        <ComponentErrorBoundary
-            componentName="AuthProvider"
-            fallbackMessage="Falha crítica ao inicializar autenticação. Recarregue a página ou limpe o cache do navegador."
-        >
-            <AuthProvider>
-                <ServicesProvider>
-                    <InnerApp />
-                </ServicesProvider>
-            </AuthProvider>
-        </ComponentErrorBoundary>
+        <GlobalErrorBoundary>
+            <ComponentErrorBoundary
+                componentName="AuthProvider"
+                fallbackMessage="Falha crítica ao inicializar autenticação. Recarregue a página ou limpe o cache do navegador."
+            >
+                <AuthProvider>
+                    <ServicesProvider>
+                        <InnerApp />
+                    </ServicesProvider>
+                </AuthProvider>
+            </ComponentErrorBoundary>
+        </GlobalErrorBoundary>
     );
 };
 

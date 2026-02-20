@@ -10,6 +10,16 @@ const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
+// Global handler for Unhandled Promise Rejections (Hardening Phase)
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[Global ErrorBoundary] Unhandled Promise Rejection:', {
+    reason: event.reason,
+    message: event.reason?.message,
+    stack: event.reason?.stack,
+    timestamp: new Date().toISOString()
+  });
+  // Opcional: prever envio para um serviço de telemetria como Sentry/Datadog
+});
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(

@@ -40,8 +40,10 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const isMounted = React.useRef(true);
 
   useEffect(() => {
+    isMounted.current = true;
     const load = async () => {
       setIsLoading(true);
       try {
@@ -54,13 +56,21 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
         setVehicles(Array.isArray(vData) ? vData : []);
       } catch (err) {
         console.error('Error loading clients:', err);
-        setClients([]);
-        setVehicles([]);
+        if (isMounted.current) {
+          setClients([]);
+          setVehicles([]);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted.current) {
+          setIsLoading(false);
+        }
       }
     };
     load();
+
+    return () => {
+      isMounted.current = false;
+    };
   }, []);
 
   const filteredClients = useMemo(() => {
@@ -127,10 +137,12 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
       }
 
       const data = await dataProvider.getClients();
-      setClients(data);
+      if (isMounted.current) {
+        setClients(data);
 
-      // Reset all modal state after successful save
-      resetModalState();
+        // Reset all modal state after successful save
+        resetModalState();
+      }
       console.log('[ClientsTab] Client saved successfully');
     } catch (error) {
       console.error('[ClientsTab] Error saving client:', error);
