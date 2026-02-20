@@ -1294,7 +1294,8 @@ class SupabaseService {
     // ===================== APPOINTMENT OPERATIONS =====================
 
     async getAppointments(signal?: AbortSignal): Promise<Appointment[]> {
-        let query = supabase.from('agendamentos').select('*').order('date', { ascending: true });
+        // Safety-net: limite de 200 registros (UI exibe no máximo 15 por vez)
+        let query = supabase.from('agendamentos').select('*').order('date', { ascending: true }).limit(200);
         if (signal) {
             query = query.abortSignal(signal);
         }
@@ -1624,7 +1625,8 @@ class SupabaseService {
             .from('lembretes')
             .select('*')
             .order('date', { ascending: true })
-            .order('time', { ascending: true });
+            .order('time', { ascending: true })
+            .limit(200);
 
         if (!includeCompleted) {
             query = query.eq('status', 'active');

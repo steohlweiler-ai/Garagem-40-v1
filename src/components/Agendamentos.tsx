@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Calendar as CalendarIcon, Clock, Plus, Search, ChevronLeft, ChevronRight,
   Car, User, Bell, Check, X, RefreshCw, Smartphone, Trash2, LayoutGrid,
@@ -20,6 +20,8 @@ interface AgendamentosProps {
 
 const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   const [view, setView] = useState<CalendarView>('month');
+  // Ref compartilhada para abortar refetch calls em unmount
+  const componentAbort = useRef(new AbortController());
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -27,6 +29,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -77,20 +80,24 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   useEffect(() => {
     const abortController = new AbortController();
     const signal = abortController.signal;
-    // Timeout nativo via abort — sem Promise.race manual
+    // componentAbort é separado: usado APENAS pelos handlers (save/delete/edit)
+    // Não é afetado pelo cleanup do useEffect
+    componentAbort.current = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), 10000);
 
     const load = async () => {
+      console.time('[Agendamentos] initial-load');
       setIsLoading(true);
       setError(null);
 
       try {
-        // Signal passado direto para o dataProvider (Supabase abortSignal nativo)
         const [allAppointments, allReminders] = await Promise.all([
           dataProvider.getAppointments(signal),
           dataProvider.getAllReminders(true, signal),
         ]);
 
+        console.timeEnd('[Agendamentos] initial-load');
+        console.log(`[Agendamentos] Loaded ${allAppointments.length} appointments, ${allReminders.length} reminders`);
         setAppointments(allAppointments);
         setReminders(allReminders);
       } catch (error: any) {
@@ -110,7 +117,8 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
     load();
 
     return () => {
-      abortController.abort(); // Cancela requests reais no Supabase/fetch
+      abortController.abort();
+      componentAbort.current.abort(); // Aborta handlers pendentes também
       clearTimeout(timeoutId);
     };
   }, []);
@@ -130,20 +138,33 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
 
   const handleSave = async () => {
     if (!formData.title || !formData.date || !formData.time) return;
-    await dataProvider.addAppointment({
-      ...formData,
-      type: 'manual',
-      date: formData.date,
-      time: formData.time
-    });
-    setIsAdding(false);
-    setFormData({
-      title: '', date: '', time: '', vehicle_plate: '',
-      description: '', notify_enabled: true, notify_before_minutes: 15
-    });
-    const all = await dataProvider.getAppointments();
-    setAppointments(all);
-    showToast('Agendamento criado!');
+    if (isSaving) return; // Double-click guard
+    setIsSaving(true);
+    console.time('[Agendamentos] handleSave');
+    try {
+      await dataProvider.addAppointment({
+        ...formData,
+        type: 'manual',
+        date: formData.date,
+        time: formData.time
+      });
+      setIsAdding(false);
+      setFormData({
+        title: '', date: '', time: '', vehicle_plate: '',
+        description: '', notify_enabled: true, notify_before_minutes: 15
+      });
+      const all = await dataProvider.getAppointments(componentAbort.current.signal);
+      setAppointments(all);
+      console.timeEnd('[Agendamentos] handleSave');
+      showToast('Agendamento criado!');
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('[Agendamentos] handleSave error:', e);
+        showToast('Erro ao salvar agendamento.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
@@ -160,23 +181,39 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
 
   const handleSaveEdit = async () => {
     if (!editingAppointment || !editFormData.date || !editFormData.time) return;
-    await dataProvider.updateAppointment(editingAppointment.id, {
-      date: editFormData.date,
-      time: editFormData.time,
-      notify_before_minutes: editFormData.notify_before_minutes
-    });
-    setEditingAppointment(null);
-    const all = await dataProvider.getAppointments();
-    setAppointments(all);
-    showToast('Agendamento atualizado!');
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await dataProvider.updateAppointment(editingAppointment.id, {
+        date: editFormData.date,
+        time: editFormData.time,
+        notify_before_minutes: editFormData.notify_before_minutes
+      });
+      setEditingAppointment(null);
+      const all = await dataProvider.getAppointments(componentAbort.current.signal);
+      setAppointments(all);
+      showToast('Agendamento atualizado!');
+    } catch (e: any) {
+      if (e.name !== 'AbortError') showToast('Erro ao atualizar.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (id.startsWith('derived')) return;
-    await dataProvider.deleteAppointment(id);
-    const all = await dataProvider.getAppointments();
-    setAppointments(all);
-    showToast('Agendamento removido');
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await dataProvider.deleteAppointment(id);
+      const all = await dataProvider.getAppointments(componentAbort.current.signal);
+      setAppointments(all);
+      showToast('Agendamento removido');
+    } catch (e: any) {
+      if (e.name !== 'AbortError') showToast('Erro ao remover.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Estado para edição de lembrete
@@ -200,7 +237,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       time: reminderEditData.time
     });
     setEditingReminder(null);
-    const allReminders = await dataProvider.getAllReminders(true);
+    const allReminders = await dataProvider.getAllReminders(true, componentAbort.current.signal);
     setReminders(allReminders);
     showToast('Lembrete atualizado!');
   };
@@ -209,8 +246,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   const handleToggleReminder = async (reminder: ReminderWithService) => {
     const newStatus = reminder.status === 'active' ? 'done' : 'active';
     await dataProvider.updateReminder(reminder.id, { status: newStatus });
-    // Refresh reminders (incluindo concluídos)
-    const allReminders = await dataProvider.getAllReminders(true);
+    const allReminders = await dataProvider.getAllReminders(true, componentAbort.current.signal);
     setReminders(allReminders);
     showToast(newStatus === 'done' ? 'Lembrete concluído!' : 'Lembrete reativado!');
   };
@@ -295,11 +331,11 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
         </div>
 
         <div className="flex items-center justify-between px-1 sm:px-6 bg-white py-2 sm:py-4 rounded-xl sm:rounded-[2rem] border-2 border-slate-50 shadow-sm">
-          <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))} className="p-2 bg-slate-50 rounded-full text-slate-300 active:bg-slate-100"><ChevronLeft size={20} /></button>
+          <button onClick={() => { const d = new Date(currentDate); d.setMonth(d.getMonth() - 1); setCurrentDate(d); }} className="p-2 bg-slate-50 rounded-full text-slate-300 active:bg-slate-100"><ChevronLeft size={20} /></button>
           <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700">
             {currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
           </h3>
-          <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))} className="p-2 bg-slate-50 rounded-full text-slate-300 active:bg-slate-100"><ChevronRight size={20} /></button>
+          <button onClick={() => { const d = new Date(currentDate); d.setMonth(d.getMonth() + 1); setCurrentDate(d); }} className="p-2 bg-slate-50 rounded-full text-slate-300 active:bg-slate-100"><ChevronRight size={20} /></button>
         </div>
       </div>
 
