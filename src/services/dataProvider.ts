@@ -31,10 +31,10 @@ class DataProvider {
 
     // ===================== LEITURA =====================
 
-    async getClients(): Promise<Client[]> {
+    async getClients(signal?: AbortSignal): Promise<Client[]> {
         if (this.useSupabase) {
             try {
-                return await supabaseDB.getClients();
+                return await supabaseDB.getClients(signal);
             } catch (e) {
                 console.warn('Supabase fetch failed, falling back to mock.', e);
             }
@@ -42,10 +42,10 @@ class DataProvider {
         return Promise.resolve(mockDB.getClients());
     }
 
-    async getVehicles(): Promise<Vehicle[]> {
+    async getVehicles(signal?: AbortSignal): Promise<Vehicle[]> {
         if (this.useSupabase) {
             try {
-                return await supabaseDB.getVehicles();
+                return await supabaseDB.getVehicles(signal);
             } catch (e) {
                 console.warn('Supabase vehicle fetch failed, fallback mock.', e);
             }
@@ -369,13 +369,13 @@ class DataProvider {
         return true;
     }
 
-    async getAppointments(): Promise<Appointment[]> {
-        if (this.useSupabase) return await supabaseDB.getAppointments();
+    async getAppointments(signal?: AbortSignal): Promise<Appointment[]> {
+        if (this.useSupabase) return await supabaseDB.getAppointments(signal);
         return mockDB.getAppointments();
     }
 
-    async getAllReminders(includeCompleted = false): Promise<import('../types').ReminderWithService[]> {
-        if (this.useSupabase) return await supabaseDB.getAllReminders(includeCompleted);
+    async getAllReminders(includeCompleted = false, signal?: AbortSignal): Promise<import('../types').ReminderWithService[]> {
+        if (this.useSupabase) return await supabaseDB.getAllReminders(includeCompleted, signal);
         console.warn('[DataProvider] getAllReminders mock not implemented');
         return [];
     }

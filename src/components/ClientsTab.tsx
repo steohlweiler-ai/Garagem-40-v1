@@ -40,36 +40,39 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const isMounted = React.useRef(true);
-
   useEffect(() => {
-    isMounted.current = true;
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+    const timeoutId = setTimeout(() => abortController.abort(), 10000);
+
     const load = async () => {
       setIsLoading(true);
       try {
         const [cData, vData] = await Promise.all([
-          dataProvider.getClients(),
-          dataProvider.getVehicles()
+          dataProvider.getClients(signal),
+          dataProvider.getVehicles(signal)
         ]);
-        // Defensive: Ensure we always set an array, even if provider returns null/undefined
+
         setClients(Array.isArray(cData) ? cData : []);
         setVehicles(Array.isArray(vData) ? vData : []);
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          console.log('[ClientsTab] Fetch aborted natively');
+          return;
+        }
         console.error('Error loading clients:', err);
-        if (isMounted.current) {
-          setClients([]);
-          setVehicles([]);
-        }
+        setClients([]);
+        setVehicles([]);
       } finally {
-        if (isMounted.current) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
+        clearTimeout(timeoutId);
       }
     };
     load();
 
     return () => {
-      isMounted.current = false;
+      abortController.abort(); // Explicit abort on unmount
+      clearTimeout(timeoutId);
     };
   }, []);
 
@@ -137,12 +140,10 @@ const ClientsTab: React.FC<ClientsTabProps> = ({ onSelectService }) => {
       }
 
       const data = await dataProvider.getClients();
-      if (isMounted.current) {
-        setClients(data);
+      setClients(data);
 
-        // Reset all modal state after successful save
-        resetModalState();
-      }
+      // Reset all modal state after successful save
+      resetModalState();
       console.log('[ClientsTab] Client saved successfully');
     } catch (error) {
       console.error('[ClientsTab] Error saving client:', error);

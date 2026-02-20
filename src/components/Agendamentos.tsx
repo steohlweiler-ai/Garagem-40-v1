@@ -77,63 +77,41 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   useEffect(() => {
     const abortController = new AbortController();
     const signal = abortController.signal;
-    let isMounted = true;
+    // Timeout nativo via abort — sem Promise.race manual
+    const timeoutId = setTimeout(() => abortController.abort(), 10000);
 
     const load = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
-        // Timeout wrapper com AbortController
-        const appointmentsPromise = dataProvider.getAppointments();
-        const appointmentsTimeout = new Promise<never>((_, reject) => {
-          const id = setTimeout(() => reject(new Error('Timeout ao buscar agendamentos')), 10000);
-          signal.addEventListener('abort', () => {
-            clearTimeout(id);
-            reject(new DOMException('Aborted', 'AbortError'));
-          });
-        });
+        // Signal passado direto para o dataProvider (Supabase abortSignal nativo)
+        const [allAppointments, allReminders] = await Promise.all([
+          dataProvider.getAppointments(signal),
+          dataProvider.getAllReminders(true, signal),
+        ]);
 
-        const allAppointments = await Promise.race([appointmentsPromise, appointmentsTimeout]);
-
-        if (!isMounted || signal.aborted) return;
         setAppointments(allAppointments);
-
-        // Timeout wrapper for reminders (10 seconds)
-        const remindersPromise = dataProvider.getAllReminders(true);
-        const remindersTimeout = new Promise<never>((_, reject) => {
-          const id = setTimeout(() => reject(new Error('Timeout ao buscar lembretes')), 10000);
-          signal.addEventListener('abort', () => {
-            clearTimeout(id);
-            reject(new DOMException('Aborted', 'AbortError'));
-          });
-        });
-        const allReminders = await Promise.race([remindersPromise, remindersTimeout]);
-
-        if (!isMounted || signal.aborted) return;
         setReminders(allReminders);
       } catch (error: any) {
         if (error.name === 'AbortError') {
-          console.log('[Agendamentos] Fetch aborted');
-          return; // Sai silenciosamente se foi abortado
+          console.log('[Agendamentos] Fetch aborted natively (unmount ou timeout)');
+          return;
         }
-        if (isMounted) {
-          console.error('Erro ao carregar agenda:', error);
-          setError(error instanceof Error ? error.message : 'Erro ao carregar dados da agenda');
-          showToast('Erro ao carregar agenda. Tente novamente.');
-        }
+        console.error('Erro ao carregar agenda:', error);
+        setError(error instanceof Error ? error.message : 'Erro ao carregar dados da agenda');
+        showToast('Erro ao carregar agenda. Tente novamente.');
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
+        clearTimeout(timeoutId);
       }
     };
 
     load();
 
     return () => {
-      isMounted = false;
-      abortController.abort();
+      abortController.abort(); // Cancela requests reais no Supabase/fetch
+      clearTimeout(timeoutId);
     };
   }, []);
 

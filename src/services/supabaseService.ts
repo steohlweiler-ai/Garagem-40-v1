@@ -58,8 +58,12 @@ class SupabaseService {
 
     // ===================== READ OPERATIONS =====================
 
-    async getClients(): Promise<Client[]> {
-        const { data, error } = await supabase.from('clientes').select('*');
+    async getClients(signal?: AbortSignal): Promise<Client[]> {
+        let query = supabase.from('clientes').select('*');
+        if (signal) {
+            query = query.abortSignal(signal);
+        }
+        const { data, error } = await query;
         if (error) {
             console.error('Supabase Error (Clients):', error);
             throw error;
@@ -95,8 +99,12 @@ class SupabaseService {
         return this.mapVehicle(data);
     }
 
-    async getVehicles(): Promise<Vehicle[]> {
-        const { data, error } = await supabase.from('veículos').select('*');
+    async getVehicles(signal?: AbortSignal): Promise<Vehicle[]> {
+        let query = supabase.from('veículos').select('*');
+        if (signal) {
+            query = query.abortSignal(signal);
+        }
+        const { data, error } = await query;
         if (error) return [];
         return data.map(v => this.mapVehicle(v));
     }
@@ -1285,8 +1293,13 @@ class SupabaseService {
 
     // ===================== APPOINTMENT OPERATIONS =====================
 
-    async getAppointments(): Promise<Appointment[]> {
-        const { data, error } = await supabase.from('agendamentos').select('*').order('date', { ascending: true });
+    async getAppointments(signal?: AbortSignal): Promise<Appointment[]> {
+        let query = supabase.from('agendamentos').select('*').order('date', { ascending: true });
+        if (signal) {
+            query = query.abortSignal(signal);
+        }
+
+        const { data, error } = await query;
         if (error) {
             console.error('[Supabase] Error fetching appointments:', error);
             return [];
@@ -1605,7 +1618,7 @@ class SupabaseService {
      * Busca lembretes com dados do serviço e veículo associados
      * @param includeCompleted - se true, inclui lembretes concluídos (padrão: false)
      */
-    async getAllReminders(includeCompleted = false): Promise<ReminderWithService[]> {
+    async getAllReminders(includeCompleted = false, signal?: AbortSignal): Promise<ReminderWithService[]> {
         // Buscar lembretes
         let query = supabase
             .from('lembretes')
@@ -1615,6 +1628,10 @@ class SupabaseService {
 
         if (!includeCompleted) {
             query = query.eq('status', 'active');
+        }
+
+        if (signal) {
+            query = query.abortSignal(signal);
         }
 
         const { data: reminders, error } = await query;
