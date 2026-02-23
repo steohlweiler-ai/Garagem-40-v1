@@ -29,6 +29,9 @@ jobs:
     name: DB Migration + Seed + EXPLAIN Smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Least-privilege: this job only needs to read the repo and talk to external APIs
+    permissions:
+      contents: read
 
     # ── Job output: signals to dependent jobs that seed succeeded ──
     outputs:
@@ -185,12 +188,16 @@ jobs:
     needs: db-seed-and-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Least-privilege: read repo + write artifacts (for upload-artifact)
+    permissions:
+      contents: read
 
     # ── All env vars at job level so every step inherits them ──
     env:
       VITE_SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
       VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
       VITE_DATA_SOURCE:       supabase
+      TEST_USER_EMAIL:        admin@garagem40.test
       TEST_USER_PASSWORD:     ${{ secrets.TEST_USER_PASSWORD }}
       TESTSPRITE_DB_SEEDED:   ${{ needs.db-seed-and-smoke.outputs.db_seeded }}
       TESTSPRITE_API_KEY:     ${{ secrets.TESTSPRITE_API_KEY }}

@@ -1,4 +1,5 @@
 import asyncio
+import os
 from playwright import async_api
 
 async def run_test():
@@ -58,12 +59,12 @@ async def run_test():
         frame = context.pages[-1]
         # Input text
         elem = frame.locator('xpath=html/body/div/div/div[2]/form/div[1]/div/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('garagem40.nene@gmail.com')
+        await page.wait_for_timeout(3000); await elem.fill(os.environ.get('TEST_USER_EMAIL', 'admin@garagem40.test'))
         
         frame = context.pages[-1]
         # Input text
         elem = frame.locator('xpath=html/body/div/div/div[2]/form/div[2]/div/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('G@r@gem40!')
+        await page.wait_for_timeout(3000); await elem.fill(os.environ.get('TEST_USER_PASSWORD', ''))
         
         frame = context.pages[-1]
         # Click element
