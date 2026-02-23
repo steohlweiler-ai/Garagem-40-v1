@@ -90,10 +90,15 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
       setIsLoading(true);
       setError(null);
 
+      // Scoped date range: 1 month in the past → 3 months ahead
+      const now = new Date();
+      const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+      const dateTo = new Date(now.getFullYear(), now.getMonth() + 4, 0).toISOString().split('T')[0];
+
       try {
         const [allAppointments, allReminders] = await Promise.all([
-          dataProvider.getAppointments(signal),
-          dataProvider.getAllReminders(true, signal),
+          dataProvider.getAppointments({ dateFrom, dateTo, signal }),
+          dataProvider.getAllReminders(true, { dateFrom, dateTo, signal }),
         ]);
 
         console.timeEnd('[Agendamentos] initial-load');
@@ -153,7 +158,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
         title: '', date: '', time: '', vehicle_plate: '',
         description: '', notify_enabled: true, notify_before_minutes: 15
       });
-      const all = await dataProvider.getAppointments(componentAbort.current.signal);
+      const all = await dataProvider.getAppointments({ signal: componentAbort.current.signal });
       setAppointments(all);
       console.timeEnd('[Agendamentos] handleSave');
       showToast('Agendamento criado!');
@@ -190,7 +195,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
         notify_before_minutes: editFormData.notify_before_minutes
       });
       setEditingAppointment(null);
-      const all = await dataProvider.getAppointments(componentAbort.current.signal);
+      const all = await dataProvider.getAppointments({ signal: componentAbort.current.signal });
       setAppointments(all);
       showToast('Agendamento atualizado!');
     } catch (e: any) {
@@ -206,7 +211,7 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
     setIsSaving(true);
     try {
       await dataProvider.deleteAppointment(id);
-      const all = await dataProvider.getAppointments(componentAbort.current.signal);
+      const all = await dataProvider.getAppointments({ signal: componentAbort.current.signal });
       setAppointments(all);
       showToast('Agendamento removido');
     } catch (e: any) {
@@ -231,24 +236,32 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
 
   const handleSaveReminderEdit = async () => {
     if (!editingReminder || !reminderEditData.title || !reminderEditData.date || !reminderEditData.time) return;
-    await dataProvider.updateReminder(editingReminder.id, {
-      title: reminderEditData.title,
-      date: reminderEditData.date,
-      time: reminderEditData.time
-    });
-    setEditingReminder(null);
-    const allReminders = await dataProvider.getAllReminders(true, componentAbort.current.signal);
-    setReminders(allReminders);
-    showToast('Lembrete atualizado!');
+    try {
+      await dataProvider.updateReminder(editingReminder.id, {
+        title: reminderEditData.title,
+        date: reminderEditData.date,
+        time: reminderEditData.time
+      });
+      setEditingReminder(null);
+      const allReminders = await dataProvider.getAllReminders(true, { signal: componentAbort.current.signal });
+      setReminders(allReminders);
+      showToast('Lembrete atualizado!');
+    } catch (e: any) {
+      if (e.name !== 'AbortError') showToast('Erro ao atualizar lembrete.');
+    }
   };
 
   // Toggle reminder status between active/done
   const handleToggleReminder = async (reminder: ReminderWithService) => {
     const newStatus = reminder.status === 'active' ? 'done' : 'active';
-    await dataProvider.updateReminder(reminder.id, { status: newStatus });
-    const allReminders = await dataProvider.getAllReminders(true, componentAbort.current.signal);
-    setReminders(allReminders);
-    showToast(newStatus === 'done' ? 'Lembrete concluído!' : 'Lembrete reativado!');
+    try {
+      await dataProvider.updateReminder(reminder.id, { status: newStatus });
+      const allReminders = await dataProvider.getAllReminders(true, { signal: componentAbort.current.signal });
+      setReminders(allReminders);
+      showToast(newStatus === 'done' ? 'Lembrete concluído!' : 'Lembrete reativado!');
+    } catch (e: any) {
+      if (e.name !== 'AbortError') showToast('Erro ao alterar lembrete.');
+    }
   };
 
   const daysInMonth = (date: Date) => {

@@ -1293,21 +1293,53 @@ class SupabaseService {
 
     // ===================== APPOINTMENT OPERATIONS =====================
 
-    async getAppointments(signal?: AbortSignal): Promise<Appointment[]> {
-        // Safety-net: limite de 200 registros (UI exibe no máximo 15 por vez)
-        let query = supabase.from('agendamentos').select('*').order('date', { ascending: true }).limit(200);
-        if (signal) {
-            query = query.abortSignal(signal);
-        }
+    /** Sanitize & clamp pagination/date-range params */
+    private sanitizeScheduleParams(options?: {
+        dateFrom?: string;
+        dateTo?: string;
+        limit?: number;
+        offset?: number;
+        signal?: AbortSignal;
+    }) {
+        const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+        const raw = options || {};
+        return {
+            dateFrom: (raw.dateFrom && DATE_RE.test(raw.dateFrom)) ? raw.dateFrom : undefined,
+            dateTo: (raw.dateTo && DATE_RE.test(raw.dateTo)) ? raw.dateTo : undefined,
+            limit: Math.min(Math.max(Number(raw.limit) || 50, 1), 100),
+            offset: Math.max(Number(raw.offset) || 0, 0),
+            signal: raw.signal,
+        };
+    }
+
+    async getAppointments(options?: {
+        dateFrom?: string;
+        dateTo?: string;
+        limit?: number;
+        offset?: number;
+        signal?: AbortSignal;
+    }): Promise<Appointment[]> {
+        const { dateFrom, dateTo, limit, offset, signal } = this.sanitizeScheduleParams(options);
+        const t0 = performance.now();
+
+        let query = supabase.from('agendamentos').select('*').order('date', { ascending: true });
+
+        if (dateFrom) query = query.gte('date', dateFrom);
+        if (dateTo) query = query.lte('date', dateTo);
+        query = query.range(offset, offset + limit - 1);
+
+        if (signal) query = query.abortSignal(signal);
 
         const { data, error } = await query;
+        const elapsed = (performance.now() - t0).toFixed(1);
+        console.log(`[TIMING] getAppointments: ${elapsed}ms (params: ${JSON.stringify({ dateFrom, dateTo, limit, offset })})`);
+
         if (error) {
             console.error('[Supabase] Error fetching appointments:', error);
             return [];
         }
-        return data.map(a => ({
+        return (data || []).map(a => ({
             id: a.id,
-            organization_id: a.organization_id || 'org-default',
             title: a.title,
             date: a.date,
             time: a.time,
@@ -1322,6 +1354,36 @@ class SupabaseService {
             type: a.type as 'manual' | 'service_delivery',
             service_id: a.service_id
         }));
+    }
+
+    async getAppointmentByServiceId(serviceId: string): Promise<Appointment | null> {
+        const t0 = performance.now();
+        const { data, error } = await supabase
+            .from('agendamentos')
+            .select('*')
+            .eq('service_id', serviceId)
+            .maybeSingle();
+
+        const elapsed = (performance.now() - t0).toFixed(1);
+        console.log(`[TIMING] getAppointmentByServiceId: ${elapsed}ms (serviceId: ${serviceId})`);
+
+        if (error || !data) return null;
+        return {
+            id: data.id,
+            title: data.title,
+            date: data.date,
+            time: data.time,
+            vehicle_plate: data.vehicle_plate,
+            vehicle_brand: data.vehicle_brand,
+            vehicle_model: data.vehicle_model,
+            client_name: data.client_name,
+            client_phone: data.client_phone,
+            description: data.description,
+            notify_enabled: data.notify_enabled ?? true,
+            notify_before_minutes: data.notify_before_minutes ?? 15,
+            type: data.type as 'manual' | 'service_delivery',
+            service_id: data.service_id
+        };
     }
 
     async addAppointment(a: Partial<Appointment>): Promise<Appointment | null> {
@@ -1619,14 +1681,25 @@ class SupabaseService {
      * Busca lembretes com dados do serviço e veículo associados
      * @param includeCompleted - se true, inclui lembretes concluídos (padrão: false)
      */
-    async getAllReminders(includeCompleted = false, signal?: AbortSignal): Promise<ReminderWithService[]> {
-        // Buscar lembretes
+    async getAllReminders(includeCompleted = false, options?: {
+        dateFrom?: string;
+        dateTo?: string;
+        limit?: number;
+        offset?: number;
+        signal?: AbortSignal;
+    }): Promise<ReminderWithService[]> {
+        const { dateFrom, dateTo, limit, offset, signal } = this.sanitizeScheduleParams(options);
+        const t0 = performance.now();
+
         let query = supabase
             .from('lembretes')
             .select('*')
             .order('date', { ascending: true })
-            .order('time', { ascending: true })
-            .limit(200);
+            .order('time', { ascending: true });
+
+        if (dateFrom) query = query.gte('date', dateFrom);
+        if (dateTo) query = query.lte('date', dateTo);
+        query = query.range(offset, offset + limit - 1);
 
         if (!includeCompleted) {
             query = query.eq('status', 'active');
@@ -1637,6 +1710,8 @@ class SupabaseService {
         }
 
         const { data: reminders, error } = await query;
+        const elapsed = (performance.now() - t0).toFixed(1);
+        console.log(`[TIMING] getAllReminders: ${elapsed}ms (params: ${JSON.stringify({ dateFrom, dateTo, limit, offset, includeCompleted })})`);
 
         if (error || !reminders) {
             console.error('Supabase Error (getAllReminders):', error);

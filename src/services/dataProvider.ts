@@ -369,13 +369,35 @@ class DataProvider {
         return true;
     }
 
-    async getAppointments(signal?: AbortSignal): Promise<Appointment[]> {
-        if (this.useSupabase) return await supabaseDB.getAppointments(signal);
+    async getAppointments(options?: {
+        dateFrom?: string;
+        dateTo?: string;
+        limit?: number;
+        offset?: number;
+        signal?: AbortSignal;
+    }): Promise<Appointment[]> {
+        if (this.useSupabase) {
+            const t0 = performance.now();
+            const result = await supabaseDB.getAppointments(options);
+            console.log(`[DataProvider] getAppointments: ${(performance.now() - t0).toFixed(1)}ms, ${result.length} rows (params: ${JSON.stringify(options || {})})`);
+            return result;
+        }
         return mockDB.getAppointments();
     }
 
-    async getAllReminders(includeCompleted = false, signal?: AbortSignal): Promise<import('../types').ReminderWithService[]> {
-        if (this.useSupabase) return await supabaseDB.getAllReminders(includeCompleted, signal);
+    async getAllReminders(includeCompleted = false, options?: {
+        dateFrom?: string;
+        dateTo?: string;
+        limit?: number;
+        offset?: number;
+        signal?: AbortSignal;
+    }): Promise<import('../types').ReminderWithService[]> {
+        if (this.useSupabase) {
+            const t0 = performance.now();
+            const result = await supabaseDB.getAllReminders(includeCompleted, options);
+            console.log(`[DataProvider] getAllReminders: ${(performance.now() - t0).toFixed(1)}ms, ${result.length} rows (params: ${JSON.stringify(options || {})})`);
+            return result;
+        }
         console.warn('[DataProvider] getAllReminders mock not implemented');
         return [];
     }
@@ -536,7 +558,10 @@ class DataProvider {
                 if (result) {
                     console.log('[DataProvider] Service added to Supabase:', result.id);
                     if (s.estimated_delivery) {
-                        await this.syncDeliveryAppointment(result);
+                        // Fire-and-forget: don't block OS creation response
+                        this.syncDeliveryAppointment(result).catch(e =>
+                            console.warn('[DataProvider] syncDeliveryAppointment (bg) failed:', e)
+                        );
                     }
                     return result;
                 }
@@ -558,11 +583,12 @@ class DataProvider {
                 if (success) {
                     console.log('[DataProvider] Service updated in Supabase:', id);
                     if (u.estimated_delivery !== undefined || u.vehicle_id) {
-                        // Fetch full service if needed to get plate? For now, assuming optimistic update or let the specific handler fetch
-                        // We need the service to know the plate if vehicle_id is not passed.
-                        // But 'syncDeliveryAppointment' will handle checking if appointment exists.
-                        const fullService = await this.getServiceById(id);
-                        if (fullService) await this.syncDeliveryAppointment(fullService);
+                        // Fire-and-forget: don't block updateService response
+                        this.getServiceById(id).then(fullService => {
+                            if (fullService) return this.syncDeliveryAppointment(fullService);
+                        }).catch(e =>
+                            console.warn('[DataProvider] syncDeliveryAppointment (bg) failed:', e)
+                        );
                     }
                     return true;
                 }
@@ -584,9 +610,10 @@ class DataProvider {
     private async syncDeliveryAppointment(service: ServiceJob) {
         console.log('[DataProvider] syncDeliveryAppointment called for service:', service.id, 'estimated_delivery:', service.estimated_delivery);
 
-        // 1. Check if appointment already exists by service_id
-        const allApps = await this.getAppointments();
-        const existingApp = allApps.find(a => a.service_id === service.id);
+        // 1. Targeted lookup — avoids fetching ALL appointments
+        const existingApp = this.useSupabase
+            ? await supabaseDB.getAppointmentByServiceId(service.id)
+            : (await this.getAppointments()).find(a => a.service_id === service.id) || null;
 
         // 2. If Service has no delivery date (cleared), remove appointment
         if (!service.estimated_delivery) {
