@@ -46,8 +46,15 @@ export const Header: React.FC<HeaderProps> = React.memo(({
                 </div>
 
                 <div className="flex gap-2">
-                    <button onClick={onLogout} className="lg:hidden p-2.5 rounded-xl bg-white border border-slate-100 text-red-500 shadow-sm active:scale-90 transition-all"><LogOut size={18} /></button>
-                    <div className="flex items-center gap-3 bg-slate-50 p-1 rounded-xl px-3 hidden lg:flex border border-slate-100">
+                    <button
+                        data-testid="logout-btn"
+                        onClick={onLogout}
+                        className="lg:hidden p-2.5 rounded-xl bg-white border border-slate-100 text-red-500 shadow-sm active:scale-90 transition-all"
+                    ><LogOut size={18} /></button>
+                    <div
+                        data-testid="profile-menu-btn"
+                        className="flex items-center gap-3 bg-slate-50 p-1 rounded-xl px-3 hidden lg:flex border border-slate-100"
+                    >
                         <Bell size={16} className="text-slate-400" />
                         <div className="w-px h-5 bg-slate-200" />
                         <div className="flex items-center gap-2">

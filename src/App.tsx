@@ -59,8 +59,18 @@ const InnerApp: React.FC = () => {
         return <LoadingSkeleton />;
     }
 
+    // SEC-FIX-4: Shell-Persistent Pattern
+    // Do NOT replace the entire component tree when isAuthenticated changes.
+    // Rendering <Auth> as a full-page overlay inside the shell keeps MainLayout
+    // mounted — DOM elements (logout button, nav) are never destroyed/recreated
+    // during the logout transition. This eliminates Stale Element Reference
+    // errors in TC007 and any other E2E test that clicks logout.
     if (!isAuthenticated || !user) {
-        return <Auth onLogin={login} />;
+        return (
+            <div className="min-h-screen">
+                <Auth onLogin={login} />
+            </div>
+        );
     }
 
     const handleCreateService = (service: any) => {

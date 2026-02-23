@@ -7,7 +7,7 @@ interface AuthContextType {
     isAuthenticated: boolean;
     user: UserAccount | null;
     login: (userData: any) => Promise<void>;
-    logout: () => void;
+    logout: () => Promise<void>;
     isPasswordRecovery: boolean;
     isLoading: boolean;
 }
@@ -60,7 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.log('[AuthProvider] User signed in, fetching profile...');
 
                 try {
-                    // Defensive: Check session validity before profile fetch
                     const { data: profile, error } = await supabase
                         .from('perfis_de_usuário')
                         .select('*')
@@ -77,7 +76,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         return;
                     }
 
-                    // Defensive: Validate required profile fields
                     if (!profile.name || !session.user.email) {
                         console.error('[AuthProvider] Invalid profile data:', profile);
                         return;
@@ -105,7 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     };
 
                     if (isMounted.current) {
-                        console.log('[AuthProvider] Profile loaded successfully:', loggedUser.email);
+                        console.log('[AuthProvider] Profile loaded:', loggedUser.email);
                         setUser(loggedUser);
                         setIsAuthenticated(true);
                         localStorage.setItem('g40_user_session', JSON.stringify(loggedUser));
@@ -113,6 +111,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 } catch (e) {
                     console.error('[AuthProvider] Unexpected error during profile fetch:', e);
                 }
+            }
+
+            // SEC-FIX-1: Handle SIGNED_OUT from Supabase (token expired, remote logout, etc.)
+            if (event === 'SIGNED_OUT') {
+                console.log('[AuthProvider] SIGNED_OUT received — clearing local session');
+                if (isMounted.current) {
+                    setIsAuthenticated(false);
+                    setUser(null);
+                }
+                localStorage.removeItem('g40_user_session');
             }
         });
 
@@ -131,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const login = React.useCallback(async (userData: any) => {
         try {
-            // Se já vier com ID e Role (do Supabase/AuthService), usamos direto
+            // If already hydrated with ID and role (from Supabase/AuthService), use directly
             if (userData.id && userData.role) {
                 if (isMounted.current) {
                     setUser(userData);
@@ -141,57 +149,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return;
             }
 
-            // Lógica legada para Mock / Fallback
+            // Legacy mock/fallback path — only for local dev with VITE_DATA_SOURCE=mock
             const users = await dataProvider.getUsers();
-            let matchedUser = users.find(u => u.email === userData.email);
+            const matchedUser = users.find(u => u.email === userData.email);
 
-            // Se não houver nenhum usuário (primeiro acesso Supabase) ou usuário não encontrado
+            // SEC-FIX-2: Removed auto-admin promotion for first user.
+            // Silently fail if user not found — do not create accounts on-the-fly.
             if (!matchedUser) {
-                // Se a lista estiver vazia, cria o primeiro admin
-                if (users.length === 0) {
-                    const newUser = await dataProvider.createUser({
-                        name: userData.name || 'Admin',
-                        email: userData.email,
-                        role: 'admin',
-                        active: true,
-                        permissions: {
-                            manage_team: true,
-                            manage_clients: true,
-                            manage_inventory: true,
-                            config_rates: true,
-                            config_vehicles: true,
-                            config_system: true,
-                            view_financials: true
-                        }
-                    });
-                    if (newUser.data) matchedUser = newUser.data;
-                } else {
-                    // Fallback para usuário existente se existir
-                    if (users.length > 0) matchedUser = users[0];
-                }
+                console.warn('[AuthProvider] User not found in mock store for:', userData.email);
+                return;
             }
 
-            if (matchedUser) {
-                if (isMounted.current) {
-                    setUser(matchedUser);
-                    setIsAuthenticated(true);
-                }
-                localStorage.setItem('g40_user_session', JSON.stringify(matchedUser));
-            } else {
-                alert("Usuário não encontrado e falha ao criar. Verifique o banco de dados.");
+            if (isMounted.current) {
+                setUser(matchedUser);
+                setIsAuthenticated(true);
             }
+            localStorage.setItem('g40_user_session', JSON.stringify(matchedUser));
         } catch (e) {
-            console.error("Login error:", e);
+            console.error('Login error:', e);
         }
     }, []);
 
-    const logout = React.useCallback(() => {
-        if (isMounted.current) {
-            setIsAuthenticated(false);
-            setUser(null);
+    // SEC-FIX-3: logout() now revokes the server-side JWT via supabase.auth.signOut()
+    // Without this call, the token would remain valid until its natural expiry (~1h)
+    // even after clearing localStorage — a stolen JWT would still work.
+    const logout = React.useCallback(async () => {
+        // AUDIT-LOG: structured JSON for compliance/SIEM integration
+        const auditEntry = {
+            event: 'user.signout',
+            user_id: user?.id ?? 'unknown',
+            email: user?.email ?? 'unknown',
+            timestamp: new Date().toISOString(),
+            session_source: 'g40_user_session',
+        };
+        console.log('[AUDIT]', JSON.stringify(auditEntry));
+
+        try {
+            await supabase.auth.signOut(); // revokes JWT on Supabase server
+        } catch (e) {
+            console.error('[AuthProvider] signOut error:', e);
+        } finally {
+            // Always clear local state regardless of server response
+            if (isMounted.current) {
+                setIsAuthenticated(false);
+                setUser(null);
+            }
+            localStorage.removeItem('g40_user_session');
         }
-        localStorage.removeItem('g40_user_session');
-    }, []);
+    }, [user]);
 
     const contextValue = React.useMemo(() => ({
         isAuthenticated, user, login, logout, isPasswordRecovery, isLoading

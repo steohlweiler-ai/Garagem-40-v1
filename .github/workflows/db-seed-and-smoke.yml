@@ -307,6 +307,27 @@ jobs:
       - name: "[TC007] RBAC Enforcement"
         run: python testsprite_tests/TC007_Role_Based_Access_Control_Enforcement.py
 
+      # -----------------------------------------------------------
+      # Security Evidence Tests (auth invalidation, SIGNED_OUT, TC007 x50)
+      # -----------------------------------------------------------
+
+      - name: "[SEC-1] Auth JWT invalidation test"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TEST_USER_EMAIL: admin@garagem40.test
+        run: bash tests/security/auth-invalidation.sh
+
+      - name: "[SEC-3] SIGNED_OUT handler + audit log test"
+        run: npx playwright test tests/security/signed-out-handler.spec.ts --reporter=line
+
+      - name: "[SEC-2] TC007 RBAC logout regression (50 iterations)"
+        run: |
+          npx playwright test tests/security/tc007-regression.spec.ts \
+            --reporter=html \
+            --timeout=60000
+        continue-on-error: false
+
       # Upload screenshots and videos as CI artifacts
       - name: Upload test artifacts
         if: always()
