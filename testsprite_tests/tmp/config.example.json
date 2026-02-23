@@ -1,0 +1,18 @@
+{
+    "status": "commited",
+    "type": "frontend",
+    "scope": "codebase",
+    "localEndpoint": "http://127.0.0.1:3000",
+    "loginUser": "REPLACE_WITH_TEST_USER_EMAIL",
+    "loginPassword": "REPLACE_WITH_TEST_USER_PASSWORD",
+    "executionArgs": {
+        "projectName": "Garagem-40-v1",
+        "projectPath": "/path/to/Garagem-40-v1",
+        "testIds": [],
+        "additionalInstruction": "",
+        "envs": {
+            "API_KEY": "REPLACE_WITH_TESTSPRITE_API_KEY"
+        }
+    },
+    "_note": "This is a template. In CI, config.json is generated from secrets. Locally, copy this file to config.json and fill in your values. config.json is gitignored."
+}
