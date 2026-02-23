@@ -79,11 +79,12 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Loading States
     const [currentPage, setCurrentPage] = useState(0);
     const [hasMoreServices, setHasMoreServices] = useState(true);
+    const pageRef = useRef(0);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [error, setError] = useState<{ type: 'network' | 'timeout' | 'unknown', message: string } | null>(null);
 
-    const PAGE_SIZE = 20;
+    const PAGE_SIZE = 50;
 
     // Refs for race condition protection
     const loadStatsRequestIdRef = useRef(0);
@@ -189,7 +190,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 setIsLoadingMore(true);
             }
 
-            const offset = reset ? 0 : currentPage * PAGE_SIZE;
+            const offset = reset ? 0 : pageRef.current * PAGE_SIZE;
             let excludeStatuses: string[] = [];
             let filterStatuses: string[] = [];
 
@@ -237,7 +238,8 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
 
             setHasMoreServices(result.hasMore);
-            setCurrentPage(prev => reset ? 1 : prev + 1);
+            pageRef.current = reset ? 1 : pageRef.current + 1;
+            setCurrentPage(pageRef.current);
         } catch (err: any) {
             console.error('Failed to load services:', err);
             let errorType: 'network' | 'timeout' | 'unknown' = 'unknown';
@@ -262,7 +264,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setIsInitialLoad(false);
             loadingServicesRef.current = false;
         }
-    }, [currentPage, dashboardFilter, advancedFilters]);
+    }, [dashboardFilter, advancedFilters]);
 
     // Initial Data Load
     useEffect(() => {
@@ -280,7 +282,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         const interval = setInterval(loadStats, 60000);
         return () => clearInterval(interval);
-    }, [isAuthenticated, dashboardFilter, advancedFilters, loadStats, loadServices]);
+    }, [isAuthenticated, dashboardFilter, advancedFilters, loadStats]);
 
     // Processed Services (Search & Client-side Filtering)
     const processedServices = useMemo(() => {
