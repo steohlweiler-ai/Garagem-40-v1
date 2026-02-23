@@ -1115,7 +1115,12 @@ class SupabaseService {
         }
 
         // Apply base sorting (will be refined client-side for priority)
-        query = query.order('entry_at', { ascending: false });
+        // DETERMINISTIC BUCKET SORTING:
+        // 1. Overdue/Next Deliveries (estimated_delivery ASC)
+        // 2. Creation Date (entry_at DESC)
+        query = query
+            .order('estimated_delivery', { ascending: true, nullsFirst: false })
+            .order('entry_at', { ascending: false });
 
         // Apply pagination
         query = query.range(offset, offset + limit - 1);

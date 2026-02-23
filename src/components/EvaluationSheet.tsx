@@ -42,7 +42,6 @@ const EvaluationSheet: React.FC<EvaluationSheetProps> = ({ service, onClose }) =
       setAllTemplates(templates);
 
       // Determine initial template
-      // Prioritize inspection.template_id which is now the source of truth
       let currentTemplate = templates.find(t => t.id === service.inspection?.template_id);
 
       if (!currentTemplate) {
@@ -53,41 +52,64 @@ const EvaluationSheet: React.FC<EvaluationSheetProps> = ({ service, onClose }) =
 
       setActiveTemplate(currentTemplate || null);
 
-      // Check if we need to load from existing tasks or deep copy from template
-      const hasExistingEvaluationTasks = service.tasks.some(t => t.from_template_id);
-
-      if (hasExistingEvaluationTasks) {
-        // Load existing state from service tasks
+      // Prioridade 1: Carregar do campo estruturado 'inspection'
+      if (service.inspection?.items && Object.keys(service.inspection.items).length > 0) {
         const loadedChecklist: Record<string, ItemDetail> = {};
+        const templateToUse = currentTemplate || templates[0];
 
-        // We iterate through the template items to rebuild the checklist state
-        // If the template changed from what was saved, this might be partial, 
-        // but typically active_template_id tracks the correct one.
+        templateToUse?.sections.forEach(section => {
+          section.items.forEach(item => {
+            const savedItem = (service.inspection?.items as any)?.[item.label];
+            if (savedItem && typeof savedItem === 'object') {
+              loadedChecklist[item.label] = {
+                checked: true,
+                selectedTypes: savedItem.selectedTypes || [],
+                observation: savedItem.observation || savedItem.relato || '',
+                relato: savedItem.relato || '',
+                diagnostico: savedItem.diagnostico || '',
+                media: savedItem.media || [],
+                defaultChargeType: item.default_charge_type,
+                defaultFixedValue: item.default_fixed_value,
+                defaultRatePerHour: item.default_rate_per_hour
+              };
+            } else {
+              // Item do template que não foi marcado
+              loadedChecklist[item.label] = {
+                checked: false,
+                selectedTypes: [],
+                observation: '',
+                relato: '',
+                diagnostico: '',
+                media: [],
+                defaultChargeType: item.default_charge_type,
+                defaultFixedValue: item.default_fixed_value,
+                defaultRatePerHour: item.default_rate_per_hour
+              };
+            }
+          });
+        });
+        setChecklist(loadedChecklist);
+      }
+      // Prioridade 2: Fallback para tarefas existentes (compatibilidade com OSs antigas)
+      else if (service.tasks.some(t => t.from_template_id)) {
+        console.warn('[EvaluationSheet] No inspection field found. Falling back to task reconstruction.');
+        const loadedChecklist: Record<string, ItemDetail> = {};
         const templateToUse = currentTemplate || templates[0];
 
         templateToUse?.sections.forEach(section => {
           section.items.forEach(item => {
             const matchingTasks = service.tasks.filter(t => t.title.includes(item.label));
-
-            // Reconstruct selected types
             const selectedTypes: string[] = [];
             matchingTasks.forEach(t => {
               if (t.type === 'Troca') selectedTypes.push('troca');
               else if (t.type === 'Chap.') selectedTypes.push('chap.');
               else if (t.type === 'Pintura') selectedTypes.push('pintura');
-              else if (t.type) {
-                // Try to parse composite types or custom ones
-                t.type.split('+').forEach(sub => {
-                  const s = sub.trim().toLowerCase();
-                  if (s && !selectedTypes.includes(s)) selectedTypes.push(s);
-                });
-              }
             });
 
             const referenceTask = matchingTasks[0];
             loadedChecklist[item.label] = {
               checked: matchingTasks.length > 0,
-              selectedTypes: selectedTypes,
+              selectedTypes,
               observation: referenceTask?.observation || '',
               relato: referenceTask?.relato || '',
               diagnostico: referenceTask?.diagnostico || '',
@@ -99,8 +121,9 @@ const EvaluationSheet: React.FC<EvaluationSheetProps> = ({ service, onClose }) =
           });
         });
         setChecklist(loadedChecklist);
-      } else if (currentTemplate) {
-        // Deep Copy Logic: Initialize fresh checklist from template
+      }
+      // Prioridade 3: OS nova, carrega template limpo
+      else if (currentTemplate) {
         initializeChecklistFromTemplate(currentTemplate);
       }
 

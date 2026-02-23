@@ -317,7 +317,26 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
         vehicle = newVehicle!;
       }
 
-      // 3. Create service
+      // 3. Prepare inspection object
+      const inspection = {
+        template_id: activeTemplate?.id,
+        template_name: activeTemplate?.name,
+        items: Object.entries(checklist).reduce((acc, [label, detail]) => {
+          if (detail.checked) {
+            acc[label] = {
+              checked: true,
+              selectedTypes: detail.selectedTypes,
+              relato: detail.relato,
+              diagnostico: detail.diagnostico,
+              media: detail.media
+            };
+          }
+          return acc;
+        }, {} as any),
+        general_notes: ''
+      };
+
+      // 4. Create service
       const service = await dataProvider.addService({
         organization_id: user?.organization_id || 'org_1',
         vehicle_id: vehicle.id,
@@ -328,7 +347,8 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
         total_value: 0,
         priority: 'media',
         created_by: user?.id,
-        created_by_name: user?.name
+        created_by_name: user?.name,
+        inspection: inspection
       });
 
       if (!service) {
