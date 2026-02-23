@@ -1,76 +1,105 @@
+"""
+TC003 — OCR License Plate Scanner: Successful Plate Recognition
+Fixes applied:
+  - Replaced fragile xpath selectors with role/testid-based locators
+  - Added wait_for_load_state("networkidle") after login
+  - Used file_chooser context manager to supply CNH_fake.jpg
+  - Added explicit waitForSelector calls before every interaction
+  - Retry wrapper on stale-element errors
+"""
 import asyncio
+import os
+import pathlib
 from playwright import async_api
 
-async def run_test():
-    pw = None
-    browser = None
-    context = None
+ASSET_DIR = pathlib.Path(__file__).parent / "assets"
+PLATE_IMAGE = str(ASSET_DIR / "CNH_fake.jpg")
+BASE_URL = "http://127.0.0.1:3000"
+EMAIL = "admin@garagem40.test"
+PASSWORD = os.environ.get("TEST_USER_PASSWORD", "Test@12345")
 
+
+async def _login(page: async_api.Page) -> None:
+    """Login and wait for complete SPA bootstrap (networkidle)."""
+    await page.goto(BASE_URL, wait_until="domcontentloaded", timeout=15000)
+
+    # Support both data-testid and xpath fallbacks
+    email_sel = '[data-testid="login-email"], xpath=//input[@type="email"]'
+    pass_sel  = '[data-testid="login-password"], xpath=//input[@type="password"]'
+    btn_sel   = '[data-testid="login-submit"], xpath=//button[contains(.,"Entrar")]'
+
+    await page.wait_for_selector(email_sel, state="visible", timeout=15000)
+    await page.fill(email_sel, EMAIL)
+    await page.fill(pass_sel, PASSWORD)
+    await page.click(btn_sel)
+
+    # Wait for network to settle — avoids partial navigation / blank screen
+    await page.wait_for_load_state("networkidle", timeout=20000)
+
+
+async def _click_with_retry(page: async_api.Page, selector: str, retries: int = 3) -> None:
+    """Click an element, retrying on stale-element errors."""
+    for attempt in range(retries):
+        try:
+            await page.wait_for_selector(selector, state="visible", timeout=8000)
+            await page.click(selector, timeout=8000)
+            return
+        except async_api.Error as exc:
+            if attempt == retries - 1:
+                raise
+            await asyncio.sleep(0.5)
+            _ = exc  # suppress linter warning
+
+
+async def run_test() -> None:
+    if not pathlib.Path(PLATE_IMAGE).exists():
+        raise FileNotFoundError(f"Asset not found: {PLATE_IMAGE}")
+
+    pw = browser = context = None
     try:
-        # Start a Playwright session in asynchronous mode
         pw = await async_api.async_playwright().start()
-
-        # Launch a Chromium browser in headless mode with custom arguments
         browser = await pw.chromium.launch(
             headless=True,
-            args=[
-                "--window-size=1280,720",         # Set the browser window size
-                "--disable-dev-shm-usage",        # Avoid using /dev/shm which can cause issues in containers
-                "--ipc=host",                     # Use host-level IPC for better stability
-                "--single-process"                # Run the browser in a single process mode
-            ],
+            args=["--window-size=1280,720", "--disable-dev-shm-usage", "--ipc=host"],
         )
-
-        # Create a new browser context (like an incognito window)
-        context = await browser.new_context()
-        context.set_default_timeout(5000)
-
-        # Open a new page in the browser context
+        context = await browser.new_context(viewport={"width": 1280, "height": 720})
+        context.set_default_timeout(10000)
         page = await context.new_page()
 
-        # Navigate to your target URL and wait until the network request is committed
-        await page.goto("http://127.0.0.1:3000", wait_until="commit", timeout=10000)
+        # ── 1. Login ──────────────────────────────────────────────────
+        await _login(page)
 
-        # Wait for the main page to reach DOMContentLoaded state (optional for stability)
+        # ── 2. Open the new vehicle / plate-scan flow ─────────────────
+        #   Try the FAB (green +) or the "Novo Veículo" button
+        fab_sel = '[data-testid="fab-new"], xpath=//button[contains(@class,"fab")]'
         try:
-            await page.wait_for_load_state("domcontentloaded", timeout=3000)
+            await _click_with_retry(page, fab_sel)
         except async_api.Error:
-            pass
+            # Fallback: navigate to vehicles section directly
+            await page.goto(f"{BASE_URL}/veiculos", wait_until="networkidle", timeout=15000)
 
-        # Iterate through all iframes and wait for them to load as well
-        for frame in page.frames:
-            try:
-                await frame.wait_for_load_state("domcontentloaded", timeout=3000)
-            except async_api.Error:
-                pass
+        await page.wait_for_load_state("networkidle", timeout=10000)
 
-        # Interact with the page elements to simulate user flow
-        # -> Navigate to http://127.0.0.1:3000
-        await page.goto("http://127.0.0.1:3000", wait_until="commit", timeout=10000)
-        
-        # -> Log in using provided credentials by filling the E-mail and Senha fields and clicking 'Entrar no Sistema' to access the application.
-        frame = context.pages[-1]
-        # Input text
-        elem = frame.locator('xpath=html/body/div/div/div[2]/form/div[1]/div/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('garagem40.nene@gmail.com')
-        
-        frame = context.pages[-1]
-        # Input text
-        elem = frame.locator('xpath=html/body/div/div/div[2]/form/div[2]/div/input').nth(0)
-        await page.wait_for_timeout(3000); await elem.fill('G@r@gem40!')
-        
-        frame = context.pages[-1]
-        # Click element
-        elem = frame.locator('xpath=html/body/div/div/div[2]/form/button').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-        # -> Open the vehicle registration form by clicking the add/new vehicle floating action button (green +) on the dashboard.
-        frame = context.pages[-1]
-        # Click element
-        elem = frame.locator('xpath=html/body/div/button').nth(0)
-        await page.wait_for_timeout(3000); await elem.click(timeout=5000)
-        
-        await asyncio.sleep(5)
+        # ── 3. Open camera / plate scanner ───────────────────────────
+        camera_sel = '[data-testid="btn-plate-scan"], text=Escanear Placa, text=Câmera'
+        await page.wait_for_selector(camera_sel, state="visible", timeout=10000)
+        await page.click(camera_sel)
+
+        # ── 4. Upload the fake plate image via file chooser ──────────
+        upload_sel = 'input[type="file"][accept*="image"]'
+        await page.wait_for_selector(upload_sel, timeout=10000)
+
+        async with page.expect_file_chooser() as fc_info:
+            await page.click(upload_sel)
+        file_chooser = await fc_info.value
+        await file_chooser.set_files(PLATE_IMAGE)
+
+        # ── 5. Wait for OCR result to appear ─────────────────────────
+        result_sel = '[data-testid="plate-result"], text=ABC, text=1D23, text=Placa reconhecida'
+        await page.wait_for_selector(result_sel, timeout=15000)
+
+        print("TC003 PASSED — plate recognised")
+        await asyncio.sleep(2)
 
     finally:
         if context:
@@ -80,5 +109,5 @@ async def run_test():
         if pw:
             await pw.stop()
 
+
 asyncio.run(run_test())
-    

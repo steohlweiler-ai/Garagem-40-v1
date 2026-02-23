@@ -8,10 +8,12 @@ on:
       - 'db/**'
       - 'src/services/supabaseService.ts'
       - 'src/services/dataProvider.ts'
+      - 'testsprite_tests/**'
   pull_request:
     branches: [main, develop]
     paths:
       - 'db/**'
+      - 'testsprite_tests/**'
   workflow_dispatch:
 
 # Required secrets (configure in GitHub → Settings → Secrets):
@@ -111,6 +113,8 @@ jobs:
             --set ON_ERROR_STOP=1 \
             -f db/seeds/testsuite_seed.sql
           echo "✅ Seed complete"
+          # Signal downstream jobs that seed data is available
+          echo "TESTSPRITE_DB_SEEDED=1" >> $GITHUB_ENV
 
       # -----------------------------------------------------------
       # STEP 4: EXPLAIN ANALYZE smoke (validates index usage)
@@ -180,6 +184,21 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      # Install Python + Playwright for TestSprite scripts
+      - name: Install Python dependencies
+        run: |
+          pip install playwright
+          python -m playwright install chromium
+
+      # Validate that test assets exist (they live in the repo)
+      - name: Validate testsprite assets
+        run: |
+          echo "Checking testsprite assets..."
+          ls -lh testsprite_tests/assets/CNH_fake.jpg
+          ls -lh testsprite_tests/assets/nota_fiscal_fake.jpg
+          ls -lh testsprite_tests/assets/nota_fiscal_fake.pdf
+          echo "✅ Assets OK"
+
       - name: Start dev server
         run: npm run dev &
         env:
@@ -195,6 +214,50 @@ jobs:
 
       - name: Run SPA rendering tests
         run: npx playwright test tests/e2e/spa-rendering.spec.ts
+
+      # -----------------------------------------------------------
+      # TestSprite Python suite — TC003, TC004, TC005, TC007
+      # continue-on-error: false so failures block the PR
+      # -----------------------------------------------------------
+      - name: "[TC003] OCR Plate Scanner"
+        env:
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          TESTSPRITE_DB_SEEDED: ${{ env.TESTSPRITE_DB_SEEDED }}
+        run: |
+          python testsprite_tests/TC003_OCR_License_Plate_Scanner___Successful_Plate_Recognition.py
+
+      - name: "[TC004] Invoice OCR Processing"
+        env:
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          TESTSPRITE_DB_SEEDED: ${{ env.TESTSPRITE_DB_SEEDED }}
+        run: |
+          python testsprite_tests/TC004_Invoice_OCR_Processing___Accurate_Data_Extraction_and_Validation.py
+
+      - name: "[TC005] Task Execution by Operator"
+        env:
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          TEST_OPERATOR_EMAIL: operador@garagem40.test
+          TESTSPRITE_DB_SEEDED: ${{ env.TESTSPRITE_DB_SEEDED }}
+        run: |
+          python testsprite_tests/TC005_Task_Execution_and_Time_Tracking_by_Operator.py
+
+      - name: "[TC007] RBAC Enforcement"
+        env:
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          TESTSPRITE_DB_SEEDED: ${{ env.TESTSPRITE_DB_SEEDED }}
+        run: |
+          python testsprite_tests/TC007_Role_Based_Access_Control_Enforcement.py
+
+      # Upload screenshots and videos as CI artifacts
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testsprite-evidence-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 14
 
   # -----------------------------------------------------------
   # STEP 6: Cleanup seed data (always runs, even on failure)
