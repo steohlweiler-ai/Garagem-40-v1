@@ -36,6 +36,8 @@ interface ServicesContextType {
     forceRefresh: () => Promise<void>;
     /** Inject a newly created service immediately into UI state (optimistic update). */
     injectServiceOptimistically: (service: ServiceJob) => void;
+    /** Refreshes vehicles + clients reference data after wizard creates new entities. */
+    refreshRefData: () => Promise<void>;
     handleSmartRetry: () => void;
 
     // Reference Data
@@ -92,6 +94,9 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const loadingServicesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const delayCriteriaRef = useRef(delayCriteria);
     const hasInitializedRef = useRef(false);
+    // Tracks IDs of optimistically-injected services still awaiting DB confirmation.
+    // Used as reconciliation arbiter to prevent double-insertion and counter regression.
+    const inFlightOptimisticIdsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         delayCriteriaRef.current = delayCriteria;
@@ -140,9 +145,20 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             const counts = await dataProvider.getServiceCounts(criteria || null);
             if (requestId !== loadStatsRequestIdRef.current) return;
-            setStatsCounts(counts || {
+            const safeCount = counts || {
                 'Lembrete': 0, 'Pronto': 0, 'total': 0,
                 'Pendente': 0, 'Em Andamento': 0, 'Entregue': 0
+            };
+            // PATCH-C: Protect against visual counter regression while optimistic IDs are in-flight.
+            // The DB may not yet reflect newly created services, so never let total drop below
+            // the optimistic value already shown to the user.
+            setStatsCounts(prev => {
+                const inFlight = inFlightOptimisticIdsRef.current;
+                if (inFlight.size === 0) return safeCount;
+                return {
+                    ...safeCount,
+                    total: Math.max(safeCount['total'] || 0, prev['total'] || 0),
+                };
             });
         } catch (err) {
             console.error('Failed to load stats:', err);
@@ -199,9 +215,25 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (requestId !== loadServicesRequestIdRef.current) return;
 
             if (reset) {
-                setServices(result.data);
+                // PATCH-B: Safe reconciliation — preserve any optimistic services the DB hasn't
+                // confirmed yet, avoiding a flash where the new OS disappears briefly.
+                setServices(prev => {
+                    const inFlight = inFlightOptimisticIdsRef.current;
+                    if (inFlight.size === 0) return result.data;
+                    const dbIds = new Set((result.data as ServiceJob[]).map(s => s.id));
+                    // Keep optimistic entries not yet returned by DB
+                    const orphaned = prev.filter(s => inFlight.has(s.id) && !dbIds.has(s.id));
+                    // Clear confirmed IDs from the in-flight set
+                    (result.data as ServiceJob[]).forEach(s => inFlight.delete(s.id));
+                    return orphaned.length > 0 ? [...orphaned, ...result.data] : result.data;
+                });
             } else {
-                setServices(prev => [...prev, ...result.data]);
+                // PATCH-B (loadMore): dedup append to prevent duplicates after optimistic inject
+                setServices(prev => {
+                    const existingIds = new Set(prev.map(s => s.id));
+                    const newItems = (result.data as ServiceJob[]).filter(s => !existingIds.has(s.id));
+                    return [...prev, ...newItems];
+                });
             }
 
             setHasMoreServices(result.hasMore);
@@ -365,10 +397,14 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     /**
      * Optimistic update: inserts a newly created service into local state immediately
      * without waiting for the next DB round-trip.
+     * Registers the service ID in inFlightOptimisticIdsRef so the reconciliation
+     * logic in loadServices/loadStats can safely merge DB results without regression.
      */
     const injectServiceOptimistically = useCallback((service: ServiceJob) => {
+        // PATCH-A: Register ID as in-flight before any state mutation
+        inFlightOptimisticIdsRef.current.add(service.id);
         setServices(prev => {
-            if (prev.some(s => s.id === service.id)) return prev;
+            if (prev.some(s => s.id === service.id)) return prev; // dedup: StrictMode safety
             return [service, ...prev];
         });
         setStatsCounts(prev => ({
@@ -376,6 +412,19 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             [service.status]: (prev[service.status] || 0) + 1,
             total: (prev['total'] || 0) + 1,
         }));
+    }, []);
+
+    /**
+     * Refreshes reference data (vehicles + clients) after wizard creates new entities.
+     * Ensures the optimistically injected service card shows correct plate/name.
+     */
+    const refreshRefData = useCallback(async () => {
+        const [vehicles, clients] = await Promise.all([
+            dataProvider.getVehicles(),
+            dataProvider.getClients(),
+        ]);
+        setAllVehicles(vehicles);
+        setAllClients(clients);
     }, []);
 
     return (
@@ -397,6 +446,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             refresh,
             forceRefresh,
             injectServiceOptimistically,
+            refreshRefData,
             handleSmartRetry,
             allVehicles,
             allClients,

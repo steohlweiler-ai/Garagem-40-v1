@@ -25,7 +25,7 @@ const LoadingSkeleton: React.FC = () => (
 
 const InnerApp: React.FC = () => {
     const { user, isAuthenticated, login, logout, isLoading } = useAuth();
-    const { refresh, forceRefresh, injectServiceOptimistically, searchQuery, setSearchQuery } = useServices();
+    const { refresh, forceRefresh, injectServiceOptimistically, refreshRefData, searchQuery, setSearchQuery } = useServices();
 
     const [activeTab, setTab] = useState('dashboard');
     const [settingsTab, setSettingsTab] = useState('hub');
@@ -76,6 +76,7 @@ const InnerApp: React.FC = () => {
     const handleCreateService = (service: any) => {
         injectServiceOptimistically(service); // immediate UI update
         forceRefresh();                       // sync with DB bypassing re-entrancy guards
+        refreshRefData();                     // ensure new vehicle/client appears in card (Risco-5)
         setIsWizardOpen(false);
         setSelectedServiceId(service.id);
     };
