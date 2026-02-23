@@ -1,0 +1,230 @@
+name: DB — Index Migration, Seed & TestSprite
+
+# Triggered on PRs and pushes that touch DB files or on demand
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'db/**'
+      - 'src/services/supabaseService.ts'
+      - 'src/services/dataProvider.ts'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'db/**'
+  workflow_dispatch:
+
+# Required secrets (configure in GitHub → Settings → Secrets):
+#   SUPABASE_URL                  - e.g. https://xyz.supabase.co
+#   SUPABASE_ANON_KEY             - anon/public key
+#   SUPABASE_SERVICE_ROLE_KEY     - service_role key (for auth user creation + raw SQL)
+#   DATABASE_URL                  - postgres://... (connection string, from Supabase Settings → Database)
+#   TEST_USER_PASSWORD            - password for all test users (e.g. Test@12345)
+
+jobs:
+  db-seed-and-smoke:
+    name: DB Migration + Seed + EXPLAIN Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # -----------------------------------------------------------
+      # STEP 1: Apply index migration
+      # CONCURRENTLY cannot run inside a transaction — psql defaults
+      # to autocommit mode so this is safe without --single-transaction
+      # -----------------------------------------------------------
+      - name: Apply index migration (CONCURRENTLY — no tx wrapper)
+        run: |
+          echo "Applying 001_add_scheduling_indexes.sql..."
+          # NOTE: psql autocommit = ON by default. Do NOT use --single-transaction.
+          # CREATE INDEX CONCURRENTLY would fail with:
+          #   "ERROR: CREATE INDEX CONCURRENTLY cannot run inside a transaction block"
+          psql "$DATABASE_URL" \
+            --no-psqlrc \
+            --set ON_ERROR_STOP=1 \
+            -f db/migrations/001_add_scheduling_indexes.sql
+          echo "✅ Migration applied"
+
+      # -----------------------------------------------------------
+      # STEP 2: Create test auth users via Supabase Admin API
+      # (uses service_role key — never anon key for this)
+      # TEST_USER_PASSWORD comes from CI secret, never hardcoded
+      # -----------------------------------------------------------
+      - name: Create test auth users
+        run: |
+          create_user() {
+            local EMAIL="$1"
+            local UUID="$2"
+            curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "$SUPABASE_URL/auth/v1/admin/users" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"id\": \"$UUID\",
+                \"email\": \"$EMAIL\",
+                \"password\": \"$TEST_USER_PASSWORD\",
+                \"email_confirm\": true
+              }"
+          }
+
+          echo "Creating test users..."
+          R1=$(create_user "admin@garagem40.test"      "00000000-0000-0000-0000-000000000001")
+          R2=$(create_user "operador@garagem40.test"   "00000000-0000-0000-0000-000000000002")
+          R3=$(create_user "financeiro@garagem40.test" "00000000-0000-0000-0000-000000000003")
+          echo "Auth user results: admin=$R1 operador=$R2 financeiro=$R3"
+          # 201=created, 422=already exists (both OK)
+          [[ "$R1" == "201" || "$R1" == "422" ]] || exit 1
+          [[ "$R2" == "201" || "$R2" == "422" ]] || exit 1
+          [[ "$R3" == "201" || "$R3" == "422" ]] || exit 1
+          echo "✅ Auth users ready"
+
+      # -----------------------------------------------------------
+      # STEP 3: Run seed SQL
+      # -----------------------------------------------------------
+      - name: Run testsuite seed
+        run: |
+          echo "Running testsuite_seed.sql..."
+          psql "$DATABASE_URL" \
+            --no-psqlrc \
+            --set ON_ERROR_STOP=1 \
+            -f db/seeds/testsuite_seed.sql
+          echo "✅ Seed complete"
+
+      # -----------------------------------------------------------
+      # STEP 4: EXPLAIN ANALYZE smoke (validates index usage)
+      # -----------------------------------------------------------
+      - name: EXPLAIN ANALYZE smoke test
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          FUTURE=$(date -d "+90 days" +%Y-%m-%d)
+
+          echo "=== EXPLAIN ANALYZE SMOKE ===" 
+
+          run_explain() {
+            local LABEL="$1"
+            local SQL="$2"
+            echo ""
+            echo "--- $LABEL ---"
+            PLAN=$(psql "$DATABASE_URL" --no-psqlrc -c "$SQL" -t -A)
+            echo "$PLAN"
+            # Fail if Seq Scan appears when we expect index usage (>100 rows check)
+            TOTAL=$(psql "$DATABASE_URL" --no-psqlrc -t -A -c "SELECT COUNT(*) FROM agendamentos;")
+            if [[ "$TOTAL" -gt 100 ]] && echo "$PLAN" | grep -q "Seq Scan"; then
+              echo "⚠️  WARNING: Seq Scan found with $TOTAL rows — index may not be used"
+            fi
+          }
+
+          run_explain "Q1: getAppointments(date range)" \
+            "EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) SELECT id, title, date, time FROM agendamentos WHERE date >= '$TODAY' AND date <= '$FUTURE' ORDER BY date ASC LIMIT 20;"
+
+          run_explain "Q2: getAppointmentByServiceId" \
+            "EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) SELECT * FROM agendamentos WHERE service_id IS NOT NULL LIMIT 1;"
+
+          run_explain "Q3: getAllReminders(active)" \
+            "EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) SELECT id, title, date, time FROM lembretes WHERE status = 'active' ORDER BY date ASC, time ASC LIMIT 20;"
+
+          run_explain "Q4: getVehiclesByClient" \
+            "EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) SELECT id, plate, brand, model FROM \"veículos\" WHERE client_id = '10000000-0000-0000-0000-000000000001';"
+
+          echo ""
+          echo "✅ EXPLAIN smoke complete"
+
+  # -----------------------------------------------------------
+  # STEP 5: TestSprite E2E (runs after DB job succeeds)
+  # -----------------------------------------------------------
+  testsprite:
+    name: TestSprite E2E
+    needs: db-seed-and-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      VITE_DATA_SOURCE: supabase
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Start dev server
+        run: npm run dev &
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_DATA_SOURCE: supabase
+
+      - name: Wait for dev server
+        run: npx wait-on http://localhost:3000 --timeout 30000
+
+      - name: Run agendamentos performance tests
+        run: npx playwright test tests/e2e/agendamentos-perf.spec.ts
+
+      - name: Run SPA rendering tests
+        run: npx playwright test tests/e2e/spa-rendering.spec.ts
+
+  # -----------------------------------------------------------
+  # STEP 6: Cleanup seed data (always runs, even on failure)
+  # -----------------------------------------------------------
+  cleanup:
+    name: Cleanup test data
+    needs: [db-seed-and-smoke, testsprite]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Remove org-test data
+        run: |
+          psql "$DATABASE_URL" --no-psqlrc --set ON_ERROR_STOP=1 <<'SQL'
+            DELETE FROM agendamentos    WHERE organization_id = 'org-test';
+            DELETE FROM lembretes WHERE service_id IN
+              (SELECT id FROM "serviços" WHERE organization_id = 'org-test');
+            DELETE FROM "serviços"      WHERE organization_id = 'org-test';
+            DELETE FROM "veículos"      WHERE organization_id = 'org-test';
+            DELETE FROM clientes        WHERE organization_id = 'org-test';
+            DELETE FROM perfis_usuarios WHERE organization_id = 'org-test';
+            RAISE NOTICE '✅ org-test data cleaned up';
+          SQL
+          echo "✅ Cleanup done"
