@@ -1,48 +1,77 @@
 name: OCR Integration Tests
 
+# Triggered on feature branches and on demand.
+# To run against main/develop, update the branches list below.
 on:
   push:
-    branches: [ "feature/tabscanner" ]
+    branches:
+      - main
+      - develop
+      - 'feature/tabscanner'
+      - 'feature/ocr*'
   pull_request:
-    branches: [ "feature/tabscanner" ]
+    branches:
+      - main
+      - develop
+      - 'feature/tabscanner'
   workflow_dispatch:
+
+# ---------------------------------------------------------------------------
+# Required secrets — configure at:
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret
+#
+#   TABSCANNER_API_KEY  (Secret) Tabscanner OCR API key
+#   OCR_SPACE_API_KEY   (Secret) OCR.space fallback API key
+#
+# See full reference: docs/ci-env.md
+# ---------------------------------------------------------------------------
 
 jobs:
   test-tabscanner:
+    name: Tabscanner + OCR.space Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Least-privilege: only needs to read the repo
+    permissions:
+      contents: read
+
+    # ── All API keys promoted to job-level env ──
+    # This is the ONLY place secrets are referenced in this job.
+    # Steps inherit all these vars automatically — no step-level duplication.
+    env:
+      TABSCANNER_API_KEY: ${{ secrets.TABSCANNER_API_KEY }}
+      OCR_SPACE_API_KEY:  ${{ secrets.OCR_SPACE_API_KEY }}
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18.x
-        cache: 'npm'
+      # ── Fail-fast: abort immediately if any critical secret is missing ──
+      - name: Validate required secrets
+        run: |
+          missing=()
+          [[ -z "$TABSCANNER_API_KEY" ]] && missing+=("TABSCANNER_API_KEY")
+          [[ -z "$OCR_SPACE_API_KEY" ]]  && missing+=("OCR_SPACE_API_KEY")
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "❌ Missing secrets: ${missing[*]}"
+            echo "Configure at: GitHub → Settings → Secrets and Variables → Actions"
+            echo "See: docs/ci-env.md for full reference"
+            exit 1
+          fi
+          echo "✅ All required secrets present"
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
 
-    - name: Run Tabscanner Tests
-      env:
-        TABSCANNER_API_KEY: ${{ secrets.TABSCANNER_API_KEY }}
-        OCR_SPACE_API_KEY: ${{ secrets.OCR_SPACE_API_KEY }}
-        # Start a local server if tests rely on it, but current tests mock or hit external API directly
-        # If tests hit /api/tabscanner via localhost, we need to run the vercel dev server or similar
-        # For simplicity, let's assume the test script logic can point to a mocked server or valid external endpoint
-        # However, since `api/tabscanner.ts` is a Vercel function, we might need `vercel dev`
-        # OR we can refactor tests to import the handler directly if possible, or use a simple express wrapper.
-        # Given the constraint, let's assume we run `vite preview` or similar if needed, 
-        # BUT the current test hits `http://localhost:3000/api/tabscanner`.
-        # We need to start the server in background.
-      run: |
-        npm install -g vercel
-        # Build if necessary
-        # Start server in background (using vercel dev or vite preview if configured for API)
-        # Note: Vite default doesn't serve /api functions unless configured with vercel-vite plugin or similar.
-        # Assuming `api/` is Vercel functions, we need `vercel dev`.
-        # Without Vercel token/project, `vercel dev` might verify.
-        # Fallback: The test script might need to be adjusted to mock the network call if we can't easily spin up the server in CI.
-        
-        # For this task, let's run the script directly.
-        npm run test:tabscanner
+      - name: Install dependencies
+        run: npm ci
+
+      # Vercel CLI is needed to serve /api/* serverless functions locally
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Run Tabscanner and OCR.space tests
+        run: npm run test:tabscanner
