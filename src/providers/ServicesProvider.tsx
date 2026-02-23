@@ -300,10 +300,10 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
             if (!matchesSearch) return false;
 
-            // KPI Filter
+            // KPI Filter (Otimizado com priority_bucket + Fallback contra drift)
             if (dashboardFilter !== 'total') {
                 const works = delayCriteria ? calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority) : { isDelayed: false };
-                const isLate = s.estimated_delivery && works.isDelayed;
+                const isLate = s.priority_bucket === 0 || (s.estimated_delivery && works.isDelayed);
 
                 if (dashboardFilter === 'Atrasado') {
                     if (!(isLate && s.status !== ServiceStatus.ENTREGUE)) return false;
@@ -329,7 +329,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
             if (advancedFilters.statuses.length > 0) {
                 const works = delayCriteria ? calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority) : { isDelayed: false };
-                const isLate = s.estimated_delivery && works.isDelayed;
+                const isLate = s.priority_bucket === 0 || (s.estimated_delivery && works.isDelayed);
 
                 const matchesMultiStatus = advancedFilters.statuses.some(st => {
                     if (st === 'Atrasado') return isLate && s.status !== ServiceStatus.ENTREGUE;
@@ -342,13 +342,9 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
 
         return filtered.sort((a, b) => {
-            const worksA = delayCriteria ? calculateDelayStatus(a.estimated_delivery, delayCriteria, a.priority) : { isDelayed: false };
-            const worksB = delayCriteria ? calculateDelayStatus(b.estimated_delivery, delayCriteria, b.priority) : { isDelayed: false };
-            const lateA = a.estimated_delivery && worksA.isDelayed ? 1 : 0;
-            const lateB = b.estimated_delivery && worksB.isDelayed ? 1 : 0;
-
             switch (advancedFilters.sortBy) {
-                case 'atrasados': return lateB - lateA;
+                case 'atrasados':
+                    return (a.priority_bucket || 2) - (b.priority_bucket || 2);
                 case 'entrega_proxima':
                     if (!a.estimated_delivery) return 1;
                     if (!b.estimated_delivery) return -1;

@@ -1114,11 +1114,13 @@ class SupabaseService {
             }
         }
 
-        // Apply base sorting (will be refined client-side for priority)
-        // DETERMINISTIC BUCKET SORTING:
-        // 1. Overdue/Next Deliveries (estimated_delivery ASC)
-        // 2. Creation Date (entry_at DESC)
+        // Apply base sorting (Optimized for priority_bucket index)
+        // DETERMINISTIC PERFORMANCE SHIELD:
+        // 1. priority_bucket ASC (0=Atrasado, 1=No Prazo, 2=Sem Data, 3=Entregue)
+        // 2. estimated_delivery ASC (Próximas entregas primeiro)
+        // 3. entry_at DESC (Recentes primeiro para desempate)
         query = query
+            .order('priority_bucket', { ascending: true })
             .order('estimated_delivery', { ascending: true, nullsFirst: false })
             .order('entry_at', { ascending: false });
 
@@ -1467,6 +1469,7 @@ class SupabaseService {
             created_by: service.created_by,
             created_by_name: service.created_by_name,
             inspection: service.inspection,
+            priority_bucket: (service as any).priority_bucket || 2,
             organization_id: service.organization_id || 'org-default'
         }).select().single();
 
@@ -1485,6 +1488,7 @@ class SupabaseService {
 
         return {
             ...newService,
+            version: newService.version,
             tasks: [],
             reminders: [],
             status_history: [{
@@ -1504,19 +1508,35 @@ class SupabaseService {
     }
 
     async updateService(id: string, updates: Partial<ServiceJob>): Promise<boolean> {
-        const { status, priority, total_value, estimated_delivery, archived, inspection } = updates;
+        const { status, priority, total_value, estimated_delivery, archived, inspection, priority_bucket, version } = updates;
 
-        const { error } = await supabase.from('serviços').update({
+        const updatePayload: any = {
             ...(status && { status }),
             ...(priority && { priority }),
             ...(total_value !== undefined && { total_value }),
             ...(estimated_delivery && { estimated_delivery }),
             ...(archived !== undefined && { archived }),
-            ...(inspection && { inspection })
-        }).eq('id', id);
+            ...(inspection && { inspection }),
+            ...(priority_bucket !== undefined && { priority_bucket })
+        };
+
+        let query = supabase.from('serviços').update(updatePayload).eq('id', id);
+
+        // OPTIMISTIC LOCKING: Only update if version matches
+        if (version !== undefined) {
+            query = query.eq('version', version);
+        }
+
+        const { data, error } = await query.select('id');
 
         if (error) {
             console.error('Supabase Error (updateService):', error);
+            return false;
+        }
+
+        // If version was provided but no rows were updated, it's a conflict
+        if (version !== undefined && (!data || data.length === 0)) {
+            console.warn(`[Optimistic Lock] Conflict detected for service ${id}. Version ${version} is outdated.`);
             return false;
         }
 

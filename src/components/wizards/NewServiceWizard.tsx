@@ -317,26 +317,35 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
         vehicle = newVehicle!;
       }
 
-      // 3. Prepare inspection object
+      // 3. Calculate priority_bucket (0=Atrasado, 1=No Prazo, 2=Sem Data)
+      let priorityBucket = 2; // Sem data
+      if (estimatedDelivery) {
+        const deliveryDate = new Date(estimatedDelivery);
+        priorityBucket = deliveryDate < new Date() ? 0 : 1;
+      }
+
+      // 4. Prepare inspection object (Single Source of Truth)
+      const inspectionItems: any = {};
+      Object.entries(checklist).forEach(([label, detail]) => {
+        if (detail.checked) {
+          inspectionItems[label] = {
+            checked: true,
+            selectedTypes: detail.selectedTypes,
+            relato: detail.relato,
+            diagnostico: detail.diagnostico,
+            media: detail.media
+          };
+        }
+      });
+
       const inspection = {
         template_id: activeTemplate?.id,
         template_name: activeTemplate?.name,
-        items: Object.entries(checklist).reduce((acc, [label, detail]) => {
-          if (detail.checked) {
-            acc[label] = {
-              checked: true,
-              selectedTypes: detail.selectedTypes,
-              relato: detail.relato,
-              diagnostico: detail.diagnostico,
-              media: detail.media
-            };
-          }
-          return acc;
-        }, {} as any),
+        items: inspectionItems,
         general_notes: ''
       };
 
-      // 4. Create service
+      // 5. Create service (Atomic creation with bucket and SSoT inspection)
       const service = await dataProvider.addService({
         organization_id: user?.organization_id || 'org_1',
         vehicle_id: vehicle.id,
@@ -344,12 +353,13 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
         status: ServiceStatus.PENDENTE,
         entry_at: new Date().toISOString(),
         estimated_delivery: estimatedDelivery,
+        priority_bucket: priorityBucket, // Materialized column for sorting performance
         total_value: 0,
         priority: 'media',
         created_by: user?.id,
         created_by_name: user?.name,
         inspection: inspection
-      });
+      } as any);
 
       if (!service) {
         console.error('Failed to create service');

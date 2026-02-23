@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  X, Check, Search, ChevronDown, Trash2, FileText, RefreshCw, AlertTriangle
+  X, Check, Search, ChevronDown, Trash2, FileText, RefreshCw, AlertTriangle,
+  Lock
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
-import { ServiceJob, EvaluationTemplate, ItemMedia, ServiceTask } from '../types';
+import { ServiceJob, EvaluationTemplate, ItemMedia, ServiceTask } from '../types/index';
 import { generateUUID } from '../utils/helpers';
 import VoiceInput from './VoiceInput';
 import CameraCapture from './CameraCapture';
@@ -90,39 +91,7 @@ const EvaluationSheet: React.FC<EvaluationSheetProps> = ({ service, onClose }) =
         });
         setChecklist(loadedChecklist);
       }
-      // Prioridade 2: Fallback para tarefas existentes (compatibilidade com OSs antigas)
-      else if (service.tasks.some(t => t.from_template_id)) {
-        console.warn('[EvaluationSheet] No inspection field found. Falling back to task reconstruction.');
-        const loadedChecklist: Record<string, ItemDetail> = {};
-        const templateToUse = currentTemplate || templates[0];
-
-        templateToUse?.sections.forEach(section => {
-          section.items.forEach(item => {
-            const matchingTasks = service.tasks.filter(t => t.title.includes(item.label));
-            const selectedTypes: string[] = [];
-            matchingTasks.forEach(t => {
-              if (t.type === 'Troca') selectedTypes.push('troca');
-              else if (t.type === 'Chap.') selectedTypes.push('chap.');
-              else if (t.type === 'Pintura') selectedTypes.push('pintura');
-            });
-
-            const referenceTask = matchingTasks[0];
-            loadedChecklist[item.label] = {
-              checked: matchingTasks.length > 0,
-              selectedTypes,
-              observation: referenceTask?.observation || '',
-              relato: referenceTask?.relato || '',
-              diagnostico: referenceTask?.diagnostico || '',
-              media: referenceTask?.media || [],
-              defaultChargeType: item.default_charge_type,
-              defaultFixedValue: item.default_fixed_value,
-              defaultRatePerHour: item.default_rate_per_hour
-            };
-          });
-        });
-        setChecklist(loadedChecklist);
-      }
-      // Prioridade 3: OS nova, carrega template limpo
+      // Prioridade 2: OS nova, carrega template limpo (SSoT: Fallback para tarefas removido para evitar inconsistências)
       else if (currentTemplate) {
         initializeChecklistFromTemplate(currentTemplate);
       }
@@ -130,7 +99,20 @@ const EvaluationSheet: React.FC<EvaluationSheetProps> = ({ service, onClose }) =
       setIsLoading(false);
     };
     loadData();
-  }, [service.id]); // Only re-run if service ID changes (initial load), not on every service update prop change to avoid overwrite
+  }, [service.id]);
+
+  const validateInspectionSchema = (items: Record<string, any>): boolean => {
+    // Structural Shield: Ensure all items have the required fields
+    for (const [key, value] of Object.entries(items)) {
+      if (typeof value !== 'object' || value === null) return false;
+      const item = value as any;
+      if (typeof item.checked !== 'boolean') return false;
+      if (!Array.isArray(item.selectedTypes)) return false;
+      if (typeof item.relato !== 'string') return false;
+      if (typeof item.diagnostico !== 'string') return false;
+    }
+    return true;
+  };
 
   const initializeChecklistFromTemplate = (template: EvaluationTemplate) => {
     const initialChecklist: Record<string, ItemDetail> = {};
@@ -253,18 +235,42 @@ const EvaluationSheet: React.FC<EvaluationSheetProps> = ({ service, onClose }) =
 
     const finalTasks = [...manualTasks, ...templateTasks].sort((a, b) => (a.order || 0) - (b.order || 0));
 
-    // Save to Service 
-    // AND update active_template_id via inspection column
-    await dataProvider.updateService(service.id, {
+    const inspectionItems: any = {};
+    (Object.entries(checklist) as [string, ItemDetail][]).forEach(([itemName, detail]) => {
+      if (detail.checked) {
+        inspectionItems[itemName] = {
+          checked: true,
+          selectedTypes: detail.selectedTypes,
+          relato: detail.relato,
+          diagnostico: detail.diagnostico,
+          media: detail.media
+        };
+      }
+    });
+
+    // 4. Schema Validation (Front-end Shield)
+    if (!validateInspectionSchema(inspectionItems)) {
+      alert('Erro Crítico: Estrutura da inspeção é inválida. Por favor, tente novamente.');
+      return;
+    }
+
+    // 5. Save to Service with OPTIMISTIC LOCKING
+    const success = await dataProvider.updateService(service.id, {
       tasks: finalTasks,
+      version: service.version, // Shield against concurrent edits
       inspection: {
-        ...(service.inspection || { items: {}, general_notes: '' }),
         template_id: activeTemplate?.id,
-        template_name: activeTemplate?.name
+        template_name: activeTemplate?.name,
+        items: inspectionItems,
+        general_notes: service.inspection?.general_notes || ''
       }
     } as any);
 
-    onClose();
+    if (success) {
+      onClose();
+    } else {
+      alert('Erro ao Salvar: Outro usuário alterou este serviço simultaneamente ou houve falha de conexão. Por favor, recarregue a página antes de editar novamente.');
+    }
   };
 
   return (

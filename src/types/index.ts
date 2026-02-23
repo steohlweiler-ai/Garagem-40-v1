@@ -260,9 +260,12 @@ export interface ServiceJob {
   created_by_name?: string;
   inspection?: InspectionData;
   service_type?: 'novo' | 'retrabalho';
-  active_template_id?: string; // New field to track active template for this OS
-  vehicle?: Vehicle; // OPTIMIZED: Joined data
-  client?: Client;   // OPTIMIZED: Joined data
+  active_template_id?: string;
+  priority_bucket?: number; // 0=Atrasado, 1=No Prazo, 2=Sem Data, 3=Entregue
+  version: number;           // For Optimistic Locking
+  updated_at?: string;       // Audit trail
+  vehicle?: Vehicle;
+  client?: Client;
 }
 
 export interface Client {
