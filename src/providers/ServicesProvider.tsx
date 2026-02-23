@@ -32,6 +32,10 @@ interface ServicesContextType {
     // Actions
     loadMore: () => void;
     refresh: () => Promise<void>;
+    /** Force-refresh bypassing re-entrancy guards. Use after mutations. */
+    forceRefresh: () => Promise<void>;
+    /** Inject a newly created service immediately into UI state (optimistic update). */
+    injectServiceOptimistically: (service: ServiceJob) => void;
     handleSmartRetry: () => void;
 
     // Reference Data
@@ -346,6 +350,34 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         await Promise.all([loadStats(), loadServices(true)]);
     };
 
+    /**
+     * Resets re-entrancy guards before reloading.
+     * Use after mutations (create/update) to guarantee the reload is never silently dropped.
+     */
+    const forceRefresh = useCallback(async () => {
+        loadingStatsRef.current = false;
+        loadingServicesRef.current = false;
+        if (loadingStatsTimeoutRef.current) clearTimeout(loadingStatsTimeoutRef.current);
+        if (loadingServicesTimeoutRef.current) clearTimeout(loadingServicesTimeoutRef.current);
+        await Promise.all([loadStats(), loadServices(true)]);
+    }, [loadStats, loadServices]);
+
+    /**
+     * Optimistic update: inserts a newly created service into local state immediately
+     * without waiting for the next DB round-trip.
+     */
+    const injectServiceOptimistically = useCallback((service: ServiceJob) => {
+        setServices(prev => {
+            if (prev.some(s => s.id === service.id)) return prev;
+            return [service, ...prev];
+        });
+        setStatsCounts(prev => ({
+            ...prev,
+            [service.status]: (prev[service.status] || 0) + 1,
+            total: (prev['total'] || 0) + 1,
+        }));
+    }, []);
+
     return (
         <ServicesContext.Provider value={{
             services,
@@ -363,6 +395,8 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setAdvancedFilters,
             loadMore: () => loadServices(false),
             refresh,
+            forceRefresh,
+            injectServiceOptimistically,
             handleSmartRetry,
             allVehicles,
             allClients,
