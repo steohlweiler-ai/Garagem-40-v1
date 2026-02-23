@@ -13,6 +13,7 @@ import Stepper from '../Stepper';
 import CameraCapture from '../CameraCapture';
 import ColorSelector from '../ColorSelector';
 import PlateScanner from '../PlateScanner';
+import { useAuth } from '../../providers/AuthProvider';
 
 interface NewServiceWizardProps {
   onClose: () => void;
@@ -40,6 +41,7 @@ const STEPS = [
 ];
 
 const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated }) => {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [cameraMode, setCameraMode] = useState<'photo' | 'video' | null>(null);
   const [mediaModalItem, setMediaModalItem] = useState<string | null>(null);
@@ -317,14 +319,16 @@ const NewServiceWizard: React.FC<NewServiceWizardProps> = ({ onClose, onCreated 
 
       // 3. Create service
       const service = await dataProvider.addService({
-        organization_id: 'org_1',
+        organization_id: user?.organization_id || 'org_1',
         vehicle_id: vehicle.id,
         client_id: client.id,
         status: ServiceStatus.PENDENTE,
         entry_at: new Date().toISOString(),
         estimated_delivery: estimatedDelivery,
         total_value: 0,
-        priority: 'media'
+        priority: 'media',
+        created_by: user?.id,
+        created_by_name: user?.name
       });
 
       if (!service) {

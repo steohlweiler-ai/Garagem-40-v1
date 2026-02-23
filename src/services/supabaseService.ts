@@ -1115,7 +1115,7 @@ class SupabaseService {
         }
 
         // Apply base sorting (will be refined client-side for priority)
-        query = query.order('entry_at', { ascending: true });
+        query = query.order('entry_at', { ascending: false });
 
         // Apply pagination
         query = query.range(offset, offset + limit - 1);
