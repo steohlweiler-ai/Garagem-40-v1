@@ -19,8 +19,10 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
         });
 
         if (!uploadRes.ok) {
-            const error = await uploadRes.json().catch(() => ({ error: 'Upload failed' }));
-            throw new Error(error.error || `HTTP ${uploadRes.status}`);
+            const errorBody = await uploadRes.json().catch(() => ({ error: 'Upload failed' }));
+            const details = errorBody.details || errorBody.rawError || `HTTP ${uploadRes.status}`;
+            console.error('❌ [TABSCANNER] Upload failed details:', errorBody);
+            throw new Error(details);
         }
 
         const { token, warning, cached } = await uploadRes.json();
@@ -123,6 +125,12 @@ export async function scanInvoice(imageBase64: string): Promise<InvoiceItemRevie
             throw error;
         }
         console.error('❌ [TABSCANNER] Invoice extraction failed:', error);
+
+        // Enhance error message if it's a generic internal error
+        if (error.message === 'INTERNAL_ERROR') {
+            throw new Error('Erro interno no servidor de OCR. Verifique o console ou as variáveis de ambiente.');
+        }
+
         throw error;
     }
 }

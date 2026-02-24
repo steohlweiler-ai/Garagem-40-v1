@@ -32,6 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
             const buffer = Buffer.from(base64Data, 'base64');
 
+            console.log(`[TABSCANNER] Image size: ${(buffer.length / 1024).toFixed(2)} KB`);
+
             const formData = new FormData();
             formData.append('file', buffer, { filename: 'receipt.jpg', contentType: 'image/jpeg' });
 
@@ -114,7 +116,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'INVALID_ACTION' });
         }
     } catch (error: any) {
-        console.error('❌ [TABSCANNER] Error:', error.response?.data || error.message);
+        const errorData = error.response?.data;
+        console.error('❌ [TABSCANNER] Error Details:', errorData || error.message);
 
         const status = error.response?.status || 500;
         const message = error.response?.data?.message || error.message;
@@ -173,6 +176,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(401).json({ error: 'INVALID_API_KEY' });
         }
 
-        return res.status(status).json({ error: 'INTERNAL_ERROR', details: message });
+        return res.status(status).json({
+            error: 'INTERNAL_ERROR',
+            details: message,
+            rawError: errorData || error.message
+        });
     }
 }
