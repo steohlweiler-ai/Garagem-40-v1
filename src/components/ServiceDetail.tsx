@@ -37,6 +37,7 @@ import PriceDisplay from './PriceDisplay';
 import { useServices as useLegacyServices } from '../providers/ServicesProvider';
 import { useServiceById } from '../hooks/useServiceById';
 import { useUpdateService } from '../hooks/useUpdateService';
+import { useTaskMutations } from '../hooks/useTaskMutations';
 import { MaintenanceBanner } from './MaintenanceBanner';
 import { CircuitOpenError } from '../utils/errors';
 
@@ -61,6 +62,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   } = useServiceById(serviceId);
 
   const updateServiceMutation = useUpdateService();
+  const taskMutations = useTaskMutations(serviceId);
 
   // 3. UI/Local State
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -303,23 +305,22 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   const toggleTaskStatus = async (task: ServiceTask) => {
     const nextStatus = task.status === 'done' ? 'todo' : 'done';
-    await dataProvider.updateTask(serviceId, task.id, {
-      status: nextStatus,
-      started_at: undefined
+
+    await taskMutations.updateTask.mutateAsync({
+      taskId: task.id,
+      updates: {
+        status: nextStatus as any,
+        started_at: undefined
+      }
     });
 
     // Check Status Logic
-    const updatedTasks = service.tasks.map(t => t.id === task.id ? { ...t, status: nextStatus } : t);
-    await refreshServiceStatus({ ...service, tasks: updatedTasks } as any);
-
-    loadData();
-    onUpdate();
+    const updatedTasks = (service?.tasks || []).map(t => t.id === task.id ? { ...t, status: nextStatus as any } : t);
+    await refreshServiceStatus({ ...service!, tasks: updatedTasks } as any);
   };
 
   const handleToggleTaskTimer = async (task: ServiceTask) => {
     if (task.status === 'done' || !user) return;
-
-    let updatedService = { ...service! };
 
     if (task.status === 'in_progress') {
       const sessionSeconds = task.started_at
@@ -328,71 +329,48 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
       const total = (task.time_spent_seconds || 0) + sessionSeconds;
 
-      // New Logic: Stop Execution (Updates DB + History)
-      await dataProvider.stopTaskExecution(
-        task.id,
-        sessionSeconds,
-        total,
-        { id: user.id, name: user.name },
-        task.started_at!
-      );
-
-      // Update local state for immediate check
-      const updatedTasks = updatedService.tasks.map(t => t.id === task.id ? { ...t, status: 'todo' as const, started_at: undefined, time_spent_seconds: total } : t);
-      updatedService.tasks = updatedTasks;
-
+      await taskMutations.stopTask.mutateAsync({
+        taskId: task.id,
+        sessionDuration: sessionSeconds,
+        totalDuration: total,
+        user: { id: user.id, name: user.name },
+        startedAt: task.started_at!
+      });
     } else {
       // Pause other running tasks first
-      const updatedTasks = updatedService.tasks.map(t => {
-        if (t.status === 'in_progress' && t.id !== task.id) {
-          // Need to stop others properly too for history, but for now simplifying to generic update 
-          // or we would need to call stopTaskExecution for each. 
-          // Better to just force pause them via generic update to avoid complex recursion/loops here
-          // or just assume single task execution policy.
-          return { ...t, status: 'todo' as const };
-        }
-        return t;
-      });
-
-      // Actually perform DB updates for others (Simplified Stop)
-      for (const t of service!.tasks) {
+      for (const t of service?.tasks || []) {
         if (t.status === 'in_progress' && t.id !== task.id) {
           const sSec = t.started_at
             ? Math.floor((Date.now() - new Date(t.started_at).getTime()) / 1000)
             : 0;
-          // Using proper stop for others too
-          await dataProvider.stopTaskExecution(
-            t.id,
-            sSec,
-            (t.time_spent_seconds || 0) + sSec,
-            { id: user.id, name: user.name }, // Assuming current user is stopping them implies they "take over" or just system stop
-            t.started_at!
-          );
+
+          await taskMutations.stopTask.mutateAsync({
+            taskId: t.id,
+            sessionDuration: sSec,
+            totalDuration: (t.time_spent_seconds || 0) + sSec,
+            user: { id: user.id, name: user.name },
+            startedAt: t.started_at!
+          });
         }
       }
 
       // Start Logic
-      await dataProvider.startTaskExecution(task.id, { id: user.id, name: user.name });
-
-      // Local update for status logic
-      updatedTasks.find(t => t.id === task.id)!.status = 'in_progress';
-      updatedTasks.find(t => t.id === task.id)!.started_at = new Date().toISOString();
-      updatedTasks.find(t => t.id === task.id)!.last_executor_name = user.name; // Optimistic update
-      updatedService.tasks = updatedTasks;
+      await taskMutations.startTask.mutateAsync({
+        taskId: task.id,
+        user: { id: user.id, name: user.name }
+      });
     }
 
-    // CHECK STATUS MACHINE
-    await refreshServiceStatus(updatedService);
-
-    loadData();
-    onUpdate();
+    // CHECK STATUS MACHINE with fresh logic
+    // Refetch is handled by onSettled of the mutations
   };
 
   const handleUpdateTaskCharge = async (updates: Partial<ServiceTask>) => {
     if (!selectedTaskForDetails) return;
-    await dataProvider.updateTask(serviceId, selectedTaskForDetails.id, updates);
-    loadData();
-    onUpdate();
+    await taskMutations.updateTask.mutateAsync({
+      taskId: selectedTaskForDetails.id,
+      updates
+    });
   };
 
   const addMediaToTask = async (mediaSource: { url: string; type: 'image' | 'video' } | File) => {
@@ -481,25 +459,24 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   const handleAddTask = async () => {
     if (!newTaskTitle.trim() || !service) return;
 
-    await dataProvider.addTask(serviceId, newTaskTitle, {
-      type: 'Extra',
-      charge_type: 'Fixo',
-      fixed_value: 0,
-      rate_per_hour: 0,
-      order: service.tasks.length
+    await taskMutations.addTask.mutateAsync({
+      title: newTaskTitle,
+      extras: {
+        type: 'Extra',
+        charge_type: 'Fixo',
+        fixed_value: 0,
+        rate_per_hour: 0,
+        order: service.tasks.length
+      }
     });
 
     setNewTaskTitle('');
     setIsAddingTask(false);
-    loadData();
-    onUpdate();
   };
 
   const handleDeleteTask = async (taskId: string) => {
     if (!window.confirm('Excluir esta etapa permanentemente?')) return;
-    await dataProvider.deleteTask(serviceId, taskId);
-    loadData();
-    onUpdate();
+    await taskMutations.deleteTask.mutateAsync(taskId);
   };
 
   return (
@@ -873,12 +850,17 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                         {/* 1. BUTTON CHECK (Left) */}
                         <button
                           onClick={() => toggleTaskStatus(task)}
+                          disabled={taskMutations.updateTask.isPending}
                           className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl border-2 flex items-center justify-center shrink-0 transition-all active:scale-90 ${task.status === 'done'
                             ? 'bg-green-500 border-green-500 text-white shadow-md shadow-green-200'
                             : 'bg-slate-50 border-slate-200 text-transparent hover:border-slate-300'
-                            }`}
+                            } disabled:opacity-50`}
                         >
-                          <Check size={20} strokeWidth={4} />
+                          {taskMutations.updateTask.isPending && taskMutations.updateTask.variables?.taskId === task.id ? (
+                            <RotateCcw size={20} className="animate-spin text-slate-300" />
+                          ) : (
+                            <Check size={20} strokeWidth={4} />
+                          )}
                         </button>
 
                         {/* 2. MAIN INFO (Middle) */}
@@ -942,12 +924,20 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                           <div className="flex flex-col items-end gap-1">
                             <button
                               onClick={() => handleToggleTaskTimer(task)}
+                              disabled={taskMutations.startTask.isPending || taskMutations.stopTask.isPending}
                               className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95 border-2 ${isTaskInProgress
                                 ? 'bg-purple-600 border-purple-500 text-white animate-pulse shadow-purple-200'
                                 : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-600'
-                                }`}
+                                } disabled:opacity-50`}
                             >
-                              {isTaskInProgress ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" className="ml-0.5" />}
+                              {(taskMutations.startTask.isPending && taskMutations.startTask.variables?.taskId === task.id) ||
+                                (taskMutations.stopTask.isPending && taskMutations.stopTask.variables?.taskId === task.id) ? (
+                                <RotateCcw size={16} className="animate-spin" />
+                              ) : isTaskInProgress ? (
+                                <Pause size={16} fill="currentColor" />
+                              ) : (
+                                <Play size={16} fill="currentColor" className="ml-0.5" />
+                              )}
                             </button>
 
                             {/* Timer Display (Always visible or only if started?) - User requests similar to image which shows timer */}
@@ -969,10 +959,15 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                           {/* Delete Button */}
                           <button
                             onClick={() => handleDeleteTask(task.id)}
-                            className="w-8 h-8 sm:w-10 sm:h-10 bg-red-50 rounded-xl text-red-300 hover:text-red-500 hover:bg-red-100 transition-all active:scale-90 border border-red-100 flex items-center justify-center"
+                            disabled={taskMutations.deleteTask.isPending}
+                            className="w-8 h-8 sm:w-10 sm:h-10 bg-red-50 rounded-xl text-red-300 hover:text-red-500 hover:bg-red-100 transition-all active:scale-90 border border-red-100 flex items-center justify-center disabled:opacity-50"
                             title="Excluir etapa"
                           >
-                            <Trash2 size={16} strokeWidth={2.5} />
+                            {taskMutations.deleteTask.isPending && taskMutations.deleteTask.variables === task.id ? (
+                              <RotateCcw size={16} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={16} strokeWidth={2.5} />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -1045,9 +1040,14 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                           </button>
                           <button
                             onClick={handleAddTask}
-                            className="p-3 bg-slate-900 text-white rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg"
+                            disabled={taskMutations.addTask.isPending}
+                            className="p-3 bg-slate-900 text-white rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg disabled:opacity-50"
                           >
-                            <Check size={20} />
+                            {taskMutations.addTask.isPending ? (
+                              <RotateCcw size={20} className="animate-spin" />
+                            ) : (
+                              <Check size={20} />
+                            )}
                           </button>
                         </div>
                       </div>

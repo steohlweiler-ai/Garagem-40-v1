@@ -1842,59 +1842,33 @@ class SupabaseService {
     }
 
     async startTaskExecution(taskId: string, user: { id: string, name: string }): Promise<boolean> {
-        const now = new Date().toISOString();
-        const { error } = await safeCall(`update:tarefas:${taskId}:start`, async (opSignal) => {
-            let query = supabase.from('tarefas').update({
-                status: 'in_progress',
-                started_at: now,
-                last_executor_id: user.id,
-                last_executor_name: user.name,
-                updated_at: now
-            }).eq('id', taskId);
+        const { error } = await safeCall(`rpc:start_task_atomic:${taskId}`, async (opSignal) => {
+            let query = supabase.rpc('start_task_atomic', {
+                p_task_id: taskId,
+                p_user_id: user.id,
+                p_user_name: user.name
+            });
             if (opSignal) query = query.abortSignal(opSignal);
-            return await query.select('id');
+            return await query;
         }, { timeoutMs: 15000, retries: 0 });
 
         return !error;
     }
 
     async stopTaskExecution(taskId: string, currentSessionDuration: number, totalTimeSpent: number, user: { id: string, name: string }, startedAt: string): Promise<boolean> {
-        const now = new Date().toISOString();
-
-        // 1. Update Task (Snapshot)
-        const { error: taskError } = await safeCall(`update:tarefas:${taskId}:stop`, async (opSignal) => {
-            let query = supabase.from('tarefas').update({
-                status: 'todo',
-                started_at: null, // Clear active session
-                time_spent_seconds: totalTimeSpent,
-                updated_at: now
-            }).eq('id', taskId);
-            if (opSignal) query = query.abortSignal(opSignal);
-            return await query.select('id');
-        }, { timeoutMs: 15000, retries: 0 });
-
-        if (taskError) return false;
-
-        // 2. Insert into History (Audit Trail)
-        const { error: historyError } = await safeCall(`insert:historico_tarefas:${taskId}`, async (opSignal) => {
-            let query = supabase.from('historico_tarefas').insert({
-                task_id: taskId,
-                user_id: user.id,
-                user_name: user.name,
-                started_at: startedAt, // When this session started
-                ended_at: now,
-                duration_seconds: currentSessionDuration,
-                organization_id: 'org-default'
+        const { error } = await safeCall(`rpc:stop_task_atomic:${taskId}`, async (opSignal) => {
+            // We ignore currentSessionDuration/totalTimeSpent because the RPC calculates them using NOW() - started_at
+            let query = supabase.rpc('stop_task_atomic', {
+                p_task_id: taskId,
+                p_user_id: user.id,
+                p_user_name: user.name,
+                p_org_id: 'org-default'
             });
             if (opSignal) query = query.abortSignal(opSignal);
-            return await query.select('id');
+            return await query;
         }, { timeoutMs: 15000, retries: 0 });
 
-        if (historyError) {
-            console.error('Error logging task history:', historyError);
-        }
-
-        return true;
+        return !error;
     }
 
     // ===================== TASK OPERATIONS =====================
@@ -1945,7 +1919,6 @@ class SupabaseService {
         }
         return true;
     }
-
 
     async deleteTask(taskId: string): Promise<boolean> {
         const { error } = await safeCall(`delete:tarefas:${taskId}`, async (opSignal) => {
