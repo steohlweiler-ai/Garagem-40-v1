@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { Appointment, ReminderWithService } from '../types';
-import { useReminderMutations } from '../hooks/useReminderMutations';
+import { useReminderMutations } from '../hooks';
 import VoiceInput from './VoiceInput';
 
 type CalendarView = 'month' | 'week' | 'day';

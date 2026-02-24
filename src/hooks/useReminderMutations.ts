@@ -1,4 +1,6 @@
 
+console.log('[Module] useReminderMutations loading...');
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { dataProvider } from '../services/dataProvider';
 import { Reminder, ReminderWithService, ServiceJob } from '../types';
@@ -107,3 +109,6 @@ export function useReminderMutations(serviceId?: string) {
         deleteReminder
     };
 }
+
+export default useReminderMutations;
+

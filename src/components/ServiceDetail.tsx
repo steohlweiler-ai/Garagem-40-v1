@@ -5,7 +5,7 @@ import {
   Check, Info, Package, DollarSign, StickyNote, Plus, Calendar as CalendarIcon,
   Pause, Search, ChevronDown, ChevronUp, AlertTriangle, PlayCircle, RotateCcw,
   ArrowRight, LayoutPanelTop, BellRing, Trash, BellPlus, History, Video, Mic, Image as ImageIcon,
-  CheckCircle2, Timer, Upload, Save, Calendar, Bell, Pencil
+  CheckCircle2, Timer, Upload, Save, Calendar, Bell, Pencil, RefreshCw
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import {
@@ -35,10 +35,12 @@ import CameraCapture from './CameraCapture';
 import PriceDisplay from './PriceDisplay';
 
 import { useServices as useLegacyServices } from '../providers/ServicesProvider';
-import { useServiceById } from '../hooks/useServiceById';
-import { useUpdateService } from '../hooks/useUpdateService';
-import { useTaskMutations } from '../hooks/useTaskMutations';
-import { useReminderMutations } from '../hooks/useReminderMutations';
+import {
+  useServiceById,
+  useUpdateService,
+  useTaskMutations,
+  useReminderMutations
+} from '../hooks';
 import { MaintenanceBanner } from './MaintenanceBanner';
 import { CircuitOpenError } from '../utils/errors';
 
