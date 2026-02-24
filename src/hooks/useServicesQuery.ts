@@ -8,6 +8,7 @@ export function useServicesQuery(options: {
     excludeStatuses?: string[];
     limit?: number;
     offset?: number;
+    organizationId?: string;
 }) {
     return useQuery({
         queryKey: ['services', options],

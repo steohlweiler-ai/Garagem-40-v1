@@ -1,0 +1,2558 @@
+{
+  "summary": {
+    "critical": 3,
+    "warnings": 27,
+    "info": 19,
+    "timestamp": "2026-02-24T20:37:31.736Z"
+  },
+  "security": {
+    "functions": [
+      {
+        "args": "status text, estimated_delivery timestamp with time zone",
+        "name": "calculate_priority_bucket",
+        "has_search_path": false,
+        "security_status": "CRITICAL: Missing search_path",
+        "has_security_definer": true
+      },
+      {
+        "args": "",
+        "name": "trg_update_priority_bucket",
+        "has_search_path": false,
+        "security_status": "CRITICAL: Missing search_path",
+        "has_security_definer": true
+      },
+      {
+        "args": "",
+        "name": "audit_db_full_diagnostics",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "",
+        "name": "is_admin",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_user_id uuid, p_nome text, p_email text, p_papel text, p_permissoes jsonb",
+        "name": "create_user_profile",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "target_user_id uuid",
+        "name": "delete_user_account",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_id uuid",
+        "name": "get_service_detail_unified",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_org_id text",
+        "name": "refresh_service_stats",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "",
+        "name": "trg_maintain_service_stats",
+        "has_search_path": false,
+        "security_status": "CRITICAL: Missing search_path",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_limit integer DEFAULT 50, p_offset integer DEFAULT 0, p_statuses text[] DEFAULT NULL::text[], p_client_id uuid DEFAULT NULL::uuid, p_vehicle_id uuid DEFAULT NULL::uuid, p_org_id text DEFAULT 'org-default'::text",
+        "name": "get_dashboard_services_v3",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_invoice_data json, p_items_data json",
+        "name": "update_stock_atomic",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_product_id uuid, p_vehicle_id uuid, p_qty integer",
+        "name": "reserve_stock_atomic",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_limit integer DEFAULT 50, p_offset integer DEFAULT 0, p_statuses text[] DEFAULT NULL::text[]",
+        "name": "get_dashboard_services",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_limit integer DEFAULT 50, p_offset integer DEFAULT 0, p_statuses text[] DEFAULT NULL::text[], p_client_id uuid DEFAULT NULL::uuid, p_vehicle_id uuid DEFAULT NULL::uuid",
+        "name": "get_dashboard_services",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      }
+    ],
+    "permissions": [
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "service_stats",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "clientes",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "veículos",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "tarefas",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "lembretes",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "historico_status",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "catálogo",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "agendamentos",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "integrações",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "faturas",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "configurações_de_status",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "fornecedores",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "produtos",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "serviços",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "organização",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "service_templates",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "template_items",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "itens_da_os",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "historico_tarefas",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "TRIGGER"
+      }
+    ]
+  },
+  "integrity": {
+    "missing_indexes": [],
+    "potential_orphans": [
+      {
+        "name": "calculate_priority_bucket"
+      },
+      {
+        "name": "create_user_profile"
+      },
+      {
+        "name": "delete_user_account"
+      },
+      {
+        "name": "get_dashboard_services"
+      },
+      {
+        "name": "get_dashboard_services"
+      },
+      {
+        "name": "is_admin"
+      },
+      {
+        "name": "reserve_stock_atomic"
+      },
+      {
+        "name": "update_stock_atomic"
+      }
+    ],
+    "migration_drift": {
+      "local_count": 10,
+      "db_tracking": "INFO: schema_migrations table not found (using manual tracking)",
+      "files": [
+        "001_add_scheduling_indexes.sql",
+        "002_add_priority_bucket_and_index.sql",
+        "003_dashboard_performance_rpc.sql",
+        "004_add_missing_performance_indexes.sql",
+        "005_dashboard_rpc_v2.sql",
+        "006_task_resilience_rpc.sql",
+        "007_reminder_resilience_rpc.sql",
+        "010_idempotency_keys.sql",
+        "011_perf_audit_rpcs.sql",
+        "012_high_performance_optimizations.sql"
+      ]
+    }
+  },
+  "raw_data": {
+    "audit_timestamp": "2026-02-24T20:37:31.436985+00:00",
+    "missing_indexes": [],
+    "migration_history": "INFO: schema_migrations table not found (using manual tracking)",
+    "potential_orphans": [
+      {
+        "name": "calculate_priority_bucket"
+      },
+      {
+        "name": "create_user_profile"
+      },
+      {
+        "name": "delete_user_account"
+      },
+      {
+        "name": "get_dashboard_services"
+      },
+      {
+        "name": "get_dashboard_services"
+      },
+      {
+        "name": "is_admin"
+      },
+      {
+        "name": "reserve_stock_atomic"
+      },
+      {
+        "name": "update_stock_atomic"
+      }
+    ],
+    "security_functions": [
+      {
+        "args": "status text, estimated_delivery timestamp with time zone",
+        "name": "calculate_priority_bucket",
+        "has_search_path": false,
+        "security_status": "CRITICAL: Missing search_path",
+        "has_security_definer": true
+      },
+      {
+        "args": "",
+        "name": "trg_update_priority_bucket",
+        "has_search_path": false,
+        "security_status": "CRITICAL: Missing search_path",
+        "has_security_definer": true
+      },
+      {
+        "args": "",
+        "name": "audit_db_full_diagnostics",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "",
+        "name": "is_admin",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_user_id uuid, p_nome text, p_email text, p_papel text, p_permissoes jsonb",
+        "name": "create_user_profile",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "target_user_id uuid",
+        "name": "delete_user_account",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_id uuid",
+        "name": "get_service_detail_unified",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_org_id text",
+        "name": "refresh_service_stats",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "",
+        "name": "trg_maintain_service_stats",
+        "has_search_path": false,
+        "security_status": "CRITICAL: Missing search_path",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_limit integer DEFAULT 50, p_offset integer DEFAULT 0, p_statuses text[] DEFAULT NULL::text[], p_client_id uuid DEFAULT NULL::uuid, p_vehicle_id uuid DEFAULT NULL::uuid, p_org_id text DEFAULT 'org-default'::text",
+        "name": "get_dashboard_services_v3",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_invoice_data json, p_items_data json",
+        "name": "update_stock_atomic",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_product_id uuid, p_vehicle_id uuid, p_qty integer",
+        "name": "reserve_stock_atomic",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_limit integer DEFAULT 50, p_offset integer DEFAULT 0, p_statuses text[] DEFAULT NULL::text[]",
+        "name": "get_dashboard_services",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      },
+      {
+        "args": "p_limit integer DEFAULT 50, p_offset integer DEFAULT 0, p_statuses text[] DEFAULT NULL::text[], p_client_id uuid DEFAULT NULL::uuid, p_vehicle_id uuid DEFAULT NULL::uuid",
+        "name": "get_dashboard_services",
+        "has_search_path": true,
+        "security_status": "OK",
+        "has_security_definer": true
+      }
+    ],
+    "security_permissions": [
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "service_stats",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_stats",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "clientes",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "clientes",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "veículos",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "veículos",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "tarefas",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "tarefas",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "lembretes",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "lembretes",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "historico_status",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_status",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "catálogo",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "catálogo",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "agendamentos",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "agendamentos",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "critérios_de_atraso",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "modelos_de_avaliação",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "integrações",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "integrações",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "faturas",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "faturas",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "configurações_de_status",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_status",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "fornecedores",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "fornecedores",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "cores_do_veículo",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "alocações_de_ações",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "movimentos_de_ações",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configurações_de_oficina",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "produtos",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "produtos",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "serviços",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "serviços",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "organização",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "organização",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "perfis_de_usuário",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "service_templates",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "service_templates",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "template_items",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "template_items",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "itens_da_os",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "itens_da_os",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "configuracoes_oficina",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "INSERT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "SELECT"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "WARNING: Delete access for authenticated",
+        "table_name": "historico_tarefas",
+        "privilege_type": "DELETE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "grantee": "authenticated",
+        "risk_level": "INFO",
+        "table_name": "historico_tarefas",
+        "privilege_type": "TRIGGER"
+      }
+    ]
+  }
+}

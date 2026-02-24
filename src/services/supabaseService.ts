@@ -1160,6 +1160,7 @@ class SupabaseService {
         limit?: number;
         offset?: number;
         sortBy?: 'priority' | 'entry_recent' | 'entry_oldest' | 'delivery';
+        organizationId?: string;
         signal?: AbortSignal;
     }): Promise<{
         data: ServiceJob[];
@@ -1175,10 +1176,11 @@ class SupabaseService {
             limit = 20,
             offset = 0,
             sortBy = 'priority',
+            organizationId,
             signal
         } = options;
 
-        console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, clientId, vehicleId, limit, offset });
+        console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, clientId, vehicleId, limit, offset, organizationId });
 
         // Build base query
         // AUDIT SHIELD: Using simple joins to let Supabase resolve relationships automatically
@@ -1202,7 +1204,7 @@ class SupabaseService {
                 p_statuses: statuses.length > 0 ? statuses : null,
                 p_client_id: clientId || null,
                 p_vehicle_id: vehicleId || null,
-                p_org_id: 'org-default'
+                p_org_id: organizationId || 'org-default'
             });
 
             if (!rpcError && rpcData && rpcData.length > 0) {

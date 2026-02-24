@@ -216,28 +216,29 @@ BEGIN
 
     -- 3. Return BATCh result
     RETURN QUERY
-    WITH filtered_services AS (
-        SELECT 
-            s.*,
-            v.plate as vehicle_plate, v.brand as vehicle_brand, v.model as vehicle_model,
-            c.name as client_name, c.phone as client_phone
-        FROM "serviços" s
-        LEFT JOIN "veículos" v ON s.vehicle_id = v.id
-        LEFT JOIN "clientes" c ON s.client_id = c.id
-        WHERE (p_org_id IS NULL OR s.organization_id = p_org_id)
-          AND ((p_statuses IS NULL AND s.status != 'Entregue') OR (s.status = ANY(p_statuses)))
-          AND (p_client_id IS NULL OR s.client_id = p_client_id)
-          AND (p_vehicle_id IS NULL OR s.vehicle_id = p_vehicle_id)
-        ORDER BY s.priority_bucket ASC, s.estimated_delivery ASC NULLS LAST, s.entry_at DESC
-        LIMIT p_limit OFFSET p_offset
-    )
     SELECT 
         jsonb_build_object(
-            'services', COALESCE(jsonb_agg(fs.*), '[]'::jsonb),
+            'services', (
+                SELECT COALESCE(jsonb_agg(fs.*), '[]'::jsonb) 
+                FROM (
+                    SELECT 
+                        s.*,
+                        v.plate as vehicle_plate, v.brand as vehicle_brand, v.model as vehicle_model,
+                        c.name as client_name, c.phone as client_phone
+                    FROM "serviços" s
+                    LEFT JOIN "veículos" v ON s.vehicle_id = v.id
+                    LEFT JOIN "clientes" c ON s.client_id = c.id
+                    WHERE (p_org_id IS NULL OR s.organization_id = p_org_id)
+                      AND ((p_statuses IS NULL AND s.status != 'Entregue') OR (s.status = ANY(p_statuses)))
+                      AND (p_client_id IS NULL OR s.client_id = p_client_id)
+                      AND (p_vehicle_id IS NULL OR s.vehicle_id = p_vehicle_id)
+                    ORDER BY s.priority_bucket ASC, s.estimated_delivery ASC NULLS LAST, s.entry_at DESC
+                    LIMIT p_limit OFFSET p_offset
+                ) fs
+            ),
             'stats', v_stats,
             'timestamp', now()
         ),
-        v_total_count
-    FROM filtered_services fs;
+        v_total_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

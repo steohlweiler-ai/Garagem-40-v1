@@ -53,7 +53,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
             excludeStatuses,
             statuses: filterStatuses,
             limit: 100,
-            offset: 0
+            offset: 0,
+            organizationId: currentUser?.organization_id
         };
     }, [dashboardFilter, advancedFilters]);
 

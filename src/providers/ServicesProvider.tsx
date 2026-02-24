@@ -53,7 +53,7 @@ interface ServicesContextType {
 const ServicesContext = createContext<ServicesContextType | undefined>(undefined);
 
 export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
 
     const [services, setServices] = useState<ServiceJob[]>([]);
     const [statsCounts, setStatsCounts] = useState<Record<string, number>>({});
@@ -212,7 +212,8 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 statuses: filterStatuses,
                 limit: PAGE_SIZE,
                 offset,
-                sortBy: 'priority'
+                sortBy: 'priority',
+                organizationId: user?.organization_id
             });
 
             if (requestId !== loadServicesRequestIdRef.current) return;
