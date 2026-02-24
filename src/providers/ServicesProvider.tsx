@@ -46,6 +46,9 @@ interface ServicesContextType {
     allVehicles: Vehicle[];
     allClients: Client[];
     delayCriteria: any;
+
+    /** Record a service failure for resilience tracking (circuit breaker/offline logic) */
+    recordFailure: (reason: 'network_failure' | 'timeout' | 'circuit_open') => void;
 }
 
 const ServicesContext = createContext<ServicesContextType | undefined>(undefined);
@@ -87,6 +90,12 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [isOffline, setIsOffline] = useState(!window.navigator.onLine);
     const [offlineReason, setOfflineReason] = useState<'network_failure' | 'circuit_open' | 'timeout' | null>(null);
     const [error, setError] = useState<{ type: 'network' | 'timeout' | 'unknown' | 'circuit', message: string } | null>(null);
+
+    const recordFailure = useCallback((reason: 'network_failure' | 'timeout' | 'circuit_open') => {
+        console.warn(`⚠️ [Resilience] Recording failure: ${reason}`);
+        setIsOffline(true);
+        setOfflineReason(reason);
+    }, []);
 
     const PAGE_SIZE = 50;
 
@@ -461,18 +470,25 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             loadServices(true);
             loadStats();
         };
+
         const handleOffline = () => {
             console.warn('📡 [Network] Connection lost');
             setIsOffline(true);
             setOfflineReason('network_failure');
         };
 
+        const handleAppFailure = (e: any) => {
+            recordFailure(e.detail?.reason || 'network_failure');
+        };
+
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
+        window.addEventListener('app:network-failure', handleAppFailure as any);
 
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
+            window.removeEventListener('app:network-failure', handleAppFailure as any);
         };
     }, [isAuthenticated, refreshRefData, loadServices, loadStats]);
 
@@ -501,7 +517,8 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             handleSmartRetry,
             allVehicles,
             allClients,
-            delayCriteria
+            delayCriteria,
+            recordFailure
         }}>
             {children}
         </ServicesContext.Provider>

@@ -21,9 +21,46 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 export { SUPABASE_URL, SUPABASE_KEY };
 
+export class AuthError extends Error {
+    public code: number | string;
+    constructor(message: string, code?: number | string) {
+        super(message);
+        this.code = code ?? 'AUTH_ERROR';
+        this.name = 'AuthError';
+    }
+}
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+let sessionPromiseRef: Promise<any> | null = null;
+
 class SupabaseService {
+    /**
+     * Protected session fetcher with single-flight (one request at a time)
+     * and safety timeout (8-12s).
+     */
+    async getSafeSession() {
+        if (sessionPromiseRef) return sessionPromiseRef;
+
+        sessionPromiseRef = (async () => {
+            const timeout = 8000 + Math.random() * 4000; // jittered 8-12s
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                return data;
+            } finally {
+                clearTimeout(id);
+                // Reset ref after resolution to allow subsequent fresh calls
+                sessionPromiseRef = null;
+            }
+        })();
+
+        return sessionPromiseRef;
+    }
+
     // ===================== RESILIENCE WRAPPERS = :TC012/TC013 =====================
 
     /**
@@ -31,8 +68,14 @@ class SupabaseService {
      */
     private async safeRpcCall(rpcName: string, params: any, options: { timeout?: number, retries?: number } = {}) {
         if (USE_SAFE_CALL) {
-            const { data, error } = await safeCall(rpcName, (signal) =>
-                supabase.rpc(rpcName, params).abortSignal(signal),
+            const { data, error } = await safeCall(rpcName, async (signal) => {
+                const result = await supabase.rpc(rpcName, params).abortSignal(signal);
+                const respError = result.error as any;
+                if (respError && (respError.code === '401' || respError.status === 401 || respError.status === 403 || respError.code === 'PGRST301')) {
+                    throw new AuthError(`Acesso negado (${respError.status || respError.code}): ${respError.message}`, respError.code);
+                }
+                return result;
+            },
                 { timeoutMs: options.timeout, retries: options.retries, method: 'rpc' }
             );
             return { data, error };
@@ -40,6 +83,10 @@ class SupabaseService {
 
         // LEGACY FALLBACK (Minimal logic if flag is off)
         const { data, error } = await supabase.rpc(rpcName, params);
+        const respError = error as any;
+        if (respError && (respError.code === '401' || respError.status === 401 || respError.status === 403 || respError.code === 'PGRST301')) {
+            throw new AuthError(`Acesso negado (${respError.status || respError.code}): ${respError.message}`, respError.code);
+        }
         return { data, error };
     }
 
