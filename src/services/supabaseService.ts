@@ -1089,10 +1089,9 @@ class SupabaseService {
         console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, limit, offset });
 
         // Build base query
-        // OPTIMIZED: Fetch vehicle and client data in the same query (Server-Side Join)
-        // DETERMINISTIC JOIN: Using explicit foreign key references to avoid ambiguity
+        // AUDIT SHIELD: Using simple joins to let Supabase resolve relationships automatically
         let queryArray = supabase.from('serviços')
-            .select('*, vehicle:veículos!vehicle_id(*), client:clientes!client_id(*)', { count: 'exact' });
+            .select('*, vehicle:veículos(*), client:clientes(*)', { count: 'exact' });
 
         // Apply AbortSignal if provided
         if (signal) {
@@ -1152,7 +1151,15 @@ class SupabaseService {
         }
 
         const { data: services, error, count } = result;
-        console.log('[DEBUG] getServicesFiltered RES', { count, error: error?.message, servicesLength: services?.length });
+
+        if (services && services.length > 0) {
+            console.log('🔍 [AUDIT] getServicesFiltered RAW SUCCESS', {
+                count,
+                firstItem: services[0],
+                hasVehicle: !!services[0].vehicle,
+                hasClient: !!services[0].client
+            });
+        }
 
         if (error) {
             console.error('❌ Supabase Error (getServicesFiltered):', error.message, error.details, error.hint);
@@ -1160,6 +1167,7 @@ class SupabaseService {
         }
 
         if (!services || services.length === 0) {
+            console.warn('⚠️ [AUDIT] Query returned ZERO services despite count being:', count);
             return { data: [], total: count || 0, hasMore: false };
         }
 
