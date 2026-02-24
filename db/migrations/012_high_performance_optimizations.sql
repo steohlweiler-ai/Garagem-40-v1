@@ -1,21 +1,26 @@
 
 -- =============================================================
--- Migration: High Performance Optimizations (Fase 2 - Final)
+-- Migration: High Performance Optimizations (Fase 2 - Final - Partitioned)
 -- Objective: 
 -- 1. Partial Index for in_progress tasks
--- 2. Performance-optimized KPI Stats Table
--- 3. Unified RPC for Service Details
+-- 2. Partitioned Performance-optimized KPI Stats Table (LIST)
+-- 3. Unified RPC for Service Details (with history limit 50)
 -- =============================================================
 
--- 1. Partial Index for Task Resourcing
+-- 1. Performance Indexes for Multi-tenancy and Task Resourcing
+CREATE INDEX IF NOT EXISTS idx_servicos_organization_id ON "serviços" (organization_id);
+CREATE INDEX IF NOT EXISTS idx_tarefas_organization_id ON tarefas (organization_id);
+CREATE INDEX IF NOT EXISTS idx_lembretes_organization_id ON lembretes (organization_id);
+CREATE INDEX IF NOT EXISTS idx_historico_status_organization_id ON historico_status (organization_id);
+
 CREATE INDEX IF NOT EXISTS idx_tarefas_in_progress_partial 
 ON tarefas (service_id) 
 WHERE status = 'in_progress';
 
--- 2. KPI Stats Counter System
--- This table will store the pre-calculated counts per organization
+-- 2. KPI Stats Counter System (PARTITIONED BY LIST)
+-- We use PARTITION BY LIST on organization_id as it fits the multi-tenant architecture.
 CREATE TABLE IF NOT EXISTS service_stats (
-    organization_id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
     atrasado INTEGER DEFAULT 0,
     pendente INTEGER DEFAULT 0,
     andamento INTEGER DEFAULT 0,
@@ -23,16 +28,29 @@ CREATE TABLE IF NOT EXISTS service_stats (
     pronto INTEGER DEFAULT 0,
     entregue INTEGER DEFAULT 0,
     total INTEGER DEFAULT 0,
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (organization_id)
+) PARTITION BY LIST (organization_id);
 
--- Initialize stats for current data
-INSERT INTO service_stats (organization_id)
-SELECT DISTINCT organization_id FROM "serviços"
-ON CONFLICT DO NOTHING;
+-- Create Partitions
+CREATE TABLE IF NOT EXISTS service_stats_default PARTITION OF service_stats DEFAULT;
 
--- Function to Recalculate Stats for an Org (Full Sync)
--- Useful for initialization or if triggers drift
+-- Explicit partitions for main orgs (Supabase automatically handles index/pk propagation in v11+)
+-- We ensure the primary key/unique constraint is present.
+-- If organization_id is the partition key, it MUST be part of the PK.
+
+-- Note: Since we are in a migration, we check if they exist before creating
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'service_stats_org_default') THEN
+        CREATE TABLE service_stats_org_default PARTITION OF service_stats FOR VALUES IN ('org-default');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'service_stats_org_test') THEN
+        CREATE TABLE service_stats_org_test PARTITION OF service_stats FOR VALUES IN ('org-test');
+    END IF;
+END $$;
+
+-- 3. Helper: Full Sync Stats
 CREATE OR REPLACE FUNCTION refresh_service_stats(p_org_id TEXT) RETURNS VOID AS $$
 BEGIN
     INSERT INTO service_stats (
@@ -62,7 +80,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Sync initial stats
+-- Sync initial data
 DO $$
 DECLARE
     r RECORD;
@@ -72,13 +90,13 @@ BEGIN
     END LOOP;
 END $$;
 
--- Trigger to Maintain Stats Automatically (Optimized)
+-- 4. Trigger: Maintain Stats (Atomic & Guarded)
 CREATE OR REPLACE FUNCTION trg_maintain_service_stats()
 RETURNS TRIGGER AS $$
 DECLARE
     v_org_id TEXT;
 BEGIN
-    -- Only run if critical fields for stats changed
+    -- Guard: Only run if status or timing changed
     IF (TG_OP = 'UPDATE') THEN
         IF (OLD.status IS NOT DISTINCT FROM NEW.status AND 
             OLD.estimated_delivery IS NOT DISTINCT FROM NEW.estimated_delivery AND
@@ -87,11 +105,19 @@ BEGIN
         END IF;
     END IF;
 
+    -- Handle Cross-Org updates or Deletes
     IF (TG_OP = 'DELETE') THEN v_org_id := OLD.organization_id;
     ELSE v_org_id := NEW.organization_id;
     END IF;
 
+    -- Refresh for the org
     PERFORM refresh_service_stats(v_org_id);
+    
+    -- If organization changed (rare), refresh the other org too
+    IF (TG_OP = 'UPDATE' AND OLD.organization_id IS DISTINCT FROM NEW.organization_id) THEN
+        PERFORM refresh_service_stats(OLD.organization_id);
+    END IF;
+
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -101,7 +127,7 @@ CREATE TRIGGER trg_servicos_stats_sync
 AFTER INSERT OR UPDATE OR DELETE ON "serviços"
 FOR EACH ROW EXECUTE FUNCTION trg_maintain_service_stats();
 
--- 3. Unified Service Detail RPC
+-- 5. Unified Service Detail RPC (History Limit 50)
 CREATE OR REPLACE FUNCTION get_service_detail_unified(p_id UUID)
 RETURNS JSONB AS $$
 DECLARE
@@ -125,7 +151,7 @@ BEGIN
     SELECT COALESCE(jsonb_agg(r.*), '[]'::jsonb) INTO v_reminders
     FROM (SELECT * FROM lembretes WHERE service_id = p_id) r;
 
-    -- 4. Fetch History (Limited to 50)
+    -- 4. Fetch History (Strictly Limited to 50)
     SELECT COALESCE(jsonb_agg(h.*), '[]'::jsonb) INTO v_history
     FROM (
         SELECT * FROM historico_status 
@@ -143,7 +169,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. Update Dashboard RPC to use Stats Table
+-- 6. RPC Dashboard v3 (Consuming Partitions)
 CREATE OR REPLACE FUNCTION get_dashboard_services_v3(
   p_limit INTEGER DEFAULT 50,
   p_offset INTEGER DEFAULT 0,
@@ -160,7 +186,7 @@ DECLARE
   v_total_count BIGINT;
   v_stats JSONB;
 BEGIN
-    -- 1. Get stats from optimized table instead of counting all rows
+    -- 1. Get stats from partitioned table
     SELECT 
         JSONB_BUILD_OBJECT(
             'atrasado', atrasado,
@@ -175,12 +201,12 @@ BEGIN
     FROM service_stats
     WHERE organization_id = p_org_id;
 
-    -- Fallback if no stats record exists yet
+    -- Fallback
     IF v_stats IS NULL THEN
         v_stats := '{"atrasado":0,"pendente":0,"andamento":0,"lembrete":0,"pronto":0,"entregue":0,"total":0}'::jsonb;
     END IF;
 
-    -- 2. Get total count for the filtered list
+    -- 2. Get total count
     SELECT count(*) INTO v_total_count 
     FROM "serviços" 
     WHERE (p_org_id IS NULL OR organization_id = p_org_id)
@@ -188,7 +214,7 @@ BEGIN
       AND (p_client_id IS NULL OR client_id = p_client_id)
       AND (p_vehicle_id IS NULL OR vehicle_id = p_vehicle_id);
 
-    -- 3. Return query combining filtered services and global stats
+    -- 3. Return BATCh result
     RETURN QUERY
     WITH filtered_services AS (
         SELECT 

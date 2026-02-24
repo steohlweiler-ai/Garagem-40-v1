@@ -139,10 +139,8 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }, 15000);
 
         const requestId = ++loadStatsRequestIdRef.current;
-        const criteria = delayCriteriaRef.current;
-
         try {
-            const counts = await dataProvider.getServiceCounts(criteria || null);
+            const counts = await dataProvider.getServiceCounts();
             if (requestId !== loadStatsRequestIdRef.current) return;
             if (!counts) return; // Don't clear state if data is missing
 

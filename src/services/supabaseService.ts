@@ -1118,86 +1118,30 @@ class SupabaseService {
      * Calculates 'Delayed' status server-side (data layer) to be independent of view filters.
      * Can optionally receive criteria to ensure consistency with client-side.
      */
-    async getServiceCounts(injectedCriteria?: DelayCriteria | null): Promise<Record<string, number>> {
-        // Usar critérios injetados (do frontend) ou buscar do banco
-        let criteria = injectedCriteria;
-
-        if (!criteria) {
-            criteria = await this.getDelayCriteria();
-        }
-
-        // Rescue Plan: Hard Fallback to prevent crash
-        if (!criteria) {
-            console.warn('Dashboard: Delay criteria not found in DB. Using defaults.');
-            criteria = {
-                active: true,
-                scope: 'global',
-                thresholdDays: 1,
-                thresholdHours: 0,
-                considerWorkdays: true,
-                considerBusinessHours: false,
-                businessStart: '08:00',
-                businessEnd: '18:00',
-                priorityOverrides: [],
-                autoMarkDelayed: false,
-                autoNotify: false
-            };
-        }
-
-        // Buscar serviços ativos com colunas mínimas para cálculo
-        // "Lightweight Query" conforme solicitado
-        const { data: activeServices, error } = await safeCall(`stats:serviços:counts`, async (signal) => {
+    async getServiceCounts(): Promise<Record<string, number>> {
+        const { data: stats, error } = await safeCall(`stats:serviços:service_stats`, async (signal) => {
             return await supabase
-                .from('serviços')
-                .select('id, status, estimated_delivery, entry_at, priority')
-                .neq('status', 'Entregue')
-                .abortSignal(signal);
+                .from('service_stats')
+                .select('*')
+                .eq('organization_id', 'org-default')
+                .abortSignal(signal)
+                .single();
         }, { timeoutMs: 15000 });
 
-        if (error || !activeServices) {
-            console.error('Error fetching service counts', error);
+        if (error || !stats) {
+            console.error('Error fetching service stats table', error);
             return {};
         }
 
-
-        // Debug Log para verificar dados reais que chegam do banco
-        if (activeServices.length > 0) {
-            console.log('Dashboard Debug - First Service:', activeServices[0]);
-        }
-        console.log('Dashboard Debug - Criteria:', criteria);
-
         const counts: Record<string, number> = {
-            'Atrasado': 0,
-            'total': activeServices.length
+            'Atrasado': stats.atrasado || 0,
+            'Pendente': stats.pendente || 0,
+            'Em Andamento': stats.andamento || 0,
+            'Lembrete': stats.lembrete || 0,
+            'Pronto': stats.pronto || 0,
+            'Entregue': stats.entregue || 0,
+            'total': stats.total || 0
         };
-
-        // Inicializar contadores padrão
-        const standardStatuses = ['Pendente', 'Em Andamento', 'Lembrete', 'Pronto'];
-        standardStatuses.forEach(s => counts[s] = 0);
-
-        // Loop único para agregar contagens e calcular atrasos
-        for (const s of activeServices) {
-            // Conta Status Padrão
-            counts[s.status] = (counts[s.status] || 0) + 1;
-
-            // Lógica de Atraso Global (Independent Counters)
-            if (s.estimated_delivery && criteria) {
-                // Mapeia prioridade se existir, ou undefined
-                const priority = s.priority as 'baixa' | 'media' | 'alta' || undefined;
-                const { isDelayed } = calculateDelayStatus(s.estimated_delivery, criteria, priority);
-                if (isDelayed) {
-                    counts['Atrasado']++;
-                }
-            }
-        }
-
-        // Buscar contagem de Entregues separadamente (já que excluímos da query principal para performance)
-        const { count: entregueCount } = await supabase
-            .from('serviços')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'Entregue');
-
-        counts['Entregue'] = entregueCount || 0;
 
         return counts;
     }
@@ -1249,9 +1193,8 @@ class SupabaseService {
         let query: any = queryArray;
         let result: any;
 
-        // --- EXTREME PERFORMANCE SHIELD (TC012) ---
-        // Attempt specialized RPC call for ultra-fast dashboard loading
-        console.log('[DEBUG] Attempting Safe RPC get_dashboard_services_v3 (TC012)...');
+        // --- PRODUCTION PERFORMANCE SHIELD (TC012) ---
+        // Using optimized RPC for ultra-fast dashboard loading (partitioned & indexed)
         try {
             const { data: rpcData, error: rpcError } = await this.safeRpcCall('get_dashboard_services_v3', {
                 p_limit: limit,
@@ -1263,10 +1206,7 @@ class SupabaseService {
             });
 
             if (!rpcError && rpcData && rpcData.length > 0) {
-                console.log('⚡ [PERFORMANCE] RPC get_dashboard_services_v3 SUCCESS');
                 const { service_data, total_count } = rpcData[0];
-
-                // RPC returns batched results in service_data.services
                 const rawServices = service_data.services || [];
 
                 result = {
