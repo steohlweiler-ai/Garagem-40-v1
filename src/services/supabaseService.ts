@@ -1099,55 +1099,85 @@ class SupabaseService {
         }
 
         let query: any = queryArray;
+        let result: any;
 
-        // Apply status filters
-        if (statuses.length > 0) {
-            query = query.in('status', statuses);
-        } else if (excludeStatuses.length > 0) {
-            // If explicit exclusions provided
-            query = query.not('status', 'in', `(${excludeStatuses.join(',')})`);
-        } else {
-            // DEFAULT VIEW: Show everything current (matches Stats 'total')
-            query = query.neq('status', 'Entregue');
+        // --- EXTREME PERFORMANCE SHIELD (TC010) ---
+        // Attempt specialized RPC call for ultra-fast dashboard loading
+        console.log('[DEBUG] Attempting RPC get_dashboard_services (TC010)...');
+        try {
+            const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_services', {
+                p_limit: limit,
+                p_offset: offset,
+                p_statuses: statuses.length > 0 ? statuses : null
+            });
+
+            if (!rpcError && rpcData && rpcData.length > 0) {
+                console.log('⚡ [PERFORMANCE] RPC get_dashboard_services SUCCESS');
+                const { service_data, total_count } = rpcData[0];
+
+                // RPC returns batched results in service_data.services
+                const rawServices = service_data.services || [];
+
+                result = {
+                    data: rawServices.map((s: any) => ({
+                        ...s,
+                        // Reconstruct vehicle/client objects for frontend mapping
+                        vehicle: s.vehicle_plate ? {
+                            plate: s.vehicle_plate,
+                            brand: s.vehicle_brand,
+                            model: s.vehicle_model
+                        } : undefined,
+                        client: s.client_name ? {
+                            name: s.client_name,
+                            phone: s.client_phone
+                        } : undefined
+                    })),
+                    error: null,
+                    count: total_count
+                };
+            } else if (rpcError) {
+                console.warn(`[DEBUG] RPC Failed (Expected if migration pending): ${rpcError.message}`);
+                // Proceed to normal query
+            }
+        } catch (e) {
+            console.warn('[DEBUG] RPC Exception:', e);
         }
 
-        // Apply base sorting (Optimized for priority_bucket index)
-        // DETERMINISTIC PERFORMANCE SHIELD:
-        // 1. priority_bucket ASC (0=Atrasado, 1=No Prazo, 2=Sem Data, 3=Entregue)
-        // 2. estimated_delivery ASC (Próximas entregas primeiro)
-        // 3. entry_at DESC (Recentes primeiro para desempate)
-        // WARNING: Requires column 'priority_bucket' to exist
-        query = query
-            .order('priority_bucket', { ascending: true })
-            .order('estimated_delivery', { ascending: true, nullsFirst: false })
-            .order('entry_at', { ascending: false });
-
-        // Apply pagination
-        query = query.range(offset, offset + limit - 1);
-
-        console.log('[DEBUG] About to execute MAIN QUERY...');
-
-        // EXECUTION SHIELD: Attempt optimized query, fallback to classic if col is missing
-        let result = await query;
-
-        if (result.error) {
-            console.warn(`[DEBUG] Optimized query failed (likely missing priority_bucket): ${result.error.message}. Falling back to safe query.`);
-
-            // FALLBACK SAFE QUERY (Total compatibility mode)
-            let fallbackQuery = supabase.from('serviços')
-                .select('*, vehicle:veículos(*), client:clientes(*)', { count: 'exact' });
-
+        // --- FALLBACK LOGIC ---
+        if (!result) {
+            // Apply status filters to classic query
             if (statuses.length > 0) {
-                fallbackQuery = fallbackQuery.in('status', statuses);
+                query = query.in('status', statuses);
+            } else if (excludeStatuses.length > 0) {
+                query = query.not('status', 'in', `(${excludeStatuses.join(',')})`);
             } else {
-                fallbackQuery = fallbackQuery.neq('status', 'Entregue');
+                query = query.neq('status', 'Entregue');
             }
 
-            // Safe sorting based on entry_at
-            fallbackQuery = fallbackQuery.order('entry_at', { ascending: false });
-            fallbackQuery = fallbackQuery.range(offset, offset + limit - 1);
+            // Apply base sorting
+            query = query
+                .order('priority_bucket', { ascending: true })
+                .order('estimated_delivery', { ascending: true, nullsFirst: false })
+                .order('entry_at', { ascending: false });
 
-            result = await fallbackQuery;
+            // Apply pagination
+            query = query.range(offset, offset + limit - 1);
+
+            console.log('[DEBUG] Executing Classic / Fallback Query...');
+            result = await query;
+
+            // SECONDARY FALLBACK: Se falhar a ordenação por buckets, tenta a mais básica
+            if (result.error && result.error.message.includes('priority_bucket')) {
+                console.warn('[DEBUG] Bucket sort failed. Using simple entry_at fallback.');
+                let baseQuery = supabase.from('serviços')
+                    .select('*, vehicle:veículos(*), client:clientes(*)', { count: 'exact' });
+
+                if (statuses.length > 0) baseQuery = baseQuery.in('status', statuses);
+                else baseQuery = baseQuery.neq('status', 'Entregue');
+
+                baseQuery = baseQuery.order('entry_at', { ascending: false }).range(offset, offset + limit - 1);
+                result = await baseQuery;
+            }
         }
 
         const { data: services, error, count } = result;
