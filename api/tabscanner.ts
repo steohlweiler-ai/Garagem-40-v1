@@ -40,13 +40,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const date = new Date();
             const monthKey = `tabscanner:usage:${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-            // Check limit before processing
-            const currentUsage = (await kv.get<number>(monthKey)) || 0;
-            if (currentUsage >= 200) {
-                console.warn(`[TABSCANNER] Monthly Usage Limit Reached (${currentUsage}/200). Blocking and forcing fallback.`);
-                const error = new Error('Limit Exceeded - KV_FORCED');
-                (error as any).response = { status: 402, data: { message: 'Quota Exceeded by internal tracker' } };
-                throw error;
+            // Usage tracking (Optional - don't block if KV is missing or fails)
+            try {
+                if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+                    const dayKey = `ocr:usage:${new Date().toISOString().split('T')[0]}`;
+                    const currentDailyUsage = await kv.get<number>(dayKey) || 0;
+
+                    if (currentDailyUsage > 250) {
+                        console.warn('⚠️ [TABSCANNER] Daily limit approach (250+). Current:', currentDailyUsage);
+                    }
+
+                    await kv.incr(dayKey);
+
+                    // Check monthly limit before processing
+                    const currentMonthlyUsage = (await kv.get<number>(monthKey)) || 0;
+                    if (currentMonthlyUsage >= 200) {
+                        console.warn(`[TABSCANNER] Monthly Usage Limit Reached (${currentMonthlyUsage}/200). Blocking and forcing fallback.`);
+                        const error = new Error('Limit Exceeded - KV_FORCED');
+                        (error as any).response = { status: 402, data: { message: 'Quota Exceeded by internal tracker' } };
+                        throw error;
+                    }
+                } else {
+                    console.warn('⚠️ [TABSCANNER] KV environment variables missing. Usage tracking disabled.');
+                }
+            } catch (kvError) {
+                console.error('⚠️ [TABSCANNER] KV tracking error (non-fatal):', kvError);
             }
 
             // Tabscanner options: 
@@ -66,14 +84,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 let warning = undefined;
 
                 if (!isDuplicate) {
-                    const newUsage = await kv.incr(monthKey);
-                    // Set expiry for ~32 days to clean up old keys automatically
-                    if (newUsage === 1) {
-                        await kv.expire(monthKey, 60 * 60 * 24 * 32);
-                    }
-                    if (newUsage >= 180) {
-                        warning = 'Approaching monthly tabscanner limit';
-                        console.warn(`[TABSCANNER] Usage warning: ${newUsage}/200`);
+                    try {
+                        if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+                            const newUsage = await kv.incr(monthKey);
+                            // Set expiry for ~32 days to clean up old keys automatically
+                            if (newUsage === 1) {
+                                await kv.expire(monthKey, 60 * 60 * 24 * 32);
+                            }
+                            if (newUsage >= 180) {
+                                warning = 'Approaching monthly tabscanner limit';
+                                console.warn(`[TABSCANNER] Usage warning: ${newUsage}/200`);
+                            }
+                        }
+                    } catch (kvError) {
+                        console.error('⚠️ [TABSCANNER] KV monthly increment error:', kvError);
                     }
                 }
 

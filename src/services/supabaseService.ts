@@ -116,62 +116,100 @@ class SupabaseService {
     }
 
     async getServices(): Promise<ServiceJob[]> {
-        // Buscar serviços
+        // 1. Fetch all services
         const { data: services, error } = await supabase.from('serviços').select('*');
         if (error) {
             console.error('Supabase Error (Services):', error);
             throw error;
         }
 
-        // Para cada serviço, buscar tasks, reminders e status_history
-        const servicesWithRelations = await Promise.all(
-            services.map(async (s) => {
-                const [tasksRes, remindersRes, historyRes] = await Promise.all([
-                    supabase.from('tarefas').select('*').eq('service_id', s.id).order('order'),
-                    supabase.from('lembretes').select('*').eq('service_id', s.id),
-                    supabase.from('historico_status').select('*').eq('service_id', s.id).order('timestamp'),
-                ]);
+        if (!services || services.length === 0) return [];
 
-                return {
-                    ...s,
-                    tasks: (tasksRes.data || []).map(this.mapTask),
-                    reminders: (remindersRes.data || []).map(this.mapReminder),
-                    status_history: (historyRes.data || []).map(this.mapStatusLog),
-                    entry_at: s.entry_at || new Date().toISOString(),
-                    archived: s.archived,
-                    created_by: s.created_by,
-                    created_by_name: s.created_by_name,
-                    inspection: s.inspection
-                };
-            })
-        );
+        const serviceIds = services.map(s => s.id);
 
-        return servicesWithRelations;
+        // 2. Batch fetch all related data for these services (ONE query per table)
+        const [tasksRes, remindersRes, historyRes] = await Promise.all([
+            supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order'),
+            supabase.from('lembretes').select('*').in('service_id', serviceIds),
+            supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp'),
+        ]);
+
+        // 3. Group data by service_id for O(1) lookup
+        const tasksMap = new Map<string, any[]>();
+        (tasksRes.data || []).forEach(t => {
+            const list = tasksMap.get(t.service_id) || [];
+            list.push(this.mapTask(t));
+            tasksMap.set(t.service_id, list);
+        });
+
+        const remindersMap = new Map<string, any[]>();
+        (remindersRes.data || []).forEach(r => {
+            const list = remindersMap.get(r.service_id) || [];
+            list.push(this.mapReminder(r));
+            remindersMap.set(r.service_id, list);
+        });
+
+        const historyMap = new Map<string, any[]>();
+        (historyRes.data || []).forEach(h => {
+            const list = historyMap.get(h.service_id) || [];
+            list.push(this.mapStatusLog(h));
+            historyMap.set(h.service_id, list);
+        });
+
+        // 4. Merge data
+        return services.map(s => ({
+            ...s,
+            tasks: tasksMap.get(s.id) || [],
+            reminders: remindersMap.get(s.id) || [],
+            status_history: historyMap.get(s.id) || [],
+            entry_at: s.entry_at || new Date().toISOString(),
+            archived: s.archived,
+            created_by: s.created_by,
+            created_by_name: s.created_by_name,
+            inspection: s.inspection
+        }));
     }
 
     async getServicesByVehicle(vehicleId: string): Promise<ServiceJob[]> {
         const { data: servicesData, error } = await supabase.from('serviços').select('*').eq('vehicle_id', vehicleId);
-        if (error) return [];
+        if (error || !servicesData || servicesData.length === 0) return [];
 
-        const servicesWithRelations = await Promise.all(
-            servicesData.map(async (s) => {
-                const [tasksRes, remindersRes, historyRes] = await Promise.all([
-                    supabase.from('tarefas').select('*').eq('service_id', s.id).order('order'),
-                    supabase.from('lembretes').select('*').eq('service_id', s.id),
-                    supabase.from('historico_status').select('*').eq('service_id', s.id).order('timestamp'),
-                ]);
+        const serviceIds = servicesData.map(s => s.id);
 
-                return {
-                    ...s,
-                    tasks: (tasksRes.data || []).map(this.mapTask),
-                    reminders: (remindersRes.data || []).map(this.mapReminder),
-                    status_history: (historyRes.data || []).map(this.mapStatusLog),
-                    entry_at: s.entry_at || new Date().toISOString()
-                };
-            })
-        );
+        const [tasksRes, remindersRes, historyRes] = await Promise.all([
+            supabase.from('tarefas').select('*').in('service_id', serviceIds).order('order'),
+            supabase.from('lembretes').select('*').in('service_id', serviceIds),
+            supabase.from('historico_status').select('*').in('service_id', serviceIds).order('timestamp'),
+        ]);
 
-        return servicesWithRelations;
+        const tasksMap = new Map<string, any[]>();
+        (tasksRes.data || []).forEach(t => {
+            const list = tasksMap.get(t.service_id) || [];
+            list.push(this.mapTask(t));
+            tasksMap.set(t.service_id, list);
+        });
+
+        const remindersMap = new Map<string, any[]>();
+        (remindersRes.data || []).forEach(r => {
+            const list = remindersMap.get(r.service_id) || [];
+            list.push(this.mapReminder(r));
+            remindersMap.set(r.service_id, list);
+        });
+
+        const historyMap = new Map<string, any[]>();
+        (historyRes.data || []).forEach(h => {
+            const list = historyMap.get(h.service_id) || [];
+            list.push(this.mapStatusLog(h));
+            historyMap.set(h.service_id, list);
+        });
+
+        return servicesData.map(s => ({
+            ...s,
+            tasks: tasksMap.get(s.id) || [],
+            reminders: remindersMap.get(s.id) || [],
+            status_history: historyMap.get(s.id) || [],
+            entry_at: s.entry_at || new Date().toISOString()
+        }));
     }
 
     async getCatalog(): Promise<CatalogItem[]> {
@@ -889,53 +927,84 @@ class SupabaseService {
     }
 
     async allocateProduct(p: { product_id: string, vehicle_id: string, qty: number }): Promise<StockAllocation | null> {
-        const { data, error } = await supabase.from('alocações_de_estoque').insert({
-            product_id: p.product_id,
-            vehicle_id: p.vehicle_id,
-            reserved_qty: p.qty,
-            consumed_qty: 0,
-            status: 'reserved',
-            organization_id: 'org-default'
-        }).select().single();
-        if (error) return null;
-        return {
-            id: data.id,
-            product_id: data.product_id,
-            vehicle_id: data.vehicle_id,
-            reserved_qty: data.reserved_qty,
-            consumed_qty: data.consumed_qty,
-            status: data.status,
-            date_allocated: data.created_at
-        };
+        try {
+            const { data, error } = await supabase.from('alocações_de_estoque').insert({
+                product_id: p.product_id,
+                vehicle_id: p.vehicle_id,
+                reserved_qty: p.qty,
+                consumed_qty: 0,
+                status: 'reserved',
+                organization_id: 'org-default'
+            }).select().single();
+            if (error) {
+                console.error('Supabase Error (allocateProduct):', error);
+                return null;
+            }
+            return {
+                id: data.id,
+                product_id: data.product_id,
+                vehicle_id: data.vehicle_id,
+                reserved_qty: data.reserved_qty,
+                consumed_qty: data.consumed_qty,
+                status: data.status,
+                date_allocated: data.created_at
+            };
+        } catch (err) {
+            console.error('⚠️ [Supabase] allocateProduct failed:', err);
+            return null;
+        }
     }
 
     async consumeAllocation(allocId: string, userId: string): Promise<boolean> {
-        // Logic should update status and record stock movement
-        const { error } = await supabase.from('alocações_de_estoque').update({
-            status: 'consumed',
-            consumed_qty: supabase.rpc('increment', { row_id: allocId, column_name: 'reserved_qty' }) // Simplified for now
-        }).eq('id', allocId);
+        try {
+            // Logic should update status and record stock movement
+            const { error } = await supabase.from('alocações_de_estoque').update({
+                status: 'consumed',
+                consumed_qty: supabase.rpc('increment', { row_id: allocId, column_name: 'reserved_qty' }) // Simplified for now
+            }).eq('id', allocId);
 
-        return !error;
+            return !error;
+        } catch (err) {
+            console.error('⚠️ [Supabase] consumeAllocation failed:', err);
+            return false;
+        }
     }
 
     async releaseAllocation(allocId: string): Promise<boolean> {
-        const { error } = await supabase.from('alocações_de_estoque').delete().eq('id', allocId);
-        return !error;
+        try {
+            const { error } = await supabase.from('alocações_de_estoque').delete().eq('id', allocId);
+            return !error;
+        } catch (err) {
+            console.error('⚠️ [Supabase] releaseAllocation failed:', err);
+            return false;
+        }
     }
 
     async getStockAllocations(): Promise<StockAllocation[]> {
-        const { data, error } = await supabase.from('alocações_de_estoque').select('*');
-        if (error) return [];
-        return data.map(a => ({
-            id: a.id,
-            product_id: a.product_id,
-            vehicle_id: a.vehicle_id,
-            reserved_qty: a.reserved_qty,
-            consumed_qty: a.consumed_qty,
-            status: a.status,
-            date_allocated: a.created_at
-        }));
+        try {
+            const { data, error } = await supabase.from('alocações_de_estoque').select('*');
+            if (error) {
+                // Check if error is because table doesn't exist
+                if (error.code === '42P01') {
+                    console.warn('⚠️ [Supabase] Table "alocações_de_estoque" does not exist. Returning empty list.');
+                    return [];
+                }
+                console.error('Supabase Error (getStockAllocations):', error);
+                return [];
+            }
+            return data.map(a => ({
+                id: a.id,
+                product_id: a.product_id,
+                vehicle_id: a.vehicle_id,
+                reserved_qty: a.reserved_qty,
+                consumed_qty: a.consumed_qty,
+                status: a.status,
+                date_allocated: a.created_at
+            }));
+        } catch (err) {
+            console.warn('⚠️ [Supabase] Failed to fetch stock allocations. It likely does not exist yet.');
+            return [];
+        }
     }
 
     async updateIntegrations(updates: Partial<IntegrationState>): Promise<boolean> {
