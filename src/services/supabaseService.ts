@@ -1956,14 +1956,18 @@ class SupabaseService {
     // ===================== REMINDER OPERATIONS =====================
 
     async addReminder(serviceId: string, reminder: Partial<Reminder>): Promise<Reminder | null> {
-        const { data, error } = await supabase.from('lembretes').insert({
-            service_id: serviceId,
-            title: reminder.title,
-            message: reminder.message || null,
-            date: reminder.date,
-            time: reminder.time,
-            status: 'active'
-        }).select().single();
+        const { data, error } = await safeCall(`insert:lembretes:${serviceId}`, async (opSignal) => {
+            let query = supabase.from('lembretes').insert({
+                service_id: serviceId,
+                title: reminder.title,
+                message: reminder.message || null,
+                date: reminder.date,
+                time: reminder.time,
+                status: 'active'
+            });
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query.select().single();
+        }, { timeoutMs: 15000, retries: 0 });
 
         if (error) {
             console.error('Supabase Error (addReminder):', error);
@@ -1973,7 +1977,12 @@ class SupabaseService {
     }
 
     async updateReminder(reminderId: string, updates: Partial<Reminder>): Promise<boolean> {
-        const { error } = await supabase.from('lembretes').update(updates).eq('id', reminderId);
+        const { error } = await safeCall(`update:lembretes:${reminderId}`, async (opSignal) => {
+            let query = supabase.from('lembretes').update(updates).eq('id', reminderId);
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query;
+        }, { timeoutMs: 15000, retries: 0 });
+
         if (error) {
             console.error('Supabase Error (updateReminder):', error);
             return false;
@@ -1981,8 +1990,26 @@ class SupabaseService {
         return true;
     }
 
+    async setReminderStatus(reminderId: string, status: string): Promise<boolean> {
+        const { error } = await safeCall(`rpc:set_reminder_status_atomic:${reminderId}`, async (opSignal) => {
+            let query = supabase.rpc('set_reminder_status_atomic', {
+                p_reminder_id: reminderId,
+                p_new_status: status
+            });
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query;
+        }, { timeoutMs: 15000, retries: 0 });
+
+        return !error;
+    }
+
     async deleteReminder(reminderId: string): Promise<boolean> {
-        const { error } = await supabase.from('lembretes').delete().eq('id', reminderId);
+        const { error } = await safeCall(`delete:lembretes:${reminderId}`, async (opSignal) => {
+            let query = supabase.from('lembretes').delete().eq('id', reminderId);
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query;
+        }, { timeoutMs: 15000, retries: 0 });
+
         if (error) {
             console.error('Supabase Error (deleteReminder):', error);
             return false;

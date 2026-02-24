@@ -800,6 +800,18 @@ class DataProvider {
         return true;
     }
 
+    async setReminderStatus(id: string, status: string): Promise<boolean> {
+        if (this.useSupabase) {
+            try {
+                return await supabaseDB.setReminderStatus(id, status);
+            } catch (e) {
+                console.warn('Supabase setReminderStatus failed.', e);
+                return false;
+            }
+        }
+        return true;
+    }
+
     async deleteReminder(id: string): Promise<boolean> {
         if (this.useSupabase) {
             try {

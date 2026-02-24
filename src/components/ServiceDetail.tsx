@@ -63,6 +63,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   const updateServiceMutation = useUpdateService();
   const taskMutations = useTaskMutations(serviceId);
+  const reminderMutations = useReminderMutations(serviceId);
 
   // 3. UI/Local State
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -238,24 +239,22 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   const handleToggleReminder = async (reminder: Reminder) => {
     const nextStatus = reminder.status === 'active' ? 'done' : 'active';
-    await dataProvider.updateReminder(reminder.id, { status: nextStatus });
+    await reminderMutations.toggleStatus.mutateAsync({ id: reminder.id, status: nextStatus });
 
     // Check Status Logic
-    const updatedReminders = service.reminders.map(r => r.id === reminder.id ? { ...r, status: nextStatus } : r);
-    await refreshServiceStatus({ ...service, reminders: updatedReminders } as ServiceJob);
+    const updatedReminders = (service?.reminders || []).map(r => r.id === reminder.id ? { ...r, status: nextStatus } : r);
+    await refreshServiceStatus({ ...service!, reminders: updatedReminders } as ServiceJob);
 
-    loadData();
     onUpdate();
   };
 
   const handleDeleteReminder = async (id: string) => {
-    await dataProvider.deleteReminder(id);
+    await reminderMutations.deleteReminder.mutateAsync(id);
 
     // Check Status Logic
-    const updatedReminders = service.reminders.filter(r => r.id !== id);
-    await refreshServiceStatus({ ...service, reminders: updatedReminders } as ServiceJob);
+    const updatedReminders = (service?.reminders || []).filter(r => r.id !== id);
+    await refreshServiceStatus({ ...service!, reminders: updatedReminders } as ServiceJob);
 
-    loadData();
     onUpdate();
   };
 
@@ -270,13 +269,15 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   const handleSaveReminderEdit = async () => {
     if (!editingReminder || !editReminderData.title || !editReminderData.date || !editReminderData.time) return;
-    await dataProvider.updateReminder(editingReminder.id, {
-      title: editReminderData.title,
-      date: editReminderData.date,
-      time: editReminderData.time
+    await reminderMutations.updateReminder.mutateAsync({
+      id: editingReminder.id,
+      updates: {
+        title: editReminderData.title,
+        date: editReminderData.date,
+        time: editReminderData.time
+      }
     });
     setEditingReminder(null);
-    loadData();
     onUpdate();
   };
 
@@ -289,17 +290,14 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
       time: newReminderTime
     };
 
-    await dataProvider.addReminder(serviceId, newR);
+    await reminderMutations.addReminder.mutateAsync(newR);
 
     // Check Status Logic (New reminder -> possibly LEMBRETE)
-    // We don't have the new ID here easily for local sim, but we know there's at least one active reminder now
-    // Simulating the new reminder for status check:
     const simReminder = { ...newR, status: 'active' } as Reminder;
-    await refreshServiceStatus({ ...service, reminders: [...service.reminders, simReminder] } as ServiceJob);
+    await refreshServiceStatus({ ...service!, reminders: [...(service?.reminders || []), simReminder] } as ServiceJob);
 
     setNewReminderTitle('');
     setIsAddingReminder(false);
-    loadData();
     onUpdate();
   };
 
@@ -726,9 +724,14 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                 />
                 <button
                   onClick={handleAddReminder}
-                  className="flex-1 bg-amber-400 text-amber-950 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-500 transition-colors"
+                  disabled={reminderMutations.addReminder.isPending}
+                  className="flex-1 bg-amber-400 text-amber-950 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-500 transition-colors disabled:opacity-50"
                 >
-                  Salvar
+                  {reminderMutations.addReminder.isPending ? (
+                    <RefreshCw size={14} className="animate-spin mx-auto" />
+                  ) : (
+                    'Salvar'
+                  )}
                 </button>
               </div>
             </div>
@@ -754,14 +757,17 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                     <div className="flex gap-4 items-center">
                       <button
                         onClick={() => handleToggleReminder(rem)}
-                        className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${rem.status === 'done'
+                        disabled={reminderMutations.toggleStatus.isPending}
+                        className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all disabled:opacity-50 ${rem.status === 'done'
                           ? 'bg-green-500 border-green-500 text-white'
                           : 'bg-white border-amber-300'
                           }`}
                       >
-                        {rem.status === 'done' && (
+                        {reminderMutations.toggleStatus.isPending && reminderMutations.toggleStatus.variables?.id === rem.id ? (
+                          <RefreshCw size={12} className="animate-spin" />
+                        ) : rem.status === 'done' ? (
                           <Check size={12} strokeWidth={4} />
-                        )}
+                        ) : null}
                       </button>
 
                       <div>
@@ -789,10 +795,15 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
                       </button>
                       <button
                         onClick={() => handleDeleteReminder(rem.id)}
-                        className="p-2 text-amber-300 hover:text-red-500 active:scale-125 transition-all"
+                        disabled={reminderMutations.deleteReminder.isPending}
+                        className="p-2 text-amber-300 hover:text-red-500 active:scale-125 transition-all disabled:opacity-50"
                         title="Excluir lembrete"
                       >
-                        <Trash size={14} />
+                        {reminderMutations.deleteReminder.isPending && reminderMutations.deleteReminder.variables === rem.id ? (
+                          <RefreshCw size={14} className="animate-spin" />
+                        ) : (
+                          <Trash size={14} />
+                        )}
                       </button>
                     </div>
                   </div>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { dataProvider } from '../services/dataProvider';
 import { Appointment, ReminderWithService } from '../types';
+import { useReminderMutations } from '../hooks/useReminderMutations';
 import VoiceInput from './VoiceInput';
 
 type CalendarView = 'month' | 'week' | 'day';
@@ -31,6 +32,8 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const reminderMutations = useReminderMutations();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -236,32 +239,26 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
 
   const handleSaveReminderEdit = async () => {
     if (!editingReminder || !reminderEditData.title || !reminderEditData.date || !reminderEditData.time) return;
-    try {
-      await dataProvider.updateReminder(editingReminder.id, {
+    await reminderMutations.updateReminder.mutateAsync({
+      id: editingReminder.id,
+      updates: {
         title: reminderEditData.title,
         date: reminderEditData.date,
         time: reminderEditData.time
-      });
-      setEditingReminder(null);
-      const allReminders = await dataProvider.getAllReminders(true, { signal: componentAbort.current.signal });
-      setReminders(allReminders);
-      showToast('Lembrete atualizado!');
-    } catch (e: any) {
-      if (e.name !== 'AbortError') showToast('Erro ao atualizar lembrete.');
-    }
+      }
+    });
+    setEditingReminder(null);
+    showToast('Lembrete atualizado!');
   };
 
   // Toggle reminder status between active/done
   const handleToggleReminder = async (reminder: ReminderWithService) => {
     const newStatus = reminder.status === 'active' ? 'done' : 'active';
-    try {
-      await dataProvider.updateReminder(reminder.id, { status: newStatus });
-      const allReminders = await dataProvider.getAllReminders(true, { signal: componentAbort.current.signal });
-      setReminders(allReminders);
-      showToast(newStatus === 'done' ? 'Lembrete concluído!' : 'Lembrete reativado!');
-    } catch (e: any) {
-      if (e.name !== 'AbortError') showToast('Erro ao alterar lembrete.');
-    }
+    await reminderMutations.toggleStatus.mutateAsync({
+      id: reminder.id,
+      status: newStatus
+    });
+    showToast(newStatus === 'done' ? 'Lembrete concluído!' : 'Lembrete reativado!');
   };
 
   const daysInMonth = (date: Date) => {
@@ -461,13 +458,20 @@ const Agendamentos: React.FC<AgendamentosProps> = ({ onOpenService }) => {
                   <div className="flex flex-col gap-1 shrink-0">
                     <button
                       onClick={() => handleToggleReminder(item as ReminderWithService)}
+                      disabled={reminderMutations.toggleStatus.isPending}
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-inner transition-all active:scale-90 ${item.status === 'done'
                         ? 'bg-green-100 text-green-600 hover:bg-green-200'
                         : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                        }`}
+                        } disabled:opacity-50`}
                       title={item.status === 'done' ? 'Reativar lembrete' : 'Marcar como concluído'}
                     >
-                      {item.status === 'done' ? <CircleCheck size={20} /> : <Circle size={20} />}
+                      {reminderMutations.toggleStatus.isPending && reminderMutations.toggleStatus.variables?.id === item.id ? (
+                        <RefreshCw size={20} className="animate-spin" />
+                      ) : item.status === 'done' ? (
+                        <CircleCheck size={20} />
+                      ) : (
+                        <Circle size={20} />
+                      )}
                     </button>
                     <button
                       onClick={() => handleEditReminder(item as ReminderWithService)}
