@@ -1127,11 +1127,35 @@ class SupabaseService {
         query = query.range(offset, offset + limit - 1);
 
         console.log('[DEBUG] About to execute MAIN QUERY...');
-        const { data: services, error, count } = await query;
-        console.log('[DEBUG] getServicesFiltered MAIN QUERY RES', { count, error, servicesLength: services?.length });
+
+        // EXECUTION SHIELD: Attempt optimized query, fallback to classic if col is missing
+        let result = await query;
+
+        if (result.error) {
+            console.warn(`[DEBUG] Optimized query failed (likely missing priority_bucket): ${result.error.message}. Falling back to safe query.`);
+
+            // FALLBACK SAFE QUERY (Total compatibility mode)
+            let fallbackQuery = supabase.from('serviços')
+                .select('*, vehicle:veículos(*), client:clientes(*)', { count: 'exact' });
+
+            if (statuses.length > 0) {
+                fallbackQuery = fallbackQuery.in('status', statuses);
+            } else {
+                fallbackQuery = fallbackQuery.neq('status', 'Entregue');
+            }
+
+            // Safe sorting based on entry_at
+            fallbackQuery = fallbackQuery.order('entry_at', { ascending: false });
+            fallbackQuery = fallbackQuery.range(offset, offset + limit - 1);
+
+            result = await fallbackQuery;
+        }
+
+        const { data: services, error, count } = result;
+        console.log('[DEBUG] getServicesFiltered RES', { count, error: error?.message, servicesLength: services?.length });
 
         if (error) {
-            console.error('Supabase Error (getServicesFiltered):', error);
+            console.error('❌ Supabase Error (getServicesFiltered):', error.message, error.details, error.hint);
             throw error;
         }
 
