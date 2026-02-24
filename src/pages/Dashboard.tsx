@@ -56,7 +56,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
             offset: 0,
             organizationId: currentUser?.organization_id
         };
-    }, [dashboardFilter, advancedFilters]);
+    }, [dashboardFilter, advancedFilters, currentUser]);
 
     const {
         data: queryResult,

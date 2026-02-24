@@ -115,6 +115,12 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         delayCriteriaRef.current = delayCriteria;
     }, [delayCriteria]);
 
+    // Ref for latest user — avoids stale closure in loadServices without cascading re-renders
+    const userRef = useRef(user);
+    useEffect(() => {
+        userRef.current = user;
+    }, [user]);
+
     useEffect(() => {
         localStorage.setItem('g40_dashboard_filters', JSON.stringify(advancedFilters));
     }, [advancedFilters]);
@@ -213,7 +219,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 limit: PAGE_SIZE,
                 offset,
                 sortBy: 'priority',
-                organizationId: user?.organization_id
+                organizationId: userRef.current?.organization_id
             });
 
             if (requestId !== loadServicesRequestIdRef.current) return;
