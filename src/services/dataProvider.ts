@@ -64,16 +64,17 @@ class DataProvider {
         return Promise.resolve(mockDB.getServices());
     }
 
-    async getServiceById(id: string): Promise<ServiceJob | null> {
+    async getServiceById(id: string, signal?: AbortSignal): Promise<ServiceJob | null> {
         if (this.useSupabase) {
             try {
-                return await supabaseDB.getServiceById(id);
+                return await supabaseDB.getServiceById(id, signal);
             } catch (e) {
                 console.warn('Supabase getServiceById failed, fallback mock.', e);
             }
         }
         return Promise.resolve(mockDB.getServiceById(id) || null);
     }
+
 
     // ===================== PERFORMANCE OPTIMIZED QUERIES =====================
 

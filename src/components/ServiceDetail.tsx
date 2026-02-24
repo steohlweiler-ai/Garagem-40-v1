@@ -34,6 +34,12 @@ import VoiceInput from './VoiceInput';
 import CameraCapture from './CameraCapture';
 import PriceDisplay from './PriceDisplay';
 
+import { useServices as useLegacyServices } from '../providers/ServicesProvider';
+import { useServiceById } from '../hooks/useServiceById';
+import { useUpdateService } from '../hooks/useUpdateService';
+import { MaintenanceBanner } from './MaintenanceBanner';
+import { CircuitOpenError } from '../utils/errors';
+
 interface ServiceDetailProps {
   serviceId: string;
   onClose: () => void;
@@ -42,26 +48,35 @@ interface ServiceDetailProps {
 }
 
 const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpdate, user }) => {
-  const [service, setService] = useState<ServiceJob | null>(null);
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
+  // 1. Legacy Context (Ref Data)
+  const { allVehicles, allClients, delayCriteria } = useLegacyServices();
+
+  // 2. TanStack Query (Data Fetching)
+  const {
+    data: service,
+    isLoading,
+    error: queryError,
+    refetch,
+    isRefetching
+  } = useServiceById(serviceId);
+
+  const updateServiceMutation = useUpdateService();
+
+  // 3. UI/Local State
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [delayCriteria, setDelayCriteria] = useState<any>(null);
 
   const [cameraMode, setCameraMode] = useState<'photo' | 'video' | null>(null);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
   const [loadingMedia, setLoadingMedia] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const requestIdRef = useRef<number>(0);
-  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [isAddingReminder, setIsAddingReminder] = useState(false);
   const [newReminderTitle, setNewReminderTitle] = useState('');
-  const [historyData, setHistoryData] = useState<any[]>([]); // New state for history
+  const [historyData, setHistoryData] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [newReminderDate, setNewReminderDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -70,21 +85,33 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
     new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
   );
 
-  // Estado para edição de lembrete existente
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [editReminderData, setEditReminderData] = useState({ title: '', date: '', time: '' });
 
-  const [selectedTaskForDetails, setSelectedTaskForDetails] =
-    useState<ServiceTask | null>(null);
+  const [selectedTaskForDetails, setSelectedTaskForDetails] = useState<ServiceTask | null>(null);
 
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
-
-  // Estado local para o input de preço, permitindo edição sem re-render loop
   const [priceInputValue, setPriceInputValue] = useState('');
-
-  // Estado para visualização de mídia em lightbox
   const [viewingMedia, setViewingMedia] = useState<ItemMedia | null>(null);
+
+  // Derived Values
+  const vehicle = useMemo(() => allVehicles.find(v => v.id === service?.vehicle_id) || null, [allVehicles, service?.vehicle_id]);
+  const client = useMemo(() => allClients.find(c => c.id === service?.client_id) || null, [allClients, service?.client_id]);
+
+  // Sync selected task when service data updates
+  useEffect(() => {
+    if (service && selectedTaskForDetails) {
+      const updatedTask = service.tasks.find(t => t.id === selectedTaskForDetails.id);
+      if (updatedTask) setSelectedTaskForDetails(updatedTask);
+    }
+  }, [service]);
+
+  useEffect(() => {
+    setSelectedTaskForDetails(null);
+    setShowHistory(false);
+  }, [serviceId]);
+
 
   useEffect(() => {
     if (selectedTaskForDetails) {
@@ -102,59 +129,14 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
     selectedTaskForDetails?.charge_type
   ]);
 
-  const loadData = async () => {
-    const requestId = ++requestIdRef.current;
-
-    // Abort previous request if exists
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const s = await dataProvider.getServiceById(serviceId);
-      // Verify if this is still the relevant request
-      if (requestId !== requestIdRef.current) return;
-      if (!s) return;
-
-      setService({ ...s });
-      const [allVehicles, allClients, criteria] = await Promise.all([
-        dataProvider.getVehicles(abortControllerRef.current.signal),
-        dataProvider.getClients(abortControllerRef.current.signal),
-        dataProvider.getDelayCriteria()
-      ]);
-
-      if (requestId !== requestIdRef.current) return;
-
-      setVehicle(allVehicles.find(v => v.id === s.vehicle_id) || null);
-      setClient(allClients.find(c => c.id === s.client_id) || null);
-      setDelayCriteria(criteria);
-
-      if (selectedTaskForDetails) {
-        const updatedTask = s.tasks.find(t => t.id === selectedTaskForDetails.id);
-        if (updatedTask) setSelectedTaskForDetails(updatedTask);
-      }
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
-      console.error('Error loading ServiceDetail data:', err);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [serviceId]);
-
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => {
-      clearInterval(interval);
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
+    return () => clearInterval(interval);
   }, []);
 
-  // Removido useMemo redundante
+  // Use a refetch wrapper for legacy mutation logic
+  const loadData = () => refetch();
+
   const isDelayed = useMemo(() => {
     if (!service?.estimated_delivery) return false;
     return calculateDelayStatus(
@@ -172,7 +154,62 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
     );
   }, [service]);
 
-  if (!service) return null;
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+        <div className="bg-white p-10 rounded-[2.5rem] flex flex-col items-center gap-4 shadow-2xl">
+          <svg className="animate-spin h-10 w-10 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">
+            Buscando detalhes da OS...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (queryError || !service) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="bg-white p-8 rounded-[2.5rem] w-full max-w-md text-center shadow-2xl relative animate-in zoom-in duration-300">
+          <button onClick={onClose} className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-500 transition-colors">
+            <X size={24} />
+          </button>
+
+          {queryError instanceof CircuitOpenError ? (
+            <div className="py-4">
+              <MaintenanceBanner
+                message="O sistema de dados está em manutenção automática na tela de detalhes."
+                onRetry={() => refetch()}
+              />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                <AlertTriangle size={40} className="text-red-500" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Falha na Conexão</h3>
+                <p className="text-slate-500 text-xs mt-2 leading-relaxed">
+                  {(queryError as any)?.message || 'Não foi possível carregar as informações deste serviço.'}
+                </p>
+              </div>
+              <button
+                onClick={() => refetch()}
+                className="w-full py-4 bg-red-600 active:bg-red-700 text-white rounded-2xl font-black uppercase text-xs tracking-[2px] shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={14} />
+                Tentar Novamente
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
 
   const hasActiveReminders = service.reminders?.some(r => r.status === 'active');
 
@@ -186,10 +223,14 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
         action_source: 'SYSTEM_RULE',
         user_name: 'Sistema'
       };
-      await dataProvider.updateService(currentServiceState.id, {
-        status: newStatus,
-        status_history: [...(currentServiceState.status_history || []), newStatusEntry]
-      } as any);
+
+      await updateServiceMutation.mutateAsync({
+        id: currentServiceState.id,
+        updates: {
+          status: newStatus,
+          status_history: [...(currentServiceState.status_history || []), newStatusEntry]
+        } as any
+      });
     }
   };
 
@@ -414,6 +455,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   };
 
   const handleDeliverService = async () => {
+    if (service?.status === ServiceStatus.ENTREGUE) return;
     if (!window.confirm('Confirmar entrega do veículo? Isso encerrará o serviço.')) return;
 
     const newStatusEntry = {
@@ -421,15 +463,17 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
       status: ServiceStatus.ENTREGUE,
       timestamp: new Date().toISOString(),
       action_source: 'MANUAL_DELIVERY',
-      user_name: 'Usuário'
+      user_name: user?.name || 'Usuário'
     };
 
-    await dataProvider.updateService(serviceId, {
-      status: ServiceStatus.ENTREGUE,
-      status_history: [...(service.status_history || []), newStatusEntry]
-    } as any);
+    await updateServiceMutation.mutateAsync({
+      id: serviceId,
+      updates: {
+        status: ServiceStatus.ENTREGUE,
+        status_history: [...(service.status_history || []), newStatusEntry]
+      } as any
+    });
 
-    loadData();
     onUpdate();
     onClose();
   };
@@ -1135,17 +1179,22 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
           <button
             onClick={handleDeliverService}
-            className="flex flex-col items-center gap-1 group"
+            disabled={updateServiceMutation.isPending}
+            className="flex flex-col items-center gap-1 group disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className={`p-3 rounded-2xl group-active:scale-90 transition-all border-2 shadow-xl ${progress === 100
               ? 'bg-green-500 text-white shadow-green-500/20 border-green-400 group-hover:bg-green-400'
               : 'bg-green-500/10 text-green-400 shadow-green-500/5 border-green-500/20 group-hover:text-green-300 group-hover:border-green-400/30'
               }`}>
-              <CheckCircle size={22} strokeWidth={2.5} />
+              {updateServiceMutation.isPending ? (
+                <RotateCcw size={22} className="animate-spin" />
+              ) : (
+                <CheckCircle size={22} strokeWidth={2.5} />
+              )}
             </div>
             <span className={`text-[8px] font-black uppercase tracking-widest ${progress === 100 ? 'text-green-400' : 'text-green-400 group-hover:text-green-300'
               }`}>
-              Entregar
+              {updateServiceMutation.isPending ? 'Sincronizando...' : 'Entregar'}
             </span>
           </button>
         </div >

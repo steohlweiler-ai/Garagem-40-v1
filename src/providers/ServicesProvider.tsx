@@ -6,7 +6,6 @@ import { useAuth } from './AuthProvider';
 
 interface ServicesContextType {
     services: ServiceJob[];
-    processedServices: ServiceJob[];
     stats: {
         atrasado: number;
         pendente: number;
@@ -310,81 +309,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return () => clearInterval(interval);
     }, [isAuthenticated, dashboardFilter, advancedFilters, loadStats]);
 
-    // Processed Services (Search & Client-side Filtering)
-    const processedServices = useMemo(() => {
-        let filtered = services.filter(s => {
-            const v = allVehicles.find(veh => veh.id === s.vehicle_id);
-            const c = allClients.find(cl => cl.id === s.client_id);
-            const normalize = (str: string) => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            const search = normalize(debouncedSearch);
-
-            const matchesSearch =
-                normalize(v?.plate || '').includes(search) ||
-                normalize(c?.name || '').includes(search) ||
-                normalize(v?.brand || '').includes(search) ||
-                normalize(v?.model || '').includes(search);
-
-            if (!matchesSearch) return false;
-
-            // KPI Filter (Otimizado com priority_bucket + Fallback contra drift)
-            if (dashboardFilter !== 'total') {
-                const works = delayCriteria ? calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority) : { isDelayed: false };
-                const isLate = s.priority_bucket === 0 || (s.estimated_delivery && works.isDelayed);
-
-                if (dashboardFilter === 'Atrasado') {
-                    if (!(isLate && s.status !== ServiceStatus.ENTREGUE)) return false;
-                } else {
-                    if (s.status !== dashboardFilter) return false;
-                }
-            }
-
-            // Advanced Filters
-            if (advancedFilters.startDate) {
-                if (new Date(s.entry_at) < new Date(advancedFilters.startDate + 'T00:00:00')) return false;
-            }
-            if (advancedFilters.endDate) {
-                if (new Date(s.entry_at) > new Date(advancedFilters.endDate + 'T23:59:59')) return false;
-            }
-            if (advancedFilters.startDeliveryDate) {
-                if (!s.estimated_delivery) return false;
-                if (new Date(s.estimated_delivery) < new Date(advancedFilters.startDeliveryDate + 'T00:00:00')) return false;
-            }
-            if (advancedFilters.endDeliveryDate) {
-                if (!s.estimated_delivery) return false;
-                if (new Date(s.estimated_delivery) > new Date(advancedFilters.endDeliveryDate + 'T23:59:59')) return false;
-            }
-            if (advancedFilters.statuses.length > 0) {
-                const works = delayCriteria ? calculateDelayStatus(s.estimated_delivery, delayCriteria, s.priority) : { isDelayed: false };
-                const isLate = s.priority_bucket === 0 || (s.estimated_delivery && works.isDelayed);
-
-                const matchesMultiStatus = advancedFilters.statuses.some(st => {
-                    if (st === 'Atrasado') return isLate && s.status !== ServiceStatus.ENTREGUE;
-                    return s.status === st;
-                });
-                if (!matchesMultiStatus) return false;
-            }
-
-            return true;
-        });
-
-        return filtered.sort((a, b) => {
-            switch (advancedFilters.sortBy) {
-                case 'atrasados':
-                    return (a.priority_bucket || 2) - (b.priority_bucket || 2);
-                case 'entrega_proxima':
-                    if (!a.estimated_delivery) return 1;
-                    if (!b.estimated_delivery) return -1;
-                    return new Date(a.estimated_delivery).getTime() - new Date(b.estimated_delivery).getTime();
-                case 'entrada_antiga':
-                    return new Date(a.entry_at).getTime() - new Date(b.entry_at).getTime();
-                case 'status':
-                    return a.status.localeCompare(b.status);
-                case 'entrada_recente':
-                default:
-                    return new Date(b.entry_at).getTime() - new Date(a.entry_at).getTime();
-            }
-        });
-    }, [services, debouncedSearch, dashboardFilter, advancedFilters, delayCriteria, allVehicles, allClients]);
+    // stats calculation remains for now as it's less overhead than processedServices
 
     const stats = useMemo(() => ({
         atrasado: statsCounts['Atrasado'] || 0,
@@ -495,7 +420,6 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return (
         <ServicesContext.Provider value={{
             services,
-            processedServices,
             stats,
             isLoading: isInitialLoad,
             isLoadingMore,

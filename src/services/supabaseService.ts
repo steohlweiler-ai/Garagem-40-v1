@@ -1087,24 +1087,29 @@ class SupabaseService {
         return !error;
     }
 
-    async getServiceById(id: string): Promise<ServiceJob | null> {
-        const { data: s, error } = await supabase.from('serviços').select('*').eq('id', id).single();
-        if (error || !s) return null;
+    async getServiceById(id: string, externalSignal?: AbortSignal): Promise<ServiceJob | null> {
+        return await safeCall(`read:serviço:${id}`, async (signal) => {
+            const { data: s, error } = await supabase.from('serviços').select('*').eq('id', id).abortSignal(signal).single();
+            if (error) throw error;
+            if (!s) return null;
 
-        const [tasksRes, remindersRes, historyRes] = await Promise.all([
-            supabase.from('tarefas').select('*').eq('service_id', id).order('order'),
-            supabase.from('lembretes').select('*').eq('service_id', id),
-            supabase.from('historico_status').select('*').eq('service_id', id).order('timestamp')
-        ]);
+            const [tasksRes, remindersRes, historyRes] = await Promise.all([
+                supabase.from('tarefas').select('*').eq('service_id', id).order('order').abortSignal(signal),
+                supabase.from('lembretes').select('*').eq('service_id', id).abortSignal(signal),
+                supabase.from('historico_status').select('*').eq('service_id', id).order('timestamp').abortSignal(signal)
+            ]);
 
-        return {
-            ...s,
-            tasks: (tasksRes.data || []).map(this.mapTask),
-            reminders: (remindersRes.data || []).map(this.mapReminder),
-            status_history: (historyRes.data || []).map(this.mapStatusLog),
-            entry_at: s.entry_at || new Date().toISOString()
-        };
+            return {
+                ...s,
+                tasks: (tasksRes.data || []).map(this.mapTask),
+                reminders: (remindersRes.data || []).map(this.mapReminder),
+                status_history: (historyRes.data || []).map(this.mapStatusLog),
+                entry_at: s.entry_at || new Date().toISOString()
+            };
+        }, { timeoutMs: 15000, signal: externalSignal });
     }
+
+
 
     // ===================== PERFORMANCE OPTIMIZED QUERIES =====================
 
@@ -1145,15 +1150,19 @@ class SupabaseService {
 
         // Buscar serviços ativos com colunas mínimas para cálculo
         // "Lightweight Query" conforme solicitado
-        const { data: activeServices, error } = await supabase
-            .from('serviços')
-            .select('id, status, estimated_delivery, entry_at, priority')
-            .neq('status', 'Entregue');
+        const { data: activeServices, error } = await safeCall(`stats:serviços:counts`, async (signal) => {
+            return await supabase
+                .from('serviços')
+                .select('id, status, estimated_delivery, entry_at, priority')
+                .neq('status', 'Entregue')
+                .abortSignal(signal);
+        }, { timeoutMs: 15000 });
 
         if (error || !activeServices) {
             console.error('Error fetching service counts', error);
             return {};
         }
+
 
         // Debug Log para verificar dados reais que chegam do banco
         if (activeServices.length > 0) {
@@ -1314,7 +1323,10 @@ class SupabaseService {
             query = query.range(offset, offset + limit - 1);
 
             console.log('[DEBUG] Executing Classic / Fallback Query...');
-            result = await query;
+            result = await safeCall(`table:serviços:filtered`, async (opSignal) => {
+                if (opSignal) query = query.abortSignal(opSignal);
+                return await query;
+            }, { timeoutMs: 15000 });
 
             // SECONDARY FALLBACK: Se falhar a ordenação por buckets, tenta a mais básica
             if (result.error && result.error.message.includes('priority_bucket')) {
@@ -1329,7 +1341,10 @@ class SupabaseService {
                 if (vehicleId) baseQuery = baseQuery.eq('vehicle_id', vehicleId);
 
                 baseQuery = baseQuery.order('entry_at', { ascending: false }).range(offset, offset + limit - 1);
-                result = await baseQuery;
+                result = await safeCall(`table:serviços:basic`, async (opSignal) => {
+                    if (opSignal) baseQuery = baseQuery.abortSignal(opSignal);
+                    return await baseQuery;
+                }, { timeoutMs: 15000 });
             }
         }
 
@@ -1741,7 +1756,10 @@ class SupabaseService {
             query = query.eq('version', version);
         }
 
-        const { data, error } = await query.select('id');
+        const { data, error } = await safeCall(`update:serviços:${id}`, async (opSignal) => {
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query.select('id');
+        }, { timeoutMs: 15000, retries: 0 }); // Retries disabled for writes by default in safeCall call here
 
         if (error) {
             console.error('Supabase Error (updateService):', error);
@@ -1825,13 +1843,17 @@ class SupabaseService {
 
     async startTaskExecution(taskId: string, user: { id: string, name: string }): Promise<boolean> {
         const now = new Date().toISOString();
-        const { error } = await supabase.from('tarefas').update({
-            status: 'in_progress',
-            started_at: now,
-            last_executor_id: user.id,
-            last_executor_name: user.name,
-            updated_at: now
-        }).eq('id', taskId);
+        const { error } = await safeCall(`update:tarefas:${taskId}:start`, async (opSignal) => {
+            let query = supabase.from('tarefas').update({
+                status: 'in_progress',
+                started_at: now,
+                last_executor_id: user.id,
+                last_executor_name: user.name,
+                updated_at: now
+            }).eq('id', taskId);
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query.select('id');
+        }, { timeoutMs: 15000, retries: 0 });
 
         return !error;
     }
@@ -1840,25 +1862,33 @@ class SupabaseService {
         const now = new Date().toISOString();
 
         // 1. Update Task (Snapshot)
-        const { error: taskError } = await supabase.from('tarefas').update({
-            status: 'todo',
-            started_at: null, // Clear active session
-            time_spent_seconds: totalTimeSpent,
-            updated_at: now
-        }).eq('id', taskId);
+        const { error: taskError } = await safeCall(`update:tarefas:${taskId}:stop`, async (opSignal) => {
+            let query = supabase.from('tarefas').update({
+                status: 'todo',
+                started_at: null, // Clear active session
+                time_spent_seconds: totalTimeSpent,
+                updated_at: now
+            }).eq('id', taskId);
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query.select('id');
+        }, { timeoutMs: 15000, retries: 0 });
 
         if (taskError) return false;
 
         // 2. Insert into History (Audit Trail)
-        const { error: historyError } = await supabase.from('historico_tarefas').insert({
-            task_id: taskId,
-            user_id: user.id,
-            user_name: user.name,
-            started_at: startedAt, // When this session started
-            ended_at: now,
-            duration_seconds: currentSessionDuration,
-            organization_id: 'org-default'
-        });
+        const { error: historyError } = await safeCall(`insert:historico_tarefas:${taskId}`, async (opSignal) => {
+            let query = supabase.from('historico_tarefas').insert({
+                task_id: taskId,
+                user_id: user.id,
+                user_name: user.name,
+                started_at: startedAt, // When this session started
+                ended_at: now,
+                duration_seconds: currentSessionDuration,
+                organization_id: 'org-default'
+            });
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query.select('id');
+        }, { timeoutMs: 15000, retries: 0 });
 
         if (historyError) {
             console.error('Error logging task history:', historyError);
@@ -1870,34 +1900,44 @@ class SupabaseService {
     // ===================== TASK OPERATIONS =====================
 
     async addTask(serviceId: string, task: Partial<ServiceTask>): Promise<ServiceTask | null> {
-        const { data, error } = await supabase.from('tarefas').insert({
-            service_id: serviceId,
-            title: task.title,
-            status: task.status || 'todo',
-            type: task.type || null,
-            charge_type: task.charge_type || 'Fixo',
-            rate_per_hour: task.rate_per_hour || 120,
-            fixed_value: task.fixed_value || 0,
-            order: task.order || 0,
-            from_template_id: task.from_template_id || null,
-            relato: task.relato || null,
-            diagnostico: task.diagnostico || null,
-            media: task.media || null
-        }).select().single();
+        const { data, error } = await safeCall(`insert:tarefas:${serviceId}`, async (opSignal) => {
+            let query = supabase.from('tarefas').insert({
+                service_id: serviceId,
+                title: task.title,
+                status: task.status || 'todo',
+                type: task.type || null,
+                charge_type: task.charge_type || 'Fixo',
+                rate_per_hour: task.rate_per_hour || 120,
+                fixed_value: task.fixed_value || 0,
+                order: task.order || 0,
+                from_template_id: task.from_template_id || null,
+                relato: task.relato || null,
+                diagnostico: task.diagnostico || null,
+                media: task.media || null
+            });
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query.select();
+        }, { timeoutMs: 15000, retries: 0 });
 
         if (error) {
             console.error('Supabase Error (addTask):', error);
             return null;
         }
-        return this.mapTask(data);
+
+        const insertedData = Array.isArray(data) ? data[0] : data;
+        return insertedData ? this.mapTask(insertedData) : null;
     }
 
     async updateTask(taskId: string, updates: Partial<ServiceTask>): Promise<boolean> {
-        const { error } = await supabase.from('tarefas').update({
-            ...updates,
-            ...((updates as any).media && { media: (updates as any).media }),
-            updated_at: new Date().toISOString()
-        }).eq('id', taskId);
+        const { error } = await safeCall(`update:tarefas:${taskId}`, async (opSignal) => {
+            let query = supabase.from('tarefas').update({
+                ...updates,
+                ...((updates as any).media && { media: (updates as any).media }),
+                updated_at: new Date().toISOString()
+            }).eq('id', taskId);
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query.select('id');
+        }, { timeoutMs: 15000, retries: 0 });
 
         if (error) {
             console.error('Supabase Error (updateTask):', error);
@@ -1908,7 +1948,12 @@ class SupabaseService {
 
 
     async deleteTask(taskId: string): Promise<boolean> {
-        const { error } = await supabase.from('tarefas').delete().eq('id', taskId);
+        const { error } = await safeCall(`delete:tarefas:${taskId}`, async (opSignal) => {
+            let query = supabase.from('tarefas').delete().eq('id', taskId);
+            if (opSignal) query = query.abortSignal(opSignal);
+            return await query.select('id');
+        }, { timeoutMs: 15000, retries: 0 });
+
         if (error) {
             console.error('Supabase Error (deleteTask):', error);
             return false;

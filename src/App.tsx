@@ -149,21 +149,27 @@ const InnerApp: React.FC = () => {
     );
 };
 
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './lib/queryClient';
+
 const App: React.FC = () => {
     return (
-        <GlobalErrorBoundary>
-            <ComponentErrorBoundary
-                componentName="AuthProvider"
-                fallbackMessage="Falha crítica ao inicializar autenticação. Recarregue a página ou limpe o cache do navegador."
-            >
-                <AuthProvider>
-                    <ServicesProvider>
-                        <InnerApp />
-                    </ServicesProvider>
-                </AuthProvider>
-            </ComponentErrorBoundary>
-        </GlobalErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+            <GlobalErrorBoundary>
+                <ComponentErrorBoundary
+                    componentName="AuthProvider"
+                    fallbackMessage="Falha crítica ao inicializar autenticação. Recarregue a página ou limpe o cache do navegador."
+                >
+                    <AuthProvider>
+                        <ServicesProvider>
+                            <InnerApp />
+                        </ServicesProvider>
+                    </AuthProvider>
+                </ComponentErrorBoundary>
+            </GlobalErrorBoundary>
+        </QueryClientProvider>
     );
 };
+
 
 export default App;
