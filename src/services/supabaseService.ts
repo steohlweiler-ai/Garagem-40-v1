@@ -8,6 +8,9 @@ import {
     Product, Invoice, StockMovement, Supplier, StockAllocation, ChargeType
 } from '../types';
 import { calculateDelayStatus } from '../utils/helpers';
+import { safeCall } from '../utils/safeCall';
+
+const USE_SAFE_CALL = import.meta.env.VITE_USE_SAFE_CALL !== 'false'; // Default to true
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -27,51 +30,17 @@ class SupabaseService {
      * Specialized wrapper for Supabase RPC calls with timeout, retries and auth-expiry handling.
      */
     private async safeRpcCall(rpcName: string, params: any, options: { timeout?: number, retries?: number } = {}) {
-        const { timeout = 20000, retries = 2 } = options;
-        let attempt = 0;
-
-        while (attempt <= retries) {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => {
-                console.warn(`[TIMEOUT] RPC ${rpcName} exceeded ${timeout}ms. Aborting.`);
-                controller.abort();
-            }, timeout);
-
-            try {
-                const { data, error, status } = await supabase.rpc(rpcName, params).abortSignal(controller.signal);
-                clearTimeout(timeoutId);
-
-                if (error) {
-                    // Check for Auth Expiry (401 Unauthorized / 403 Forbidden)
-                    if (status === 401 || status === 403 || error.message?.includes('JWT')) {
-                        console.error(`🔴 [AUTH EXPIRED] RPC ${rpcName} returned ${status}. Clearing session.`);
-                        await supabase.auth.signOut();
-                        localStorage.removeItem('g40_user_session');
-                        // Use location.href instead of reload() to be sure
-                        window.location.href = '/';
-                        throw error;
-                    }
-                    throw error;
-                }
-                return { data, error: null };
-            } catch (err: any) {
-                clearTimeout(timeoutId);
-                attempt++;
-
-                const isAbort = err.name === 'AbortError' || err.message?.includes('abort');
-                const isRetryable = isAbort || !window.navigator.onLine || err.status >= 500;
-
-                if (attempt <= retries && isRetryable) {
-                    const delay = Math.pow(2, attempt) * 1000;
-                    console.warn(`⚠️ [RETRY] RPC ${rpcName} attempt ${attempt} failed. Retrying in ${delay}ms...`);
-                    await new Promise(r => setTimeout(r, delay));
-                    continue;
-                }
-
-                console.error(`❌ [FATAL RPC ERROR] ${rpcName} failed after ${attempt} attempts:`, err);
-                return { data: null, error: err };
-            }
+        if (USE_SAFE_CALL) {
+            const { data, error } = await safeCall(rpcName, (signal) =>
+                supabase.rpc(rpcName, params).abortSignal(signal),
+                { timeoutMs: options.timeout, retries: options.retries, method: 'rpc' }
+            );
+            return { data, error };
         }
+
+        // LEGACY FALLBACK (Minimal logic if flag is off)
+        const { data, error } = await supabase.rpc(rpcName, params);
+        return { data, error };
     }
 
     // ===================== STORAGE OPERATIONS =====================
@@ -802,34 +771,35 @@ class SupabaseService {
      * Calls the RPC 'update_stock_atomic' to ensure stock and movements are saved together.
      */
     async processInvoiceAtomic(invoice: Invoice, items: any[]): Promise<{ success: boolean; error?: string }> {
+        const idempotencyKey = crypto.randomUUID();
+
         const payload_invoice = {
             number: invoice.number,
             date: invoice.date,
             total: invoice.total,
             supplier_id: invoice.supplier_id,
-            imageBase64: invoice.imageBase64
+            imageBase64: invoice.imageBase64,
+            idempotency_key: idempotencyKey
         };
 
         const payload_items = items.map(i => ({
             product_id: i.product_id,
             qty: i.qty,
-            unit_price: i.unit_price
+            unit_price: i.unit_price,
+            idempotency_key: idempotencyKey
         }));
 
-        const { data, error } = await supabase.rpc('update_stock_atomic', {
+        const { data, error } = await this.safeRpcCall('update_stock_atomic', {
             p_invoice_data: payload_invoice,
             p_items_data: payload_items
         });
 
         if (error) {
-            console.error("RPC update_stock_atomic error:", error);
             return { success: false, error: error.message };
         }
 
-        // @ts-ignore
-        if (data && data.success === false) {
-            // @ts-ignore
-            return { success: false, error: data.error };
+        if (data && (data as any).success === false) {
+            return { success: false, error: (data as any).error };
         }
 
         return { success: true };
@@ -840,21 +810,20 @@ class SupabaseService {
      * Calls 'reserve_stock_atomic' to safely allocate items avoiding race conditions.
      */
     async reserveStockAtomic(productId: string, vehicleId: string, qty: number): Promise<{ success: boolean; message?: string }> {
-        const { data, error } = await supabase.rpc('reserve_stock_atomic', {
+        const idempotencyKey = crypto.randomUUID();
+        const { data, error } = await this.safeRpcCall('reserve_stock_atomic', {
             p_product_id: productId,
             p_vehicle_id: vehicleId,
-            p_qty: qty
+            p_qty: qty,
+            p_idempotency_key: idempotencyKey
         });
 
         if (error) {
-            console.error("RPC reserve_stock_atomic error:", error);
             return { success: false, message: error.message };
         }
 
-        // @ts-ignore
-        if (data && !data.success) {
-            // @ts-ignore
-            return { success: false, message: data.message };
+        if (data && !(data as any).success) {
+            return { success: false, message: (data as any).message };
         }
 
         return { success: true };

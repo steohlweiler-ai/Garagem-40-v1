@@ -56,6 +56,8 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
   const [loadingMedia, setLoadingMedia] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const requestIdRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [isAddingReminder, setIsAddingReminder] = useState(false);
   const [newReminderTitle, setNewReminderTitle] = useState('');
@@ -101,21 +103,40 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
   ]);
 
   const loadData = async () => {
-    const s = await dataProvider.getServiceById(serviceId);
-    if (!s) return;
+    const requestId = ++requestIdRef.current;
 
-    setService({ ...s });
-    const allVehicles = await dataProvider.getVehicles();
-    const allClients = await dataProvider.getClients();
-    setVehicle(allVehicles.find(v => v.id === s.vehicle_id) || null);
-    setClient(allClients.find(c => c.id === s.client_id) || null);
+    // Abort previous request if exists
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
-    const criteria = await dataProvider.getDelayCriteria();
-    setDelayCriteria(criteria);
+    try {
+      const s = await dataProvider.getServiceById(serviceId);
+      // Verify if this is still the relevant request
+      if (requestId !== requestIdRef.current) return;
+      if (!s) return;
 
-    if (selectedTaskForDetails) {
-      const updatedTask = s.tasks.find(t => t.id === selectedTaskForDetails.id);
-      if (updatedTask) setSelectedTaskForDetails(updatedTask);
+      setService({ ...s });
+      const [allVehicles, allClients, criteria] = await Promise.all([
+        dataProvider.getVehicles(abortControllerRef.current.signal),
+        dataProvider.getClients(abortControllerRef.current.signal),
+        dataProvider.getDelayCriteria()
+      ]);
+
+      if (requestId !== requestIdRef.current) return;
+
+      setVehicle(allVehicles.find(v => v.id === s.vehicle_id) || null);
+      setClient(allClients.find(c => c.id === s.client_id) || null);
+      setDelayCriteria(criteria);
+
+      if (selectedTaskForDetails) {
+        const updatedTask = s.tasks.find(t => t.id === selectedTaskForDetails.id);
+        if (updatedTask) setSelectedTaskForDetails(updatedTask);
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
+      console.error('Error loading ServiceDetail data:', err);
     }
   };
 
@@ -125,7 +146,12 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ serviceId, onClose, onUpd
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   // Removido useMemo redundante

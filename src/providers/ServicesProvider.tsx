@@ -20,7 +20,8 @@ interface ServicesContextType {
     isLoadingMore: boolean;
     hasMore: boolean;
     isOffline: boolean;
-    error: { type: 'network' | 'timeout' | 'unknown', message: string } | null;
+    offlineReason: 'network_failure' | 'circuit_open' | 'timeout' | null;
+    error: { type: 'network' | 'timeout' | 'unknown' | 'circuit', message: string } | null;
 
     // Filters
     searchQuery: string;
@@ -84,7 +85,8 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [isOffline, setIsOffline] = useState(!window.navigator.onLine);
-    const [error, setError] = useState<{ type: 'network' | 'timeout' | 'unknown', message: string } | null>(null);
+    const [offlineReason, setOfflineReason] = useState<'network_failure' | 'circuit_open' | 'timeout' | null>(null);
+    const [error, setError] = useState<{ type: 'network' | 'timeout' | 'unknown' | 'circuit', message: string } | null>(null);
 
     const PAGE_SIZE = 50;
 
@@ -248,20 +250,29 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setCurrentPage(pageRef.current);
         } catch (err: any) {
             console.error('Failed to load services:', err);
-            let errorType: 'network' | 'timeout' | 'unknown' = 'unknown';
+            let errorType: 'network' | 'timeout' | 'unknown' | 'circuit' = 'unknown';
             let errorMessage = 'Falha desconhecida. Tente novamente.';
+            let reason: 'network_failure' | 'circuit_open' | 'timeout' | null = null;
 
             if (err.name === 'AbortError') {
                 errorType = 'timeout';
                 errorMessage = 'O servidor demorou muito para responder.';
+                reason = 'timeout';
+            } else if (err.name === 'CircuitOpenError') {
+                errorType = 'circuit';
+                errorMessage = 'Muitas falhas detectadas. Aguardando 30s.';
+                reason = 'circuit_open';
             } else if (err.message && (err.message.includes('fetch') || err.message.includes('network'))) {
                 errorType = 'network';
                 errorMessage = 'Falha na conexão com a internet.';
+                reason = 'network_failure';
             }
 
             if (reset) {
                 setServices([]);
                 setHasMoreServices(false);
+                setIsOffline(true);
+                setOfflineReason(reason);
                 setError({ type: errorType, message: errorMessage });
             }
         } finally {
@@ -453,6 +464,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const handleOffline = () => {
             console.warn('📡 [Network] Connection lost');
             setIsOffline(true);
+            setOfflineReason('network_failure');
         };
 
         window.addEventListener('online', handleOnline);
@@ -473,6 +485,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             isLoadingMore,
             hasMore: hasMoreServices,
             isOffline,
+            offlineReason,
             error,
             searchQuery,
             setSearchQuery,
