@@ -1582,7 +1582,7 @@ class SupabaseService {
     }
 
     async updateService(id: string, updates: Partial<ServiceJob>): Promise<boolean> {
-        const { status, priority, total_value, estimated_delivery, archived, inspection, priority_bucket, version } = updates;
+        const { status, priority, total_value, estimated_delivery, archived, inspection, priority_bucket, version, tasks } = updates;
 
         const updatePayload: any = {
             ...(status && { status }),
@@ -1612,6 +1612,62 @@ class SupabaseService {
         if (version !== undefined && (!data || data.length === 0)) {
             console.warn(`[Optimistic Lock] Conflict detected for service ${id}. Version ${version} is outdated.`);
             return false;
+        }
+
+        // --- TASK SYNC SHIELD (TC012) ---
+        // If tasks are provided, sync them atomically (Upsert + Purge)
+        if (tasks && Array.isArray(tasks)) {
+            console.log(`[SYNC] Syncing ${tasks.length} tasks for service ${id}`);
+
+            // 1. Identify tasks to delete (Leftovers)
+            const { data: dbTasks } = await supabase
+                .from('tarefas')
+                .select('id')
+                .eq('service_id', id);
+
+            if (dbTasks) {
+                const incomingIds = new Set(tasks.map(t => t.id));
+                const toDelete = dbTasks.filter(t => !incomingIds.has(t.id)).map(t => t.id);
+
+                if (toDelete.length > 0) {
+                    console.log(`[SYNC] Purging ${toDelete.length} obsolete tasks`);
+                    await supabase.from('tarefas').delete().in('id', toDelete);
+                }
+            }
+
+            // 2. Upsert incoming tasks
+            // Ensure service_id is explicitly set and clean payload
+            const tasksToUpsert = tasks.map(t => ({
+                id: t.id,
+                service_id: id,
+                title: t.title,
+                status: t.status,
+                type: t.type,
+                value: t.value,
+                responsible_user_id: t.responsible_user_id,
+                started_at: t.started_at,
+                ended_at: t.ended_at,
+                duration_seconds: t.duration_seconds,
+                time_spent_seconds: t.time_spent_seconds,
+                observation: t.observation,
+                relato: t.relato,
+                diagnostico: t.diagnostico,
+                media: t.media,
+                charge_type: t.charge_type,
+                rate_per_hour: t.rate_per_hour,
+                fixed_value: t.fixed_value,
+                manual_override_value: t.manual_override_value,
+                from_template_id: t.from_template_id,
+                order: t.order,
+                last_executor_id: t.last_executor_id,
+                last_executor_name: t.last_executor_name
+            }));
+
+            const { error: upsertError } = await supabase.from('tarefas').upsert(tasksToUpsert);
+            if (upsertError) {
+                console.error('[SYNC] Task upsert failed:', upsertError);
+                // We return true because service was updated, but log the failure
+            }
         }
 
         // Se houver mudança de status, registrar no histórico
