@@ -1089,21 +1089,17 @@ class SupabaseService {
 
     async getServiceById(id: string, externalSignal?: AbortSignal): Promise<ServiceJob | null> {
         return await safeCall(`read:serviço:${id}`, async (signal) => {
-            const { data: s, error } = await supabase.from('serviços').select('*').eq('id', id).abortSignal(signal).single();
+            const { data, error } = await supabase.rpc('get_service_detail_unified', { p_id: id }).abortSignal(signal).single();
             if (error) throw error;
-            if (!s) return null;
+            if (!data) return null;
 
-            const [tasksRes, remindersRes, historyRes] = await Promise.all([
-                supabase.from('tarefas').select('*').eq('service_id', id).order('order').abortSignal(signal),
-                supabase.from('lembretes').select('*').eq('service_id', id).abortSignal(signal),
-                supabase.from('historico_status').select('*').eq('service_id', id).order('timestamp').abortSignal(signal)
-            ]);
+            const { service: s, tasks, reminders, history } = data as any;
 
             return {
                 ...s,
-                tasks: (tasksRes.data || []).map(this.mapTask),
-                reminders: (remindersRes.data || []).map(this.mapReminder),
-                status_history: (historyRes.data || []).map(this.mapStatusLog),
+                tasks: (tasks || []).map(this.mapTask.bind(this)),
+                reminders: (reminders || []).map(this.mapReminder.bind(this)),
+                status_history: (history || []).map(this.mapStatusLog.bind(this)),
                 entry_at: s.entry_at || new Date().toISOString()
             };
         }, { timeoutMs: 15000, signal: externalSignal });
@@ -1253,20 +1249,21 @@ class SupabaseService {
         let query: any = queryArray;
         let result: any;
 
-        // --- EXTREME PERFORMANCE SHIELD (TC010/TC011) ---
+        // --- EXTREME PERFORMANCE SHIELD (TC012) ---
         // Attempt specialized RPC call for ultra-fast dashboard loading
-        console.log('[DEBUG] Attempting Safe RPC get_dashboard_services (TC011)...');
+        console.log('[DEBUG] Attempting Safe RPC get_dashboard_services_v3 (TC012)...');
         try {
-            const { data: rpcData, error: rpcError } = await this.safeRpcCall('get_dashboard_services', {
+            const { data: rpcData, error: rpcError } = await this.safeRpcCall('get_dashboard_services_v3', {
                 p_limit: limit,
                 p_offset: offset,
                 p_statuses: statuses.length > 0 ? statuses : null,
                 p_client_id: clientId || null,
-                p_vehicle_id: vehicleId || null
+                p_vehicle_id: vehicleId || null,
+                p_org_id: 'org-default'
             });
 
             if (!rpcError && rpcData && rpcData.length > 0) {
-                console.log('⚡ [PERFORMANCE] RPC get_dashboard_services SUCCESS');
+                console.log('⚡ [PERFORMANCE] RPC get_dashboard_services_v3 SUCCESS');
                 const { service_data, total_count } = rpcData[0];
 
                 // RPC returns batched results in service_data.services
