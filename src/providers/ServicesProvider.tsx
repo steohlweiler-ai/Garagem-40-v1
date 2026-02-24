@@ -146,13 +146,10 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         try {
             const counts = await dataProvider.getServiceCounts(criteria || null);
             if (requestId !== loadStatsRequestIdRef.current) return;
-            const safeCount = counts || {
-                'Lembrete': 0, 'Pronto': 0, 'total': 0,
-                'Pendente': 0, 'Em Andamento': 0, 'Entregue': 0
-            };
+            if (!counts) return; // Don't clear state if data is missing
+
+            const safeCount = counts;
             // PATCH-C: Protect against visual counter regression while optimistic IDs are in-flight.
-            // The DB may not yet reflect newly created services, so never let total drop below
-            // the optimistic value already shown to the user.
             setStatsCounts(prev => {
                 const inFlight = inFlightOptimisticIdsRef.current;
                 if (inFlight.size === 0) return safeCount;
@@ -163,6 +160,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             });
         } catch (err) {
             console.error('Failed to load stats:', err);
+            // Resilience: do NOT clear statsCounts here, keep previous values
         } finally {
             if (loadingStatsTimeoutRef.current) clearTimeout(loadingStatsTimeoutRef.current);
             loadingStatsRef.current = false;
@@ -218,6 +216,18 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (requestId !== loadServicesRequestIdRef.current) return;
 
             if (reset) {
+                // SSoT: Sync stats if returned by RPC (Unified Data Source)
+                if (result.stats) {
+                    setStatsCounts(prev => {
+                        const inFlight = inFlightOptimisticIdsRef.current;
+                        if (inFlight.size === 0) return result.stats!;
+                        return {
+                            ...result.stats!,
+                            total: Math.max(result.stats!['total'] || 0, prev['total'] || 0),
+                        };
+                    });
+                }
+
                 // PATCH-B: Safe reconciliation — preserve any optimistic services the DB hasn't
                 // confirmed yet, avoiding a flash where the new OS disappears briefly.
                 setServices(prev => {

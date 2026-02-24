@@ -108,6 +108,7 @@ class DataProvider {
         data: ServiceJob[];
         total: number;
         hasMore: boolean;
+        stats?: Record<string, number>;
     }> {
         if (this.useSupabase) {
             try {

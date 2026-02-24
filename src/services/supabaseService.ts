@@ -1147,6 +1147,7 @@ class SupabaseService {
         data: ServiceJob[];
         total: number;
         hasMore: boolean;
+        stats?: Record<string, number>;
     }> {
         const {
             excludeStatuses = [],
@@ -1208,7 +1209,8 @@ class SupabaseService {
                         } : undefined
                     })),
                     error: null,
-                    count: total_count
+                    count: total_count,
+                    stats: service_data.stats
                 };
             } else if (rpcError) {
                 console.warn(`[DEBUG] RPC Failed (Expected if migration pending): ${rpcError.message}`);
