@@ -21,6 +21,9 @@ export function useServicesQuery(options: {
             });
             return result;
         },
+        // CRITICAL: Do NOT fire until we have a valid organizationId from the auth session.
+        // Without this, the query runs with undefined org → falls back to 'org-default' → wrong data.
+        enabled: !!options.organizationId,
         // Configurações do TanStack Query
         retry: false, // Delegado ao safeCall
         staleTime: 30000, // 30 segundos
