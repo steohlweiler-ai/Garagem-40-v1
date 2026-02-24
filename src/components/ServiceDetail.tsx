@@ -38,6 +38,7 @@ import { useServices as useLegacyServices } from '../providers/ServicesProvider'
 import { useServiceById } from '../hooks/useServiceById';
 import { useUpdateService } from '../hooks/useUpdateService';
 import { useTaskMutations } from '../hooks/useTaskMutations';
+import { useReminderMutations } from '../hooks/useReminderMutations';
 import { MaintenanceBanner } from './MaintenanceBanner';
 import { CircuitOpenError } from '../utils/errors';
 
