@@ -21,6 +21,59 @@ export { SUPABASE_URL, SUPABASE_KEY };
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 class SupabaseService {
+    // ===================== RESILIENCE WRAPPERS = :TC012/TC013 =====================
+
+    /**
+     * Specialized wrapper for Supabase RPC calls with timeout, retries and auth-expiry handling.
+     */
+    private async safeRpcCall(rpcName: string, params: any, options: { timeout?: number, retries?: number } = {}) {
+        const { timeout = 20000, retries = 2 } = options;
+        let attempt = 0;
+
+        while (attempt <= retries) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                console.warn(`[TIMEOUT] RPC ${rpcName} exceeded ${timeout}ms. Aborting.`);
+                controller.abort();
+            }, timeout);
+
+            try {
+                const { data, error, status } = await supabase.rpc(rpcName, params).abortSignal(controller.signal);
+                clearTimeout(timeoutId);
+
+                if (error) {
+                    // Check for Auth Expiry (401 Unauthorized / 403 Forbidden)
+                    if (status === 401 || status === 403 || error.message?.includes('JWT')) {
+                        console.error(`🔴 [AUTH EXPIRED] RPC ${rpcName} returned ${status}. Clearing session.`);
+                        await supabase.auth.signOut();
+                        localStorage.removeItem('g40_user_session');
+                        // Use location.href instead of reload() to be sure
+                        window.location.href = '/';
+                        throw error;
+                    }
+                    throw error;
+                }
+                return { data, error: null };
+            } catch (err: any) {
+                clearTimeout(timeoutId);
+                attempt++;
+
+                const isAbort = err.name === 'AbortError' || err.message?.includes('abort');
+                const isRetryable = isAbort || !window.navigator.onLine || err.status >= 500;
+
+                if (attempt <= retries && isRetryable) {
+                    const delay = Math.pow(2, attempt) * 1000;
+                    console.warn(`⚠️ [RETRY] RPC ${rpcName} attempt ${attempt} failed. Retrying in ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
+                    continue;
+                }
+
+                console.error(`❌ [FATAL RPC ERROR] ${rpcName} failed after ${attempt} attempts:`, err);
+                return { data: null, error: err };
+            }
+        }
+    }
+
     // ===================== STORAGE OPERATIONS =====================
 
     async uploadFile(file: File, bucket: string, path?: string): Promise<string | null> {
@@ -1177,9 +1230,9 @@ class SupabaseService {
 
         // --- EXTREME PERFORMANCE SHIELD (TC010/TC011) ---
         // Attempt specialized RPC call for ultra-fast dashboard loading
-        console.log('[DEBUG] Attempting RPC get_dashboard_services (TC011)...');
+        console.log('[DEBUG] Attempting Safe RPC get_dashboard_services (TC011)...');
         try {
-            const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_services', {
+            const { data: rpcData, error: rpcError } = await this.safeRpcCall('get_dashboard_services', {
                 p_limit: limit,
                 p_offset: offset,
                 p_statuses: statuses.length > 0 ? statuses : null,

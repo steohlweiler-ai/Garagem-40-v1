@@ -26,7 +26,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
         dashboardFilter,
         setDashboardFilter,
         advancedFilters,
-        setAdvancedFilters
+        setAdvancedFilters,
+        isOffline
     } = useServices();
 
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -58,6 +59,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
 
     return (
         <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500">
+            {isOffline && (
+                <div className="bg-amber-50 border-2 border-amber-100 p-4 rounded-3xl flex items-center gap-4 text-amber-800 animate-pulse transition-all mx-1 mb-2">
+                    <div className="w-12 h-12 bg-amber-200 rounded-2xl flex items-center justify-center text-amber-600 shadow-inner">
+                        <WifiOff size={24} />
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-xs font-black uppercase tracking-widest leading-none">Modo Offline</h3>
+                        <p className="text-[10px] font-medium text-amber-700/70 mt-1 uppercase tracking-tight">
+                            Sua conexão caiu. Os dados podem estar desatualizados.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 px-1">

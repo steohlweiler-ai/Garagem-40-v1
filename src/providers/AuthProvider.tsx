@@ -26,26 +26,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isMounted.current = true;
         console.log('[AuthProvider] Initializing auth...');
 
-        // Step 1: Restore session from localStorage
-        const savedUser = localStorage.getItem('g40_user_session');
-        if (savedUser) {
+        // Step 1: Initialize session from Supabase (Source of Truth)
+        const initializeAuth = async () => {
             try {
-                const parsed = JSON.parse(savedUser);
+                const { data: { session }, error } = await supabase.auth.getSession();
 
-                // Defensive: Validate parsed data
-                if (parsed?.id && parsed?.email) {
-                    console.log('[AuthProvider] Session restored from localStorage:', parsed.email);
-                    setUser(parsed);
-                    setIsAuthenticated(true);
-                } else {
-                    console.warn('[AuthProvider] Invalid session data, clearing localStorage');
-                    localStorage.removeItem('g40_user_session');
+                if (error || !session) {
+                    console.log('[AuthProvider] No active Supabase session found');
+                    if (isMounted.current) {
+                        setIsAuthenticated(false);
+                        setUser(null);
+                        localStorage.removeItem('g40_user_session');
+                    }
+                    return;
+                }
+
+                // If we have a session, try to hydrate user details from localStorage
+                const savedUser = localStorage.getItem('g40_user_session');
+                if (savedUser) {
+                    try {
+                        const parsed = JSON.parse(savedUser);
+                        if (parsed?.id === session.user.id) {
+                            console.log('[AuthProvider] session valid, user data hydrated from localStorage');
+                            if (isMounted.current) {
+                                setUser(parsed);
+                                setIsAuthenticated(true);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[AuthProvider] Failed to parse saved session:', e);
+                    }
                 }
             } catch (e) {
-                console.error('[AuthProvider] Failed to parse saved session:', e);
-                localStorage.removeItem('g40_user_session');
+                console.error('[AuthProvider] Auth initialization exception:', e);
+            } finally {
+                if (isMounted.current) {
+                    setIsLoading(false);
+                }
             }
-        }
+        };
+
+        initializeAuth();
 
         // Step 2: Setup Supabase Auth Listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -124,11 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         });
 
-        // Step 3: Mark initialization complete
-        if (isMounted.current) {
-            setIsLoading(false);
-        }
-        console.log('[AuthProvider] Initialization complete');
+        console.log('[AuthProvider] Initialization triggers fired');
 
         return () => {
             isMounted.current = false;

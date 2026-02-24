@@ -19,6 +19,7 @@ interface ServicesContextType {
     isLoading: boolean;
     isLoadingMore: boolean;
     hasMore: boolean;
+    isOffline: boolean;
     error: { type: 'network' | 'timeout' | 'unknown', message: string } | null;
 
     // Filters
@@ -82,6 +83,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const pageRef = useRef(0);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
+    const [isOffline, setIsOffline] = useState(!window.navigator.onLine);
     const [error, setError] = useState<{ type: 'network' | 'timeout' | 'unknown', message: string } | null>(null);
 
     const PAGE_SIZE = 50;
@@ -115,20 +117,6 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Load Reference Data
-    useEffect(() => {
-        const loadRefData = async () => {
-            const [criteria, vehicles, clients] = await Promise.all([
-                dataProvider.getDelayCriteria(),
-                dataProvider.getVehicles(),
-                dataProvider.getClients()
-            ]);
-            setDelayCriteria(criteria);
-            setAllVehicles(vehicles);
-            setAllClients(clients);
-        };
-        if (isAuthenticated) loadRefData();
-    }, [isAuthenticated]);
 
     // Load Stats
     const loadStats = useCallback(async () => {
@@ -174,8 +162,14 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (loadingServicesTimeoutRef.current) clearTimeout(loadingServicesTimeoutRef.current);
         loadingServicesTimeoutRef.current = setTimeout(() => {
-            loadingServicesRef.current = false;
-        }, 25000);
+            if (loadingServicesRef.current) {
+                console.warn('⚠️ [TIMEOUT] loadServices exceeded limit. Forcing loading=false.');
+                loadingServicesRef.current = false;
+                setIsInitialLoad(false);
+                setIsLoadingMore(false);
+                setError({ type: 'timeout', message: 'A conexão parece instável. Tente novamente.' });
+            }
+        }, 20000); // 20s safety timeout
 
         const requestId = ++loadServicesRequestIdRef.current;
 
@@ -429,13 +423,46 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
      * Ensures the optimistically injected service card shows correct plate/name.
      */
     const refreshRefData = useCallback(async () => {
-        const [vehicles, clients] = await Promise.all([
-            dataProvider.getVehicles(),
-            dataProvider.getClients(),
-        ]);
-        setAllVehicles(vehicles);
-        setAllClients(clients);
+        try {
+            console.log('[ServicesProvider] Loading reference data...');
+            const [vehicles, clients] = await Promise.all([
+                dataProvider.getVehicles(),
+                dataProvider.getClients(),
+            ]);
+            setAllVehicles(vehicles);
+            setAllClients(clients);
+        } catch (err) {
+            console.error('❌ [ServicesProvider] Failed to load reference data:', err);
+        }
     }, []);
+
+    // Initialize and Connectivity Listeners
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        refreshRefData();
+        loadServices(true);
+        loadStats();
+
+        const handleOnline = () => {
+            console.log('🌐 [Network] Back online - auto-refreshing...');
+            setIsOffline(false);
+            loadServices(true);
+            loadStats();
+        };
+        const handleOffline = () => {
+            console.warn('📡 [Network] Connection lost');
+            setIsOffline(true);
+        };
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [isAuthenticated, refreshRefData, loadServices, loadStats]);
 
     return (
         <ServicesContext.Provider value={{
@@ -445,6 +472,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             isLoading: isInitialLoad,
             isLoadingMore,
             hasMore: hasMoreServices,
+            isOffline,
             error,
             searchQuery,
             setSearchQuery,

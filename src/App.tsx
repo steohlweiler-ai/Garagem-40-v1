@@ -137,7 +137,10 @@ const InnerApp: React.FC = () => {
             {selectedServiceId && (
                 <ServiceDetail
                     serviceId={selectedServiceId}
-                    onClose={() => setSelectedServiceId(null)}
+                    onClose={() => {
+                        setSelectedServiceId(null);
+                        refresh(); // Refresh dashboard stats/list on exit (Hotfix-H)
+                    }}
                     onUpdate={refresh}
                     user={user}
                 />

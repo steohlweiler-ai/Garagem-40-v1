@@ -128,9 +128,29 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ user, settingsTab, s
                                     </p>
                                 </div>
                             </div>
-                            <div className="mt-4 p-4 bg-blue-50 text-blue-800 rounded-xl text-xs">
-                                <p className="font-bold mb-1">Nota:</p>
-                                <p>Se "Modo Ativo" for <strong>Mock</strong> mesmo com "Source Configurado" como <strong>supabase</strong>, significa que a conexão falhou ou as credenciais são inválidas.</p>
+                            <div className="mt-6 pt-6 border-t border-slate-100 italic space-y-4">
+                                <h3 className="text-sm font-bold uppercase text-red-600 flex items-center gap-2">
+                                    <ShieldAlert size={16} /> Zona de Recuperação
+                                </h3>
+                                <p className="text-[10px] text-slate-500 uppercase font-medium">
+                                    Se o aplicativo estiver travado ou com dados inconsistentes, use o botão abaixo para limpar o cache local e forçar um recarregamento limpo.
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        if (confirm('Isso irá limpar todos os filtros e preferências locais e deslogar você. Deseja continuar?')) {
+                                            // Clear all app-specific storage
+                                            Object.keys(localStorage).forEach(key => {
+                                                if (key.startsWith('g40_') || key.includes('supabase.auth.token')) {
+                                                    localStorage.removeItem(key);
+                                                }
+                                            });
+                                            window.location.href = '/';
+                                        }
+                                    }}
+                                    className="w-full py-4 bg-red-50 text-red-600 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all border-2 border-red-100 active:scale-95"
+                                >
+                                    Resetar Estado do Aplicativo
+                                </button>
                             </div>
                         </div>
                     )}
