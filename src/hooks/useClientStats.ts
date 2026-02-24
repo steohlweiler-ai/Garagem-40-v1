@@ -40,20 +40,23 @@ export function useClientStats(client: Client | null, vehicles: Vehicle[], delay
         const loadServices = async () => {
             setIsLoading(true);
             try {
-                const clientVehicles = vehicles.filter(v => v.client_id === client.id);
-                let all: ServiceWithVehicle[] = [];
+                // TC011: Atomic fetch using optimized RPC
+                // We request a large limit (1000) to get full client history at once for the dashboard
+                const result = await dataProvider.getServicesFiltered({
+                    clientId: client.id,
+                    limit: 1000,
+                    offset: 0
+                });
 
-                for (const v of clientVehicles) {
-                    const vehicleServices = await dataProvider.getServicesByVehicle(v.id);
-                    const mapped = vehicleServices.map(s => ({
-                        ...s,
-                        vehicle_plate: v.plate,
-                        vehicle_model: v.model,
-                        vehicle_brand: v.brand
-                    }));
-                    all = [...all, ...mapped];
-                }
-                setServices(all);
+                const mapped: ServiceWithVehicle[] = result.data.map(s => ({
+                    ...s,
+                    // Map back to flat structure for compatibility with ClientDetails.tsx
+                    vehicle_plate: s.vehicle?.plate || '',
+                    vehicle_model: s.vehicle?.model || '',
+                    vehicle_brand: s.vehicle?.brand || ''
+                }));
+
+                setServices(mapped);
             } catch (e) {
                 console.error("Error loading client services:", e);
             } finally {

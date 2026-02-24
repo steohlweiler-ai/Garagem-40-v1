@@ -98,6 +98,8 @@ class DataProvider {
     async getServicesFiltered(options: {
         excludeStatuses?: string[];
         statuses?: string[];
+        clientId?: string;
+        vehicleId?: string;
         limit?: number;
         offset?: number;
         sortBy?: 'priority' | 'entry_recent' | 'entry_oldest' | 'delivery';

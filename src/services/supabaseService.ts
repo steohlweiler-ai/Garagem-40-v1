@@ -1068,6 +1068,8 @@ class SupabaseService {
     async getServicesFiltered(options: {
         excludeStatuses?: string[];
         statuses?: string[];
+        clientId?: string;
+        vehicleId?: string;
         limit?: number;
         offset?: number;
         sortBy?: 'priority' | 'entry_recent' | 'entry_oldest' | 'delivery';
@@ -1080,13 +1082,15 @@ class SupabaseService {
         const {
             excludeStatuses = [],
             statuses = [],
+            clientId,
+            vehicleId,
             limit = 20,
             offset = 0,
             sortBy = 'priority',
             signal
         } = options;
 
-        console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, limit, offset });
+        console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, clientId, vehicleId, limit, offset });
 
         // Build base query
         // AUDIT SHIELD: Using simple joins to let Supabase resolve relationships automatically
@@ -1101,14 +1105,16 @@ class SupabaseService {
         let query: any = queryArray;
         let result: any;
 
-        // --- EXTREME PERFORMANCE SHIELD (TC010) ---
+        // --- EXTREME PERFORMANCE SHIELD (TC010/TC011) ---
         // Attempt specialized RPC call for ultra-fast dashboard loading
-        console.log('[DEBUG] Attempting RPC get_dashboard_services (TC010)...');
+        console.log('[DEBUG] Attempting RPC get_dashboard_services (TC011)...');
         try {
             const { data: rpcData, error: rpcError } = await supabase.rpc('get_dashboard_services', {
                 p_limit: limit,
                 p_offset: offset,
-                p_statuses: statuses.length > 0 ? statuses : null
+                p_statuses: statuses.length > 0 ? statuses : null,
+                p_client_id: clientId || null,
+                p_vehicle_id: vehicleId || null
             });
 
             if (!rpcError && rpcData && rpcData.length > 0) {
@@ -1154,6 +1160,10 @@ class SupabaseService {
                 query = query.neq('status', 'Entregue');
             }
 
+            // Apply ID filters if provided
+            if (clientId) query = query.eq('client_id', clientId);
+            if (vehicleId) query = query.eq('vehicle_id', vehicleId);
+
             // Apply base sorting
             query = query
                 .order('priority_bucket', { ascending: true })
@@ -1174,6 +1184,9 @@ class SupabaseService {
 
                 if (statuses.length > 0) baseQuery = baseQuery.in('status', statuses);
                 else baseQuery = baseQuery.neq('status', 'Entregue');
+
+                if (clientId) baseQuery = baseQuery.eq('client_id', clientId);
+                if (vehicleId) baseQuery = baseQuery.eq('vehicle_id', vehicleId);
 
                 baseQuery = baseQuery.order('entry_at', { ascending: false }).range(offset, offset + limit - 1);
                 result = await baseQuery;

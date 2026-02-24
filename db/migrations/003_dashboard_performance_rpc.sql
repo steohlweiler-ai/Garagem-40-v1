@@ -63,11 +63,13 @@ CREATE INDEX IF NOT EXISTS idx_servicos_fk_fast_join
 ON "serviços" (vehicle_id, client_id)
 WHERE status != 'Entregue';
 
--- 6. RPC: Consolidada para Dashboard
+-- 6. RPC: Consolidada para Dashboard (v2: Suporte a Cliente/Veículo)
 CREATE OR REPLACE FUNCTION get_dashboard_services(
   p_limit INTEGER DEFAULT 50,
   p_offset INTEGER DEFAULT 0,
-  p_statuses TEXT[] DEFAULT NULL
+  p_statuses TEXT[] DEFAULT NULL,
+  p_client_id UUID DEFAULT NULL,
+  p_vehicle_id UUID DEFAULT NULL
 ) 
 RETURNS TABLE (
   service_data JSONB,
@@ -76,11 +78,12 @@ RETURNS TABLE (
 DECLARE
   v_total_count BIGINT;
 BEGIN
-    IF p_statuses IS NOT NULL THEN
-        SELECT count(*) INTO v_total_count FROM "serviços" WHERE status = ANY(p_statuses);
-    ELSE
-        SELECT count(*) INTO v_total_count FROM "serviços" WHERE status != 'Entregue';
-    END IF;
+    -- Get total count efficiently
+    SELECT count(*) INTO v_total_count 
+    FROM "serviços" 
+    WHERE ((p_statuses IS NULL AND status != 'Entregue') OR (status = ANY(p_statuses)))
+      AND (p_client_id IS NULL OR client_id = p_client_id)
+      AND (p_vehicle_id IS NULL OR vehicle_id = p_vehicle_id);
 
     RETURN QUERY
     WITH filtered_services AS (
@@ -92,7 +95,9 @@ BEGIN
         FROM "serviços" s
         LEFT JOIN "veículos" v ON s.vehicle_id = v.id
         LEFT JOIN "clientes" c ON s.client_id = c.id
-        WHERE (p_statuses IS NULL AND s.status != 'Entregue') OR (s.status = ANY(p_statuses))
+        WHERE ((p_statuses IS NULL AND s.status != 'Entregue') OR (s.status = ANY(p_statuses)))
+          AND (p_client_id IS NULL OR s.client_id = p_client_id)
+          AND (p_vehicle_id IS NULL OR s.vehicle_id = p_vehicle_id)
         ORDER BY s.priority_bucket ASC, s.estimated_delivery ASC NULLS LAST, s.entry_at DESC
         LIMIT p_limit OFFSET p_offset
     )
