@@ -306,7 +306,7 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         const interval = setInterval(loadStats, 60000);
         return () => clearInterval(interval);
-    }, [isAuthenticated, dashboardFilter, advancedFilters, loadStats]);
+    }, [isAuthenticated, user, dashboardFilter, advancedFilters, loadStats]);
 
     // stats calculation remains for now as it's less overhead than processedServices
 

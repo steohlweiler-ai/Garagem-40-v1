@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
     WifiOff, RefreshCw, Info, SlidersHorizontal,
     Car as CarIcon, AlertCircle, Clock, CheckCircle2, ShieldAlert
@@ -77,7 +77,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
         allClients
     );
 
-    const displayStats = queryResult?.stats || computedStats;
+    // Keep the last known server stats — prevents wipeout when re-fetching after a filter change.
+    // computedStats is only from the CURRENT filtered list, so it zeroes out when filter=Pronto with 0 results.
+    const lastKnownStatsRef = useRef<typeof computedStats | null>(null);
+    if (queryResult?.stats) {
+        lastKnownStatsRef.current = queryResult.stats as unknown as typeof computedStats;
+    }
+    // Rule: always prefer server stats. Only fall back to computedStats if we have NEVER received server stats.
+    const displayStats = lastKnownStatsRef.current ?? computedStats;
+
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
     // Cards Configuration
