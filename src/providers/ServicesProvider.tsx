@@ -200,7 +200,9 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 !advancedFilters.endDate;
 
             if (isDefaultView) {
-                excludeStatuses = ['Pronto', 'Entregue'];
+                // SSoT: Em 'Total' mostramos tudo que está na oficina (inclusive Prontos)
+                // para bater 100% com o contador do KPI.
+                excludeStatuses = ['Entregue'];
             } else if (dashboardFilter !== 'total' && dashboardFilter !== 'Atrasado') {
                 filterStatuses = [dashboardFilter];
             }

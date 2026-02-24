@@ -1090,8 +1090,9 @@ class SupabaseService {
 
         // Build base query
         // OPTIMIZED: Fetch vehicle and client data in the same query (Server-Side Join)
-        // OPTIMIZED: Use estimated count for performance
-        let queryArray = supabase.from('serviços').select('*, vehicle:veículos(*), client:clientes(*)', { count: 'estimated' });
+        // DETERMINISTIC JOIN: Using explicit foreign key references to avoid ambiguity
+        let queryArray = supabase.from('serviços')
+            .select('*, vehicle:veículos!vehicle_id(*), client:clientes!client_id(*)', { count: 'exact' });
 
         // Apply AbortSignal if provided
         if (signal) {
@@ -1104,14 +1105,11 @@ class SupabaseService {
         if (statuses.length > 0) {
             query = query.in('status', statuses);
         } else if (excludeStatuses.length > 0) {
-            // ULTRA OPTIMIZAÇÃO: Inverter a lógica de exclusão para inclusão (.in)
-            // Isso permite que o índice (idx_servicos_status) seja usado eficientemente.
-            const allStatuses = ['Pendente', 'Em Andamento', 'Lembrete', 'Pronto', 'Entregue'];
-            const validStatuses = allStatuses.filter(s => !excludeStatuses.includes(s));
-
-            if (validStatuses.length > 0) {
-                query = query.in('status', validStatuses);
-            }
+            // If explicit exclusions provided
+            query = query.not('status', 'in', `(${excludeStatuses.join(',')})`);
+        } else {
+            // DEFAULT VIEW: Show everything current (matches Stats 'total')
+            query = query.neq('status', 'Entregue');
         }
 
         // Apply base sorting (Optimized for priority_bucket index)
@@ -1119,6 +1117,7 @@ class SupabaseService {
         // 1. priority_bucket ASC (0=Atrasado, 1=No Prazo, 2=Sem Data, 3=Entregue)
         // 2. estimated_delivery ASC (Próximas entregas primeiro)
         // 3. entry_at DESC (Recentes primeiro para desempate)
+        // WARNING: Requires column 'priority_bucket' to exist
         query = query
             .order('priority_bucket', { ascending: true })
             .order('estimated_delivery', { ascending: true, nullsFirst: false })

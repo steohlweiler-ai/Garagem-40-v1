@@ -111,7 +111,7 @@ class DataProvider {
             try {
                 return await supabaseDB.getServicesFiltered(options);
             } catch (e) {
-                console.warn('Supabase getServicesFiltered failed, using fallback.', e);
+                console.error('❌ [CRITICAL] Supabase getServicesFiltered failed. Fallback to EMPTY mock triggered.', e);
             }
         }
 
