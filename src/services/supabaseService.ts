@@ -1198,6 +1198,15 @@ class SupabaseService {
         // --- PRODUCTION PERFORMANCE SHIELD (TC012) ---
         // Using optimized RPC for ultra-fast dashboard loading (partitioned & indexed)
         try {
+            console.log(`[DIAGNOSTIC] RPC get_dashboard_services_v3 call:`, {
+                p_limit: limit,
+                p_offset: offset,
+                p_statuses: statuses,
+                p_client_id: clientId,
+                p_vehicle_id: vehicleId,
+                p_org_id: organizationId || 'org-default'
+            });
+
             const { data: rpcData, error: rpcError } = await this.safeRpcCall('get_dashboard_services_v3', {
                 p_limit: limit,
                 p_offset: offset,
