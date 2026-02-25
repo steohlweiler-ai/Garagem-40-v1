@@ -20,13 +20,51 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUser }) => {
     // 1. Legacy State (Filters, Search, Ref Data)
     const {
+        dashboardFilter,
+        setDashboardFilter,
+        advancedFilters,
+        setAdvancedFilters,
+        searchQuery,
+        allVehicles,
+        allClients,
+        delayCriteria,
+        isOffline,
+        handleSmartRetry,
+        forceRefresh
+    } = useLegacyServices();
+
+    // 2. TanStack Query (Data Fetching)
+    const queryFilters = useMemo(() => {
+        let excludeStatuses: string[] = [];
+        let filterStatuses: string[] = [];
+
+        const isDefaultView = dashboardFilter === 'total' &&
+            advancedFilters.statuses.length === 0 &&
+            !advancedFilters.startDate &&
+            !advancedFilters.endDate;
+
+        if (isDefaultView) {
+            excludeStatuses = ['Entregue'];
+        } else if (dashboardFilter !== 'total' && dashboardFilter !== 'Atrasado') {
+            filterStatuses = [dashboardFilter];
+        }
+
+        return {
+            excludeStatuses,
+            statuses: filterStatuses,
+            limit: 100,
+            offset: 0,
+            organizationId: currentUser?.organization_id
+        };
+    }, [dashboardFilter, advancedFilters, currentUser]);
+
+    const {
         data: queryResult,
         isLoading,
         isFetching: isLoadingMore,
         error: queryError,
         refetch
     } = useServicesQuery(queryFilters);
-    console.log('[DASHBOARD DEBUG] useServicesQuery result:', { queryResult, isLoading, isLoadingMore, queryError, isQueryEnabled: !!queryFilters.organizationId });
 
     // 3. Derived State (KPIs & Clients-side Search)
     const services = queryResult?.data || [];
