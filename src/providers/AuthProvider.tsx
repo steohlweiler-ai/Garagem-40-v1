@@ -212,7 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
-                // Re-hydrate profile
+                // Re-hydrate profile for ultra-fast optimistic load
                 const savedUser = localStorage.getItem('g40_user_session');
                 if (savedUser) {
                     try {
@@ -222,12 +222,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                 setUser(parsed);
                                 setIsAuthenticated(true);
                             }
-                            return;
+                            // CRITICAL FIX: Do NOT return here! 
+                            // We MUST proceed to fetch the fresh profile from the DB in the background.
+                            // Otherwise, if the user's organization_id changes on the backend (e.g. from org-default to org_1),
+                            // their browser will be "poisoned" forever with the old cached localStorage value.
                         }
                     } catch (e) { /* silent */ }
                 }
 
-                // If no saved user or mismatch, fetch fresh profile
+                // Always fetch fresh profile to ensure role, permissions and organization_id are up-to-date
                 const { data: profile } = await supabase
                     .from('perfis_de_usuário')
                     .select('*')
