@@ -30,7 +30,7 @@ export const profileService = {
 
         return {
             id: data.id,
-            organization_id: data.organization_id || 'org-default',
+            organization_id: data.organization_id || 'org_1',
             name: data.nome || data.name || 'Usuário',
             email: data.email,
             phone: data.phone || '',
@@ -45,7 +45,8 @@ export const profileService = {
                 config_vehicles: false,
                 config_system: false,
                 view_financials: false,
-                ...(data.permissions || {})
+                // DB uses 'permissoes' (Portuguese), fall back to 'permissions' for compatibility
+                ...(data.permissoes || data.permissions || {})
             },
             created_at: data.created_at,
             user_id: userId // Ensure Auth ID is passed

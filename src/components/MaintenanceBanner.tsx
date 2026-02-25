@@ -7,7 +7,7 @@ interface MaintenanceBannerProps {
     onRetry?: () => void;
 }
 
-export const MaintenanceBanner: React.FC<MaintenanceBannerProps> = ({
+export const MaintenanceBanner = React.memo<MaintenanceBannerProps>(({
     message = "Sistema temporariamente indisponível — estamos investigando",
     onRetry
 }) => {
@@ -34,4 +34,4 @@ export const MaintenanceBanner: React.FC<MaintenanceBannerProps> = ({
             </div>
         </div>
     );
-};
+});

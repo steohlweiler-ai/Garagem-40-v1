@@ -66,10 +66,11 @@ class SupabaseService {
     /**
      * Specialized wrapper for Supabase RPC calls with timeout, retries and auth-expiry handling.
      */
-    private async safeRpcCall(rpcName: string, params: any, options: { timeout?: number, retries?: number } = {}) {
+    private async safeRpcCall(rpcName: string, params: any, options: { timeout?: number, retries?: number, signal?: AbortSignal } = {}) {
         if (USE_SAFE_CALL) {
             const { data, error } = await safeCall(rpcName, async (signal) => {
-                const result = await supabase.rpc(rpcName, params).abortSignal(signal);
+                const effectiveSignal = options.signal || signal;
+                const result = await supabase.rpc(rpcName, params).abortSignal(effectiveSignal);
                 const respError = result.error as any;
                 if (respError && (respError.code === '401' || respError.status === 401 || respError.status === 403 || respError.code === 'PGRST301')) {
                     throw new AuthError(`Acesso negado (${respError.status || respError.code}): ${respError.message}`, respError.code);
@@ -1180,6 +1181,7 @@ class SupabaseService {
             signal
         } = options;
 
+        console.log('[AUDIT] orgId->', organizationId);
         console.log('[DEBUG] getServicesFiltered START', { excludeStatuses, statuses, clientId, vehicleId, limit, offset, organizationId });
 
         // Build base query
@@ -1214,7 +1216,7 @@ class SupabaseService {
                 p_client_id: clientId || null,
                 p_vehicle_id: vehicleId || null,
                 p_org_id: organizationId || 'org-default'
-            });
+            }, { signal });
 
             if (!rpcError && rpcData && rpcData.length > 0) {
                 const { service_data, total_count } = rpcData[0];
@@ -1333,17 +1335,20 @@ class SupabaseService {
                 supabase
                     .from('tarefas')
                     .select('*')
-                    .in('service_id', serviceIds),
+                    .in('service_id', serviceIds)
+                    .abortSignal(signal!),
                 supabase
                     .from('lembretes')
                     .select('*')
-                    .in('service_id', serviceIds),
+                    .in('service_id', serviceIds)
+                    .abortSignal(signal!),
                 supabase
                     .from('historico_status')
                     .select('id, service_id, status, timestamp, user_name, action_source')
                     .in('service_id', serviceIds)
                     .order('timestamp', { ascending: false })
                     .limit(1000)
+                    .abortSignal(signal!)
             ]);
 
             // Properly assign results to outer-scoped variables
@@ -1392,7 +1397,18 @@ class SupabaseService {
         const total = count || 0;
         const hasMore = offset + services.length < total;
 
-        return { data: servicesWithRelations, total, hasMore };
+        // ETAPA 1: Injeta stats globais no fallback para evitar que KPIs zerem ao filtrar
+        let stats: Record<string, number> | undefined = result.stats;
+        if (!stats) {
+            try {
+                console.log('[AUDIT] Fallback stats fetch triggered...');
+                stats = await this.getServiceCounts();
+            } catch (e) {
+                console.error('[ERROR] Failed to fetch fallback stats:', e);
+            }
+        }
+
+        return { data: servicesWithRelations, total, hasMore, stats };
     }
 
     // ===================== WRITE OPERATIONS =====================

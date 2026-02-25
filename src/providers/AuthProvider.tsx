@@ -213,24 +213,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
 
                 // Re-hydrate profile for ultra-fast optimistic load
+                // Stale-while-revalidate: only return early if the cached org is valid (not org-default).
+                // If org-default is cached, we MUST re-fetch to pick up the correct organization_id.
                 const savedUser = localStorage.getItem('g40_user_session');
                 if (savedUser) {
                     try {
                         const parsed = JSON.parse(savedUser);
-                        if (parsed?.id === session.user.id) {
+                        const hasValidOrg = parsed?.organization_id && parsed.organization_id !== 'org-default';
+                        if (parsed?.id === session.user.id && hasValidOrg) {
                             if (isMounted.current) {
                                 setUser(parsed);
                                 setIsAuthenticated(true);
+                                setIsLoading(false);
                             }
-                            // CRITICAL FIX: Do NOT return here! 
-                            // We MUST proceed to fetch the fresh profile from the DB in the background.
-                            // Otherwise, if the user's organization_id changes on the backend (e.g. from org-default to org_1),
-                            // their browser will be "poisoned" forever with the old cached localStorage value.
+                            return; // Valid cache with correct org → fast return, no DB fetch needed
                         }
                     } catch (e) { /* silent */ }
                 }
 
-                // Always fetch fresh profile to ensure role, permissions and organization_id are up-to-date
+                // No valid cache or org-default detected → fetch fresh profile from DB
                 const { data: profile } = await supabase
                     .from('perfis_de_usuário')
                     .select('*')

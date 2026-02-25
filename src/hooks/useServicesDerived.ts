@@ -21,16 +21,20 @@ export function useServicesDerived(
     allVehicles: Vehicle[],
     allClients: Client[]
 ) {
-    // 1. Processed Services (Clone of Provider logic for consistency during migration)
+    // 1. Processed Services (Otimizado com Map - ETAPA 3)
     const processedServices = useMemo(() => {
-        let filtered = services.filter(s => {
-            const v = allVehicles.find(veh => veh.id === s.vehicle_id);
-            const c = allClients.find(cl => cl.id === s.client_id);
+        const vehicleMap = new Map(allVehicles.map(v => [v.id, v]));
+        const clientMap = new Map(allClients.map(c => [c.id, c]));
 
-            const normalize = (str: string) => str?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '';
-            const search = normalize(searchQuery);
+        const normalize = (str: string) => str?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '';
+        const search = normalize(searchQuery);
 
-            const matchesSearch =
+        console.time('[PERF] useServicesDerived:processedServices');
+        const filtered = services.filter(s => {
+            const v = vehicleMap.get(s.vehicle_id);
+            const c = clientMap.get(s.client_id);
+
+            const matchesSearch = !search ||
                 normalize(v?.plate || '').includes(search) ||
                 normalize(c?.name || '').includes(search) ||
                 normalize(v?.brand || '').includes(search) ||
@@ -52,6 +56,7 @@ export function useServicesDerived(
 
             return true;
         });
+        console.timeEnd('[PERF] useServicesDerived:processedServices');
 
         return filtered;
     }, [services, searchQuery, dashboardFilter, delayCriteria, allVehicles, allClients]);

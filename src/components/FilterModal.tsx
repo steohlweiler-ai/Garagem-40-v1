@@ -10,7 +10,7 @@ interface FilterModalProps {
   onClear: () => void;
 }
 
-const FilterModal: React.FC<FilterModalProps> = ({ currentFilters, onApply, onClose, onClear }) => {
+const FilterModal = React.memo<FilterModalProps>(({ currentFilters, onApply, onClose, onClear }) => {
   const [tempFilters, setTempFilters] = useState<FilterConfig>({ ...currentFilters });
 
   const statusOptions: (ServiceStatus | 'Atrasado')[] = [
@@ -199,6 +199,6 @@ const FilterModal: React.FC<FilterModalProps> = ({ currentFilters, onApply, onCl
       </div>
     </div>
   );
-};
+});
 
 export default FilterModal;

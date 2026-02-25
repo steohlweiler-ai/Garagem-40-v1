@@ -422,33 +422,39 @@ export const ServicesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         };
     }, [isAuthenticated, refreshRefData, loadServices, loadStats]);
 
+    const contextValue = useMemo(() => ({
+        services,
+        stats,
+        isLoading: isInitialLoad,
+        isLoadingMore,
+        hasMore: hasMoreServices,
+        isOffline,
+        offlineReason,
+        error,
+        searchQuery,
+        setSearchQuery,
+        dashboardFilter,
+        setDashboardFilter,
+        advancedFilters,
+        setAdvancedFilters,
+        loadMore: () => loadServices(false),
+        refresh,
+        forceRefresh,
+        injectServiceOptimistically,
+        refreshRefData,
+        handleSmartRetry,
+        allVehicles,
+        allClients,
+        delayCriteria,
+        recordFailure
+    }), [
+        services, stats, isInitialLoad, isLoadingMore, hasMoreServices,
+        isOffline, offlineReason, error, searchQuery, dashboardFilter, advancedFilters,
+        refresh, forceRefresh, injectServiceOptimistically, refreshRefData, recordFailure
+    ]);
+
     return (
-        <ServicesContext.Provider value={{
-            services,
-            stats,
-            isLoading: isInitialLoad,
-            isLoadingMore,
-            hasMore: hasMoreServices,
-            isOffline,
-            offlineReason,
-            error,
-            searchQuery,
-            setSearchQuery,
-            dashboardFilter,
-            setDashboardFilter,
-            advancedFilters,
-            setAdvancedFilters,
-            loadMore: () => loadServices(false),
-            refresh,
-            forceRefresh,
-            injectServiceOptimistically,
-            refreshRefData,
-            handleSmartRetry,
-            allVehicles,
-            allClients,
-            delayCriteria,
-            recordFailure
-        }}>
+        <ServicesContext.Provider value={contextValue}>
             {children}
         </ServicesContext.Provider>
     );

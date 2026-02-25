@@ -26,6 +26,6 @@ export function useServicesQuery(options: {
         enabled: !!options.organizationId,
         // Configurações do TanStack Query
         retry: false, // Delegado ao safeCall
-        staleTime: 30000, // 30 segundos
+        staleTime: 60000, // 60 segundos
     });
 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import {
     WifiOff, RefreshCw, Info, SlidersHorizontal,
     Car as CarIcon, AlertCircle, Clock, CheckCircle2, ShieldAlert
@@ -18,6 +18,7 @@ interface DashboardProps {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUser }) => {
+
     // 1. Legacy State (Filters, Search, Ref Data)
     const {
         dashboardFilter,
@@ -32,6 +33,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
         handleSmartRetry,
         forceRefresh
     } = useLegacyServices();
+
+    const defaultFilters = useMemo<FilterConfig>(() => ({
+        statuses: [],
+        sortBy: 'entrada_recente' as SortOption,
+        startDate: undefined,
+        endDate: undefined,
+        startDeliveryDate: undefined,
+        endDeliveryDate: undefined
+    }), []);
 
     // 2. TanStack Query (Data Fetching)
     const queryFilters = useMemo(() => {
@@ -68,6 +78,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
 
     // 3. Derived State (KPIs & Clients-side Search)
     const services = queryResult?.data || [];
+
     const { processedServices, stats: computedStats } = useServicesDerived(
         services,
         searchQuery,
@@ -77,41 +88,77 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
         allClients
     );
 
-    // Keep the last known server stats — prevents wipeout when re-fetching after a filter change.
-    // computedStats is only from the CURRENT filtered list, so it zeroes out when filter=Pronto with 0 results.
+
+    // ETAPA 1: Regra de Ouro — Sempre preferir stats do servidor.
+    // computedStats (locais) só devem ser usados se NUNCA tivermos recebido nada do servidor
+    // e se não houver filtro ativo que reduza a lista.
     const lastKnownStatsRef = useRef<typeof computedStats | null>(null);
     if (queryResult?.stats) {
-        lastKnownStatsRef.current = queryResult.stats as unknown as typeof computedStats;
+        lastKnownStatsRef.current = queryResult.stats as any;
     }
-    // Rule: always prefer server stats. Only fall back to computedStats if we have NEVER received server stats.
-    const displayStats = lastKnownStatsRef.current ?? computedStats;
+
+    const displayStats = useMemo(() => {
+        if (queryResult?.stats) return queryResult.stats as any;
+        if (lastKnownStatsRef.current) return lastKnownStatsRef.current;
+        return computedStats;
+    }, [queryResult?.stats, computedStats]);
 
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
+    // 4. Stable Handlers
+    const handleFilterButtonClick = useCallback((id: string) => {
+        setDashboardFilter(id);
+    }, [setDashboardFilter]);
+
+    const handleApplyFilters = useCallback((filters: FilterConfig) => {
+        setAdvancedFilters(filters);
+        setIsFilterModalOpen(false);
+    }, [setAdvancedFilters]);
+
+    const handleClearFilters = useCallback(() => {
+        setAdvancedFilters(defaultFilters);
+    }, [setAdvancedFilters, defaultFilters]);
+
+    const toggleFilterModal = useCallback(() => {
+        setIsFilterModalOpen(prev => !prev);
+    }, []);
+
     // Cards Configuration
-    const statCards = [
+    const statCards = useMemo(() => [
         { id: 'Atrasado', label: 'Atrasado', count: displayStats.atrasado, color: 'text-red-500', bg: 'bg-red-50' },
         { id: ServiceStatus.PENDENTE, label: 'Pendente', count: displayStats.pendente, color: 'text-blue-500', bg: 'bg-blue-50' },
         { id: ServiceStatus.EM_ANDAMENTO, label: 'Andamento', count: displayStats.andamento, color: 'text-purple-500', bg: 'bg-purple-50' },
         { id: ServiceStatus.LEMBRETE, label: 'Lembrete', count: displayStats.lembrete, color: 'text-amber-500', bg: 'bg-amber-50' },
         { id: ServiceStatus.PRONTO, label: 'Pronto', count: displayStats.pronto, color: 'text-green-500', bg: 'bg-green-50' },
         { id: 'total', label: 'Total', count: displayStats.total, color: 'text-slate-800', bg: 'bg-slate-100', highlight: true }
-    ];
+    ], [displayStats]);
 
-    const defaultFilters: FilterConfig = {
-        statuses: [],
-        sortBy: 'entrada_recente' as SortOption,
-        startDate: undefined,
-        endDate: undefined,
-        startDeliveryDate: undefined,
-        endDeliveryDate: undefined
-    };
 
     const isAdvancedFilterActive =
         advancedFilters.statuses.length > 0 ||
         !!advancedFilters.startDate ||
         !!advancedFilters.endDate ||
         advancedFilters.sortBy !== 'entrada_recente';
+
+    // ETAPA 2: Guard Clause contra a "piscada" de zeros.
+    // Enquanto o organizationId não estiver pronto ou for o primeiro carregamento, mostrar esqueleto.
+    if (!queryFilters.organizationId || (isLoading && !services.length)) {
+        return (
+            <div className="space-y-6 sm:space-y-10 animate-pulse px-1">
+                <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+                    {[...Array(6)].map((_, i) => (
+                        <div key={i} className="h-24 sm:h-32 bg-slate-100 rounded-[1.5rem] border-2 border-slate-50" />
+                    ))}
+                </div>
+                <div className="h-4 w-32 bg-slate-100 rounded-full" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[...Array(3)].map((_, i) => (
+                        <div key={i} className="h-64 bg-slate-50 rounded-3xl" />
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500">
@@ -143,7 +190,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
                     return (
                         <button
                             key={card.id}
-                            onClick={() => setDashboardFilter(card.id)}
+                            onClick={() => handleFilterButtonClick(card.id)}
                             className={`p-3.5 sm:p-5 flex flex-col items-start rounded-[1.5rem] text-left transition-all border-2 ${isSelected
                                 ? (card.highlight ? 'border-green-500 bg-white' : 'border-slate-800 bg-slate-900')
                                 : 'bg-white border-slate-100 shadow-none'
@@ -227,7 +274,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
                                     Nenhuma ordem de serviço encontrada para os filtros atuais.
                                 </p>
                                 <button
-                                    onClick={() => { setDashboardFilter('total'); setAdvancedFilters(defaultFilters); }}
+                                    onClick={handleClearFilters}
                                     className="mt-8 text-[10px] font-black uppercase tracking-[3px] text-green-600 hover:text-green-700 transition-colors"
                                 >
                                     Limpar Filtros
@@ -254,9 +301,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onServiceClick, currentUse
             {isFilterModalOpen && (
                 <FilterModal
                     currentFilters={advancedFilters}
-                    onApply={(f) => { setAdvancedFilters(f); setIsFilterModalOpen(false); }}
-                    onClose={() => setIsFilterModalOpen(false)}
-                    onClear={() => { setAdvancedFilters(defaultFilters); setIsFilterModalOpen(false); }}
+                    onApply={handleApplyFilters}
+                    onClear={handleClearFilters}
+                    onClose={toggleFilterModal}
                 />
             )}
         </div>

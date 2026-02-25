@@ -11,7 +11,7 @@ interface ServiceCardProps {
   delayCriteria: DelayCriteria | null;
 }
 
-const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser, delayCriteria }) => {
+const ServiceCard = React.memo<ServiceCardProps>(({ service, onClick, currentUser, delayCriteria }) => {
   const [activeDuration, setActiveDuration] = useState<number | null>(null);
 
   // OPTIMIZATION: Use embedded relations if available
@@ -30,9 +30,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
     return calculateDelayStatus(service.estimated_delivery, delayCriteria, service.priority);
   }, [service?.estimated_delivery, service?.priority, service?.status, delayCriteria]);
 
-  // CRITICAL: useEffect must always be called (React Error #310 prevention)
+  // ... (keeping rest of internal code identical)
   useEffect(() => {
-    // Guard: safely access service.tasks
     const activeTask = service?.tasks?.find(t => t.status === 'in_progress');
     if (!activeTask || !activeTask.started_at) {
       setActiveDuration(null);
@@ -48,18 +47,15 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
     return () => clearInterval(interval);
   }, [service?.tasks]);
 
-  // Safe property access with guards
   const hasReminders = service?.reminders?.some(r => r.status === 'active') ?? false;
   const entryDate = service?.entry_at ? new Date(service.entry_at) : new Date();
   const day = entryDate.getDate();
   const month = entryDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
 
-  // Early return AFTER all hooks to prevent hook count mismatch
   if (!service) {
     return null;
   }
 
-  // Status Styling Logic (similar to ClientDetails)
   const getStatusStyle = (status: ServiceStatus) => {
     switch (status) {
       case ServiceStatus.ENTREGUE: return 'bg-slate-100 text-slate-500';
@@ -84,22 +80,17 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
         ${delayInfo.isDelayed ? 'border-red-200 shadow-sm shadow-red-100' : 'border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200'}
         active:scale-[0.99]`}
     >
-      {/* Active Timer Indicator Bar */}
       {activeDuration !== null && (
         <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500 animate-pulse opacity-50" />
       )}
 
-      {/* Left Side: Date Box + Info */}
       <div className="flex items-center gap-4">
-        {/* Date Box */}
         <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center shrink-0 ${getStatusIconBox(service.status)}`}>
           <span className="text-xl font-black uppercase leading-none">{day}</span>
           <span className="text-[10px] font-bold uppercase leading-none mt-0.5">{month}</span>
         </div>
 
-        {/* Text Info */}
         <div className="flex flex-col gap-1">
-          {/* Top Line: Model + Plate */}
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-black text-slate-800 uppercase line-clamp-1">
               {vehicle?.model || 'Modelo'}
@@ -109,7 +100,6 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
             </span>
           </div>
 
-          {/* Bottom Line: Client + Status + Icons */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-bold text-slate-400 uppercase truncate max-w-[120px]">
               {client?.name || 'Cliente'}
@@ -119,7 +109,6 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
               {service.status}
             </span>
 
-            {/* Icons row */}
             <div className="flex items-center gap-1.5 ml-1">
               {delayInfo.isDelayed && (
                 <span className="text-[9px] font-black text-white bg-red-500 px-1.5 py-0.5 rounded animate-pulse">ATRASADO</span>
@@ -138,14 +127,13 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
         </div>
       </div>
 
-      {/* Right Side: Money + Tasks */}
       <div className="text-right flex flex-col justify-center items-end pl-2">
         {currentUser?.permissions?.view_financials ? (
           <p className="text-sm font-black text-slate-800 tabular-nums">
             {service.total_value > 0 ? formatCurrency(service.total_value) : 'R$ 0,00'}
           </p>
         ) : (
-          <div className="h-5" /> /* Place holder to keep alignment if needed */
+          <div className="h-5" />
         )}
 
         <div className="flex items-center gap-1.5 mt-1 text-slate-400">
@@ -159,6 +147,6 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onClick, currentUser
       </div>
     </div>
   );
-};
+});
 
 export default ServiceCard;
